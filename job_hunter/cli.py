@@ -307,7 +307,7 @@ def _print_jobs_table(listings) -> None:
     table.add_column("Location", style="dim")
     table.add_column("Posted", style="dim")
     for i, job in enumerate(listings, 1):
-        table.add_row(str(i), job.title, job.company, job.location, "")
+        table.add_row(str(i), job.title, job.company, job.location, job.posted or "")
     console.print(f"[green]Found {len(listings)} jobs:[/green]")
     console.print(table)
 

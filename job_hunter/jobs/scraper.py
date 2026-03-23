@@ -10,9 +10,11 @@ class JobListing:
     company: str
     location: str
     url: str
+    posted: str = ""
 
     def __str__(self):
-        return f"{self.title} | {self.company} | {self.location}\n  {self.url}"
+        posted = f" ({self.posted})" if self.posted else ""
+        return f"{self.title} | {self.company} | {self.location}{posted}\n  {self.url}"
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +148,70 @@ class AmazonScraper:
         return jobs
 
 
+class LinkedInScraper:
+    """Scrapes LinkedIn public job search page (no login required).
+    Uses the guest search endpoint which returns server-rendered HTML with job cards.
+    """
+
+    SEARCH_URL = "https://www.linkedin.com/jobs/search/"
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 25) -> List[JobListing]:
+        try:
+            response = requests.get(
+                self.SEARCH_URL,
+                params={"keywords": query, "location": location},
+                headers=self.HEADERS,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed: {e}")
+
+        if "authwall" in response.url or "login" in response.url:
+            raise RuntimeError("LinkedIn redirected to login — guest access blocked.")
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        cards = soup.find_all("div", class_="job-search-card")
+
+        if not cards:
+            raise RuntimeError(
+                f"No job cards found in LinkedIn response ({len(soup.find_all('div'))} divs). "
+                "LinkedIn may have changed their HTML structure."
+            )
+
+        jobs = []
+        for card in cards[:max_results]:
+            title_el    = card.find("h3", class_="base-search-card__title")
+            company_el  = card.find("h4", class_="base-search-card__subtitle")
+            location_el = card.find("span", class_="job-search-card__location")
+            date_el     = card.find("time")
+            link_el     = card.find("a", class_="base-card__full-link")
+
+            if not title_el or not link_el:
+                continue
+
+            # Strip tracking query params — keep only the clean job URL
+            raw_url = link_el.get("href", "")
+            clean_url = raw_url.split("?")[0] if raw_url else ""
+            if not clean_url.startswith("http"):
+                continue
+
+            jobs.append(JobListing(
+                title=title_el.get_text(strip=True),
+                company=company_el.get_text(strip=True) if company_el else "Unknown",
+                location=location_el.get_text(strip=True) if location_el else "Unknown",
+                url=clean_url,
+                posted=date_el.get("datetime", "") if date_el else "",
+            ))
+
+        return jobs
+
+
 # ---------------------------------------------------------------------------
 # Companies investigated but not yet accessible
 #
@@ -177,6 +243,7 @@ class JobScanner:
         NVIDIAScraper(),
         MarvellScraper(),
         AmazonScraper(),
+        LinkedInScraper(),
     ]
 
     def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
