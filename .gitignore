@@ -16,6 +16,12 @@ build/
 output/*.pdf
 output/*.html
 
+# Generated adapted CV versions (base_cv.json is kept, versioned copies are not)
+data/cv/cv_*.json
+
+# Claude Code memory
+.claude/
+
 # IDE
 .vscode/
 .idea/
