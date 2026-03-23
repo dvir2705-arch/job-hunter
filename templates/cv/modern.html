@@ -30,11 +30,11 @@
   <h1>{{ name }}</h1>
   <h2>{{ title }}</h2>
   <div class="contact">
-    <span>{{ contact.email }}</span>
-    <span>{{ contact.phone }}</span>
-    {% if contact.linkedin %}<span>{{ contact.linkedin }}</span>{% endif %}
-    {% if contact.github %}<span>{{ contact.github }}</span>{% endif %}
-    {% if contact.location %}<span>{{ contact.location }}</span>{% endif %}
+    {{ contact.email }} &nbsp;•&nbsp;
+    {{ contact.phone }}
+    {% if contact.linkedin %} &nbsp;•&nbsp; {{ contact.linkedin }}{% endif %}
+    {% if contact.github %} &nbsp;•&nbsp; {{ contact.github }}{% endif %}
+    {% if contact.location %} &nbsp;•&nbsp; {{ contact.location }}{% endif %}
   </div>
 
   <hr>
@@ -109,8 +109,8 @@
     <div class="section-title">Skills</div>
     {% if skills is mapping %}
       {% for category, items in skills.items() %}
-      <div style="margin-bottom: 6px;">
-        <span style="font-weight:600; text-transform: capitalize;">{{ category }}:</span>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px;">
+        <span style="font-weight:600; text-transform:capitalize; min-width:90px;">{{ category }}:</span>
         {% for skill in items %}<span class="skill-tag">{{ skill }}</span>{% endfor %}
       </div>
       {% endfor %}

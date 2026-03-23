@@ -14,6 +14,16 @@ keeping all information truthful. You may:
 - Adjust the summary to align with the role
 - Remove less relevant experience details
 
+NEVER change the title field to claim a position the candidate does not hold. The title must \
+reflect their actual status (e.g., "Student", "Graduate"). You may enhance it to show relevant \
+focus areas (e.g., "Electrical Engineering Student | Software & ML" or \
+"Computer Science Graduate | Backend Development") but must not fabricate seniority or roles.
+
+Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
+"remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
+"strong mathematical background" or let the grades speak for themselves. The CV should be \
+professional and confident, not boastful.
+
 Return ONLY valid JSON in the exact same schema as the input CV. Do not add commentary outside the JSON.
 """
 
