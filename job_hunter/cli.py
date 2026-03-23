@@ -261,31 +261,108 @@ def jobs_search(query, location, max_results, source):
 @click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
 @click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
 def jobs_scan(query, location, max_per_company):
-    """Scan all supported company career pages and combine results."""
+    """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
 
     scanner = JobScanner()
     console.print(f"Scanning all companies for: [bold]{query}[/bold] in {location}...\n")
 
-    with console.status("Fetching from Intel, NVIDIA, Marvell..."):
-        jobs = scanner.scan(query=query, location=location, max_per_company=max_per_company)
+    with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
+        listings = scanner.scan(query=query, location=location, max_per_company=max_per_company)
 
-    if not jobs:
+    if not listings:
         console.print("[yellow]No jobs found across all sources.[/yellow]")
         return
 
-    console.print(f"[green]Found {len(jobs)} jobs across all companies:[/green]\n")
+    _print_jobs_table(listings)
+
+    # Interactive selection loop
+    while True:
+        console.print()
+        choice = click.prompt(
+            "Enter job number to explore (or [bold]q[/bold] to quit)",
+            default="q",
+            show_default=False,
+        )
+        if choice.strip().lower() == "q":
+            break
+
+        if not choice.strip().isdigit() or not (1 <= int(choice) <= len(listings)):
+            console.print(f"[red]Please enter a number between 1 and {len(listings)}.[/red]")
+            continue
+
+        job = listings[int(choice) - 1]
+        _job_action_menu(job)
+
+        # Re-print table so user can pick another
+        console.print()
+        _print_jobs_table(listings)
+
+
+def _print_jobs_table(listings) -> None:
     table = Table(show_header=True, header_style="bold cyan")
     table.add_column("#", style="dim", width=3)
     table.add_column("Title")
     table.add_column("Company", style="cyan")
     table.add_column("Location", style="dim")
-    table.add_column("URL", style="blue")
-
-    for i, job in enumerate(jobs, 1):
-        table.add_row(str(i), job.title, job.company, job.location, job.url)
-
+    table.add_column("Posted", style="dim")
+    for i, job in enumerate(listings, 1):
+        table.add_row(str(i), job.title, job.company, job.location, "")
+    console.print(f"[green]Found {len(listings)} jobs:[/green]")
     console.print(table)
+
+
+def _job_action_menu(job) -> None:
+    import webbrowser
+    from job_hunter.applications.tracker import ApplicationTracker
+    from job_hunter.applications.models import ApplicationStatus
+
+    while True:
+        console.print(f"\n[bold cyan]{job.title}[/bold cyan] — {job.company}, {job.location}")
+        console.print(f"[dim]{job.url}[/dim]\n")
+        console.print("  [bold][1][/bold] Show full details")
+        console.print("  [bold][2][/bold] Adapt CV for this job  [dim](coming soon)[/dim]")
+        console.print("  [bold][3][/bold] Generate cover letter  [dim](coming soon)[/dim]")
+        console.print("  [bold][4][/bold] Open in browser")
+        console.print("  [bold][5][/bold] Track application")
+        console.print("  [bold][6][/bold] Back to list")
+
+        action = click.prompt("\nChoose", default="6", show_default=False)
+
+        if action == "1":
+            panel_text = (
+                f"[bold]Title:[/bold]    {job.title}\n"
+                f"[bold]Company:[/bold]  {job.company}\n"
+                f"[bold]Location:[/bold] {job.location}\n"
+                f"[bold]URL:[/bold]      {job.url}"
+            )
+            from rich.panel import Panel
+            console.print(Panel(panel_text, title="Job Details", border_style="cyan"))
+
+        elif action == "4":
+            webbrowser.open(job.url)
+            console.print(f"[green]Opened in browser.[/green]")
+
+        elif action == "5":
+            tracker = ApplicationTracker()
+            existing = [a for a in tracker.list() if a.url == job.url]
+            if existing:
+                console.print(f"[yellow]Already tracked (ID: {existing[0].id}, status: {existing[0].status.value})[/yellow]")
+            else:
+                notes = click.prompt("Notes (optional)", default="", show_default=False)
+                app = tracker.add(
+                    company=job.company,
+                    position=job.title,
+                    url=job.url,
+                    notes=notes,
+                )
+                console.print(f"[green]Tracked! Application ID: {app.id}[/green]")
+
+        elif action == "6":
+            break
+
+        else:
+            console.print("[red]Invalid option.[/red]")
 
 
 if __name__ == "__main__":
