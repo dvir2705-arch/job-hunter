@@ -1,0 +1,292 @@
+import requests
+from bs4 import BeautifulSoup
+from dataclasses import dataclass
+from typing import List
+
+
+@dataclass
+class JobListing:
+    title: str
+    company: str
+    location: str
+    url: str
+
+    def __str__(self):
+        return f"{self.title} | {self.company} | {self.location}\n  {self.url}"
+
+
+# ---------------------------------------------------------------------------
+# Base Workday scraper — reused by Intel, NVIDIA, Marvell
+# ---------------------------------------------------------------------------
+
+class WorkdayScraper:
+    """Generic scraper for companies using the Workday ATS JSON API."""
+
+    API_URL: str = ""
+    JOB_BASE_URL: str = ""
+    COMPANY_NAME: str = ""
+
+    HEADERS = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        payload = {
+            "appliedFacets": {},
+            "limit": min(max_results, 20),   # Workday API caps at 20 per request
+            "offset": 0,
+            "searchText": query,
+        }
+
+        try:
+            response = requests.post(
+                self.API_URL,
+                headers=self.HEADERS,
+                json=payload,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed: {e}")
+
+        data = response.json()
+        postings = data.get("jobPostings", [])
+
+        jobs = []
+        for post in postings:
+            loc = post.get("locationsText", "")
+            if location and location.lower() not in loc.lower():
+                continue
+
+            external_path = post.get("externalPath", "")
+            if not external_path:
+                continue
+
+            url = f"{self.JOB_BASE_URL}{external_path}"
+            jobs.append(JobListing(
+                title=post.get("title", "Unknown"),
+                company=self.COMPANY_NAME,
+                location=loc,
+                url=url,
+            ))
+
+            if len(jobs) >= max_results:
+                break
+
+        return jobs
+
+
+# ---------------------------------------------------------------------------
+# Company-specific scrapers
+# ---------------------------------------------------------------------------
+
+class IntelScraper(WorkdayScraper):
+    API_URL = "https://intel.wd1.myworkdayjobs.com/wday/cxs/intel/External/jobs"
+    JOB_BASE_URL = "https://intel.wd1.myworkdayjobs.com/External"
+    COMPANY_NAME = "Intel"
+
+
+class NVIDIAScraper(WorkdayScraper):
+    API_URL = "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs"
+    JOB_BASE_URL = "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite"
+    COMPANY_NAME = "NVIDIA"
+
+
+class MarvellScraper(WorkdayScraper):
+    API_URL = "https://marvell.wd1.myworkdayjobs.com/wday/cxs/marvell/MarvellCareers/jobs"
+    JOB_BASE_URL = "https://marvell.wd1.myworkdayjobs.com/MarvellCareers"
+    COMPANY_NAME = "Marvell"
+
+
+# ---------------------------------------------------------------------------
+# Scrapers that were investigated but are not yet accessible
+#
+# Apple     — Workday returns HTTP 500 (tenant misconfiguration or geo-block)
+# Qualcomm  — Workday returns HTTP 500
+# Mobileye  — Workday returns HTTP 401 (requires authentication token)
+# Broadcom  — DNS resolution fails for careers.broadcom.com
+#
+# Startups investigated:
+# Hailo     — JS-rendered careers page, no public API found
+# Arbe      — DNS resolution failed
+# Vayyar    — Workable ATS, API requires account shortcode auth
+# Innoviz   — Monday.com ATS, no public API
+# Run:AI    — Acquired by NVIDIA, redirects to nvidia.com
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Job scanner — runs all working scrapers and combines results
+# ---------------------------------------------------------------------------
+
+class JobScanner:
+    """Runs all available scrapers and returns a combined, deduplicated list."""
+
+    SCRAPERS = [
+        IntelScraper(),
+        NVIDIAScraper(),
+        MarvellScraper(),
+    ]
+
+    def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
+        all_jobs = []
+        errors = []
+
+        for scraper in self.SCRAPERS:
+            try:
+                jobs = scraper.search(query, location, max_results=max_per_company)
+                all_jobs.extend(jobs)
+            except RuntimeError as e:
+                errors.append(f"{scraper.COMPANY_NAME}: {e}")
+
+        if errors:
+            for err in errors:
+                print(f"[warning] {err}")
+
+        # Deduplicate by URL
+        seen = set()
+        unique = []
+        for job in all_jobs:
+            if job.url not in seen:
+                seen.add(job.url)
+                unique.append(job)
+
+        return unique
+
+
+# ---------------------------------------------------------------------------
+# Legacy scrapers (blocked — kept for future Selenium upgrade)
+# ---------------------------------------------------------------------------
+
+class IndeedScraper:
+    BASE_URL = "https://il.indeed.com"
+    SEARCH_URL = f"{BASE_URL}/jobs"
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        try:
+            response = requests.get(
+                self.SEARCH_URL,
+                params={"q": query, "l": location},
+                headers=self.HEADERS,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed: {e}")
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        if "captcha" in response.url or "sorry" in response.url:
+            raise RuntimeError("Indeed returned a captcha page — scraping blocked.")
+        if len(soup.find_all("div")) < 10:
+            raise RuntimeError("Indeed returned an unexpected page — possibly blocked.")
+
+        job_cards = soup.find_all("div", class_="job_seen_beacon")
+        if not job_cards:
+            job_cards = soup.find_all("li", attrs={"class": lambda c: c and "job" in c.lower()})
+
+        jobs = []
+        for card in job_cards[:max_results]:
+            title_el = card.find("h2", class_="jobTitle")
+            company_el = card.find("span", {"data-testid": "company-name"})
+            location_el = card.find("div", {"data-testid": "text-location"})
+            link_el = card.find("a", href=True)
+
+            if not title_el or not link_el:
+                continue
+
+            href = link_el["href"]
+            url = f"{self.BASE_URL}{href}" if href.startswith("/") else href
+            if not url.startswith("http"):
+                continue
+
+            jobs.append(JobListing(
+                title=title_el.get_text(strip=True),
+                company=company_el.get_text(strip=True) if company_el else "Unknown",
+                location=location_el.get_text(strip=True) if location_el else "Unknown",
+                url=url,
+            ))
+
+        return jobs
+
+
+class GlassdoorScraper:
+    BASE_URL = "https://www.glassdoor.com"
+    SEARCH_URL = f"{BASE_URL}/Job/jobs.htm"
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept": "text/html,application/xhtml+xml,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://www.google.com/",
+    }
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        try:
+            response = requests.get(
+                self.SEARCH_URL,
+                params={"sc.keyword": query, "locT": "N", "locKeyword": location},
+                headers=self.HEADERS,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed: {e}")
+
+        if response.status_code == 403 or "cf-browser-verification" in response.text:
+            raise RuntimeError("Glassdoor is protected by Cloudflare — scraping blocked.")
+        if "challenge" in response.url or "captcha" in response.url:
+            raise RuntimeError("Glassdoor returned a challenge/captcha page — scraping blocked.")
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        if len(soup.find_all("div")) < 10:
+            raise RuntimeError("Glassdoor returned an unexpected page — possibly blocked.")
+
+        job_cards = soup.find_all("li", {"class": lambda c: c and "JobsList_jobListItem" in " ".join(c)})
+        if not job_cards:
+            job_cards = soup.find_all("article", {"class": lambda c: c and "job" in " ".join(c).lower()})
+        if not job_cards:
+            job_cards = soup.find_all("li", {"data-test": "jobListing"})
+
+        if not job_cards:
+            raise RuntimeError(
+                f"No job cards found in Glassdoor response. "
+                f"The page may be JavaScript-rendered (got {len(soup.find_all('div'))} divs). "
+                f"requests+BeautifulSoup cannot execute JavaScript — a browser-based tool is needed."
+            )
+
+        jobs = []
+        for card in job_cards[:max_results]:
+            title_el = (
+                card.find("a", {"data-test": "job-title"}) or
+                card.find(attrs={"class": lambda c: c and "JobCard_jobTitle" in " ".join(c)})
+            )
+            company_el = (
+                card.find("span", {"class": lambda c: c and "EmployerProfile_compactEmployerName" in " ".join(c)}) or
+                card.find(attrs={"data-test": "employer-name"})
+            )
+            location_el = card.find(attrs={"data-test": "emp-location"})
+            link_el = card.find("a", href=True)
+
+            if not title_el or not link_el:
+                continue
+
+            href = link_el["href"]
+            url = f"{self.BASE_URL}{href}" if href.startswith("/") else href
+            if not url.startswith("http"):
+                continue
+
+            jobs.append(JobListing(
+                title=title_el.get_text(strip=True),
+                company=company_el.get_text(strip=True) if company_el else "Unknown",
+                location=location_el.get_text(strip=True) if location_el else "Unknown",
+                url=url,
+            ))
+
+        return jobs

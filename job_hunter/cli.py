@@ -205,5 +205,88 @@ def apps_stats():
         console.print(f"  {status}: {count}")
 
 
+# ---------------------------------------------------------------------------
+# Jobs commands
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def jobs():
+    """Search and collect job listings."""
+
+
+@jobs.command("search")
+@click.option("--query", "-q", default="student electrical engineering", show_default=True, help="Search query.")
+@click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
+@click.option("--max", "-n", "max_results", default=10, show_default=True, help="Max results to return.")
+@click.option("--source", "-s", default="intel", type=click.Choice(["intel", "glassdoor", "indeed"]), show_default=True, help="Job board to search.")
+def jobs_search(query, location, max_results, source):
+    """Search job boards for listings."""
+    from job_hunter.jobs.scraper import IndeedScraper, GlassdoorScraper, IntelScraper
+
+    if source == "intel":
+        scraper = IntelScraper()
+    elif source == "glassdoor":
+        scraper = GlassdoorScraper()
+    else:
+        scraper = IndeedScraper()
+    console.print(f"Searching {source.capitalize()} for: [bold]{query}[/bold] in {location}...\n")
+
+    try:
+        with console.status("Fetching results..."):
+            listings = scraper.search(query, location, max_results=max_results)
+    except RuntimeError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        return
+
+    if not listings:
+        console.print("[yellow]No jobs found. Indeed may be blocking the request, or no results match.[/yellow]")
+        return
+
+    console.print(f"[green]Found {len(listings)} jobs:[/green]\n")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Title")
+    table.add_column("Company", style="cyan")
+    table.add_column("Location", style="dim")
+    table.add_column("URL", style="blue")
+
+    for i, job in enumerate(listings, 1):
+        table.add_row(str(i), job.title, job.company, job.location, job.url)
+
+    console.print(table)
+
+
+@jobs.command("scan")
+@click.option("--query", "-q", default="student", show_default=True, help="Search query.")
+@click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
+@click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
+def jobs_scan(query, location, max_per_company):
+    """Scan all supported company career pages and combine results."""
+    from job_hunter.jobs.scraper import JobScanner
+
+    scanner = JobScanner()
+    console.print(f"Scanning all companies for: [bold]{query}[/bold] in {location}...\n")
+
+    with console.status("Fetching from Intel, NVIDIA, Marvell..."):
+        jobs = scanner.scan(query=query, location=location, max_per_company=max_per_company)
+
+    if not jobs:
+        console.print("[yellow]No jobs found across all sources.[/yellow]")
+        return
+
+    console.print(f"[green]Found {len(jobs)} jobs across all companies:[/green]\n")
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim", width=3)
+    table.add_column("Title")
+    table.add_column("Company", style="cyan")
+    table.add_column("Location", style="dim")
+    table.add_column("URL", style="blue")
+
+    for i, job in enumerate(jobs, 1):
+        table.add_row(str(i), job.title, job.company, job.location, job.url)
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     cli()
