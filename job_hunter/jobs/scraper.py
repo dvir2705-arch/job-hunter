@@ -100,18 +100,66 @@ class MarvellScraper(WorkdayScraper):
     COMPANY_NAME = "Marvell"
 
 
+class AmazonScraper:
+    """Scrapes Amazon/Annapurna Labs jobs via the amazon.jobs JSON search API."""
+
+    API_URL = "https://www.amazon.jobs/en/search.json"
+    JOB_BASE_URL = "https://www.amazon.jobs"
+    HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+    }
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        params = {
+            "base_query": query,
+            "loc_query": location,
+            "country": "ISR",
+            "result_limit": max_results,
+        }
+
+        try:
+            response = requests.get(
+                self.API_URL,
+                params=params,
+                headers=self.HEADERS,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Request failed: {e}")
+
+        data = response.json()
+        jobs = []
+        for post in data.get("jobs", []):
+            job_path = post.get("job_path", "")
+            if not job_path:
+                continue
+
+            jobs.append(JobListing(
+                title=post.get("title", "Unknown"),
+                company=post.get("company_name", "Amazon"),
+                location=post.get("location", ""),
+                url=f"{self.JOB_BASE_URL}{job_path}",
+            ))
+
+        return jobs
+
+
 # ---------------------------------------------------------------------------
-# Scrapers that were investigated but are not yet accessible
+# Companies investigated but not yet accessible
 #
-# Apple     — Workday returns HTTP 500 (tenant misconfiguration or geo-block)
-# Qualcomm  — Workday returns HTTP 500
-# Mobileye  — Workday returns HTTP 401 (requires authentication token)
+# Apple     — Workday HTTP 500 (tenant misconfiguration or geo-block)
+# Qualcomm  — Workday HTTP 500
+# Mobileye  — Workday HTTP 401; own portal (careers.mobileye.com) is JS-rendered
 # Broadcom  — DNS resolution fails for careers.broadcom.com
+# Microsoft — gcsservices API returns 502; likely geo-blocked or requires session
+# Google    — Fully custom JS portal, no public API found
 #
 # Startups investigated:
 # Hailo     — JS-rendered careers page, no public API found
 # Arbe      — DNS resolution failed
-# Vayyar    — Workable ATS, API requires account shortcode auth
+# Vayyar    — Workable ATS, API requires account auth
 # Innoviz   — Monday.com ATS, no public API
 # Run:AI    — Acquired by NVIDIA, redirects to nvidia.com
 # ---------------------------------------------------------------------------
@@ -128,6 +176,7 @@ class JobScanner:
         IntelScraper(),
         NVIDIAScraper(),
         MarvellScraper(),
+        AmazonScraper(),
     ]
 
     def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
