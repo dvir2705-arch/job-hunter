@@ -1,0 +1,72 @@
+{
+  "companies": [
+    {
+      "name": "Intel",
+      "career_url": "jobs.intel.com",
+      "locations": ["Haifa", "Petah Tikva", "Jerusalem"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "FPGA", "signal processing", "communications", "student", "intern", "junior"]
+    },
+    {
+      "name": "NVIDIA",
+      "career_url": "nvidia.com/careers",
+      "locations": ["Tel Aviv", "Yokneam"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "machine learning", "student", "intern", "junior"]
+    },
+    {
+      "name": "Apple",
+      "career_url": "apple.com/careers/il",
+      "locations": ["Herzliya"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "AI", "machine learning", "student", "intern", "junior"]
+    },
+    {
+      "name": "Qualcomm",
+      "career_url": "qualcomm.com/careers",
+      "locations": ["Tel Aviv"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "RF", "signal processing", "communications", "PHY", "student", "intern", "junior"]
+    },
+    {
+      "name": "Mobileye",
+      "career_url": "mobileye.com/careers",
+      "locations": ["Jerusalem"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "AI", "deep learning", "algorithm", "student", "intern", "junior"]
+    },
+    {
+      "name": "Marvell",
+      "career_url": "marvell.com/careers",
+      "locations": ["Yokneam"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "PHY", "signal processing", "student", "intern", "junior"]
+    },
+    {
+      "name": "Broadcom",
+      "career_url": "broadcom.com/careers",
+      "locations": ["Tel Aviv"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "signal processing", "student", "intern", "junior"]
+    },
+    {
+      "name": "Amazon Annapurna",
+      "career_url": "amazon.jobs",
+      "locations": ["Tel Aviv", "Haifa"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "inference", "student", "intern", "junior"]
+    },
+    {
+      "name": "Sony Semiconductor",
+      "career_url": "sonysemiconductor.com/careers",
+      "locations": ["Hod HaSharon"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "RF", "student", "intern", "junior"]
+    },
+    {
+      "name": "Hailo",
+      "career_url": "hailo.ai/careers",
+      "locations": ["Tel Aviv"],
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "AI", "deep learning", "machine learning", "algorithm", "inference", "student", "intern", "junior"]
+    }
+  ],
+  "job_boards": [
+    {"name": "LinkedIn Jobs", "url": "linkedin.com/jobs", "notes": "Search by keywords, catches startups"},
+    {"name": "Indeed Israel", "url": "il.indeed.com", "notes": "General job board"},
+    {"name": "Glassdoor", "url": "glassdoor.com", "notes": "Reviews + jobs"},
+    {"name": "AllJobs", "url": "alljobs.co.il", "notes": "Israeli job board"},
+    {"name": "Drushim", "url": "drushim.co.il", "notes": "Israeli job board"},
+    {"name": "StartupNationCentral", "url": "startupnationcentral.org", "notes": "Startup database"}
+  ]
+}
