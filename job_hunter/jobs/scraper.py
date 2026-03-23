@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -270,6 +270,60 @@ class JobScanner:
                 unique.append(job)
 
         return unique
+
+
+# ---------------------------------------------------------------------------
+# Job description fetcher
+# ---------------------------------------------------------------------------
+
+_FETCH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def fetch_job_description(job: "JobListing") -> Optional[str]:
+    """Fetch the full job description text from a job listing URL.
+
+    Supports LinkedIn and Amazon job pages.
+    Returns None if the page is JS-rendered or the description cannot be extracted.
+    """
+    try:
+        r = requests.get(job.url, headers=_FETCH_HEADERS, timeout=10)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Could not fetch job page: {e}")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    # LinkedIn public job page
+    if "linkedin.com" in job.url:
+        el = soup.find("div", class_="show-more-less-html__markup")
+        if el:
+            return el.get_text(separator="\n", strip=True)
+
+    # Amazon / Annapurna Labs job page
+    if "amazon.jobs" in job.url:
+        rows = soup.find_all("div", class_="row")
+        for row in rows:
+            text = row.get_text(separator="\n", strip=True)
+            if len(text) > 500:
+                return text
+
+    # Intel / Workday — JS-rendered, no static description available
+    if "myworkdayjobs.com" in job.url:
+        return None
+
+    # Generic fallback: find the longest div > 300 chars
+    candidates = [
+        t for t in soup.find_all("div")
+        if len(t.get_text(strip=True)) > 300
+    ]
+    if candidates:
+        best = max(candidates, key=lambda t: len(t.get_text(strip=True)))
+        return best.get_text(separator="\n", strip=True)
+
+    return None
 
 
 # ---------------------------------------------------------------------------

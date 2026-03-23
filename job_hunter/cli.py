@@ -321,7 +321,7 @@ def _job_action_menu(job) -> None:
         console.print(f"\n[bold cyan]{job.title}[/bold cyan] — {job.company}, {job.location}")
         console.print(f"[dim]{job.url}[/dim]\n")
         console.print("  [bold][1][/bold] Show full details")
-        console.print("  [bold][2][/bold] Adapt CV for this job  [dim](coming soon)[/dim]")
+        console.print("  [bold][2][/bold] Adapt CV for this job")
         console.print("  [bold][3][/bold] Generate cover letter  [dim](coming soon)[/dim]")
         console.print("  [bold][4][/bold] Open in browser")
         console.print("  [bold][5][/bold] Track application")
@@ -338,6 +338,9 @@ def _job_action_menu(job) -> None:
             )
             from rich.panel import Panel
             console.print(Panel(panel_text, title="Job Details", border_style="cyan"))
+
+        elif action == "2":
+            _adapt_cv_for_job(job)
 
         elif action == "4":
             webbrowser.open(job.url)
@@ -363,6 +366,66 @@ def _job_action_menu(job) -> None:
 
         else:
             console.print("[red]Invalid option.[/red]")
+
+
+def _adapt_cv_for_job(job) -> None:
+    from job_hunter.jobs.scraper import fetch_job_description
+    from job_hunter.cv.adapter import CVAdapter
+    from job_hunter.cv.manager import CVManager
+    from job_hunter.cv.renderer import CVRenderer
+    from job_hunter.config import Config
+
+    # 1. Fetch job description
+    console.print(f"\n[dim]Fetching job description from {job.url}...[/dim]")
+    try:
+        with console.status("Fetching job description..."):
+            description = fetch_job_description(job)
+    except RuntimeError as e:
+        console.print(f"[red]Could not fetch job page: {e}[/red]")
+        return
+
+    if not description:
+        console.print(
+            "[yellow]Job description not available for this source "
+            "(page is JavaScript-rendered).\n"
+            "Tip: copy the job description text and use [bold]job-hunter cv adapt[/bold] with a file.[/yellow]"
+        )
+        return
+
+    console.print(f"[dim]Fetched {len(description)} characters of job description.[/dim]")
+
+    # 2. Load base CV and adapt
+    cv_manager = CVManager()
+    base_cv = cv_manager.load_base()
+
+    with console.status("Adapting CV with Claude..."):
+        adapter = CVAdapter()
+        adapted = adapter.adapt(base_cv, description, job_title=job.title)
+
+    # 3. Save adapted CV JSON
+    company_slug = job.company.lower().replace(" ", "_").replace("/", "_")[:20]
+    title_slug = job.title.lower().replace(" ", "_").replace("/", "_")[:25]
+    label = f"{company_slug}_{title_slug}"
+    json_path = cv_manager.save_version(adapted, label)
+
+    # 4. Render HTML
+    renderer = CVRenderer()
+    html_path = Config.OUTPUT_DIR / f"{json_path.stem}.html"
+    renderer.render_html_file(adapted, html_path)
+
+    # 5. Show result
+    from rich.panel import Panel
+    console.print(Panel(
+        f"[bold]Title:[/bold]  {adapted.get('title', '')}\n"
+        f"[bold]JSON:[/bold]   {json_path}\n"
+        f"[bold]HTML:[/bold]   {html_path}",
+        title="[green]CV Adapted[/green]",
+        border_style="green",
+    ))
+
+    if click.confirm("Open HTML in browser?", default=True):
+        import webbrowser
+        webbrowser.open(str(html_path.resolve()))
 
 
 if __name__ == "__main__":
