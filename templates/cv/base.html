@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; font-size: 12pt; color: #000; padding: 30px; max-width: 750px; margin: auto; }
+    h1 { font-size: 20pt; }
+    h2 { font-size: 12pt; color: #555; font-weight: normal; }
+    h3 { font-size: 12pt; border-bottom: 1px solid #ccc; margin-top: 16px; padding-bottom: 2px; }
+    .contact { font-size: 10pt; color: #555; margin: 6px 0 16px; }
+    .entry { margin-bottom: 12px; }
+    .entry-header { display: flex; justify-content: space-between; }
+    .entry-title { font-weight: bold; }
+    .entry-date { color: #888; font-size: 10pt; }
+    ul { padding-left: 20px; }
+    ul li { margin-bottom: 2px; }
+    .skills { margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <h1>{{ name }}</h1>
+  <h2>{{ title }}</h2>
+  <div class="contact">
+    {{ contact.email }} | {{ contact.phone }}
+    {% if contact.location %} | {{ contact.location }}{% endif %}
+  </div>
+
+  <h3>Summary</h3>
+  <p>{{ summary }}</p>
+
+  <h3>Experience</h3>
+  {% for exp in experience %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ exp.position }} — {{ exp.company }}</span>
+      <span class="entry-date">{{ exp.start }} – {{ exp.end }}</span>
+    </div>
+    {% if exp.highlights %}
+    <ul>{% for h in exp.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <h3>Education</h3>
+  {% for edu in education %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ edu.degree }} — {{ edu.institution }}</span>
+      <span class="entry-date">{{ edu.year }}</span>
+    </div>
+  </div>
+  {% endfor %}
+
+  <h3>Skills</h3>
+  <div class="skills">{{ skills | join(', ') }}</div>
+</body>
+</html>
