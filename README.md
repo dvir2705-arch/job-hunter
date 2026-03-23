@@ -163,8 +163,3 @@ Contributions are welcome! If you have ideas for new features or improvements:
 3. Commit your changes (`git commit -m 'Add my feature'`)
 4. Push and open a Pull Request
 
----
-
-## 📄 License
-
-MIT License — feel free to use and adapt this project.
