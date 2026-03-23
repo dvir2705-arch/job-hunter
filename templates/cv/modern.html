@@ -44,6 +44,7 @@
     <p class="summary">{{ summary }}</p>
   </section>
 
+  {% if experience is defined and experience %}
   <section>
     <div class="section-title">Experience</div>
     {% for exp in experience %}
@@ -61,6 +62,29 @@
     </div>
     {% endfor %}
   </section>
+  {% endif %}
+
+  {% if projects is defined and projects %}
+  <section>
+    <div class="section-title">Projects</div>
+    {% for proj in projects %}
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">{{ proj.name }}</span>
+        {% if proj.url %}<span class="entry-date">{{ proj.url }}</span>{% endif %}
+      </div>
+      {% if proj.technologies %}
+      <div class="entry-subtitle">{{ proj.technologies | join(', ') }}</div>
+      {% endif %}
+      {% if proj.highlights %}
+      <ul>
+        {% for h in proj.highlights %}<li>{{ h }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
 
   <section>
     <div class="section-title">Education</div>
@@ -71,18 +95,76 @@
         <span class="entry-date">{{ edu.year }}</span>
       </div>
       <div class="entry-subtitle">{{ edu.institution }}</div>
+      {% if edu.gpa %}<div class="entry-subtitle">GPA: {{ edu.gpa }}</div>{% endif %}
+      {% if edu.highlights %}
+      <ul>
+        {% for h in edu.highlights %}<li>{{ h }}</li>{% endfor %}
+      </ul>
+      {% endif %}
     </div>
     {% endfor %}
   </section>
 
   <section>
     <div class="section-title">Skills</div>
-    <div class="skills">
-      {% for skill in skills %}
-      <span class="skill-tag">{{ skill }}</span>
+    {% if skills is mapping %}
+      {% for category, items in skills.items() %}
+      <div style="margin-bottom: 6px;">
+        <span style="font-weight:600; text-transform: capitalize;">{{ category }}:</span>
+        {% for skill in items %}<span class="skill-tag">{{ skill }}</span>{% endfor %}
+      </div>
       {% endfor %}
+    {% else %}
+      <div class="skills">
+        {% for skill in skills %}<span class="skill-tag">{{ skill }}</span>{% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  {% if military is defined and military %}
+  <section>
+    <div class="section-title">Military Service</div>
+    {% for m in military %}
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">{{ m.role }}</span>
+        <span class="entry-date">{{ m.period }}</span>
+      </div>
+      <div class="entry-subtitle">{{ m.unit }}</div>
+      {% if m.highlights %}
+      <ul>
+        {% for h in m.highlights %}<li>{{ h }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if volunteering is defined and volunteering %}
+  <section>
+    <div class="section-title">Volunteering</div>
+    {% for v in volunteering %}
+    <div class="entry">
+      <div class="entry-header">
+        <span class="entry-title">{{ v.role }}</span>
+        <span class="entry-date">{{ v.period }}</span>
+      </div>
+      <div class="entry-subtitle">{{ v.organization }}</div>
+      {% if v.description %}<p style="margin-top:4px; color:#444;">{{ v.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if languages is defined and languages %}
+  <section>
+    <div class="section-title">Languages</div>
+    <div class="skills">
+      {% for lang in languages %}<span class="skill-tag">{{ lang }}</span>{% endfor %}
     </div>
   </section>
+  {% endif %}
 
 </body>
 </html>

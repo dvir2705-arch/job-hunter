@@ -28,6 +28,7 @@
   <h3>Summary</h3>
   <p>{{ summary }}</p>
 
+  {% if experience is defined and experience %}
   <h3>Experience</h3>
   {% for exp in experience %}
   <div class="entry">
@@ -40,6 +41,23 @@
     {% endif %}
   </div>
   {% endfor %}
+  {% endif %}
+
+  {% if projects is defined and projects %}
+  <h3>Projects</h3>
+  {% for proj in projects %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ proj.name }}</span>
+      {% if proj.url %}<span class="entry-date">{{ proj.url }}</span>{% endif %}
+    </div>
+    {% if proj.technologies %}<div>{{ proj.technologies | join(', ') }}</div>{% endif %}
+    {% if proj.highlights %}
+    <ul>{% for h in proj.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
 
   <h3>Education</h3>
   {% for edu in education %}
@@ -48,10 +66,55 @@
       <span class="entry-title">{{ edu.degree }} — {{ edu.institution }}</span>
       <span class="entry-date">{{ edu.year }}</span>
     </div>
+    {% if edu.gpa %}<div>GPA: {{ edu.gpa }}</div>{% endif %}
+    {% if edu.highlights %}
+    <ul>{% for h in edu.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+    {% endif %}
   </div>
   {% endfor %}
 
   <h3>Skills</h3>
-  <div class="skills">{{ skills | join(', ') }}</div>
+  <div class="skills">
+    {% if skills is mapping %}
+      {% for category, items in skills.items() %}
+      <strong style="text-transform:capitalize;">{{ category }}:</strong> {{ items | join(', ') }}<br>
+      {% endfor %}
+    {% else %}
+      {{ skills | join(', ') }}
+    {% endif %}
+  </div>
+
+  {% if military is defined and military %}
+  <h3>Military Service</h3>
+  {% for m in military %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ m.role }} — {{ m.unit }}</span>
+      <span class="entry-date">{{ m.period }}</span>
+    </div>
+    {% if m.highlights %}
+    <ul>{% for h in m.highlights %}<li>{{ h }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if volunteering is defined and volunteering %}
+  <h3>Volunteering</h3>
+  {% for v in volunteering %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ v.role }} — {{ v.organization }}</span>
+      <span class="entry-date">{{ v.period }}</span>
+    </div>
+    {% if v.description %}<p>{{ v.description }}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if languages is defined and languages %}
+  <h3>Languages</h3>
+  <div>{{ languages | join(' | ') }}</div>
+  {% endif %}
 </body>
 </html>
