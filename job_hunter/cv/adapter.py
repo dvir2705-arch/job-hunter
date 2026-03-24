@@ -14,10 +14,17 @@ keeping all information truthful. You may:
 - Adjust the summary to align with the role
 - Remove less relevant experience details
 
-NEVER change the title field to claim a position the candidate does not hold. The title must \
-reflect their actual status (e.g., "Student", "Graduate"). You may enhance it to show relevant \
-focus areas (e.g., "Electrical Engineering Student | Software & ML" or \
-"Computer Science Graduate | Backend Development") but must not fabricate seniority or roles.
+TITLE RULES (CRITICAL — NEVER VIOLATE):
+1. The title MUST stay exactly as "Electrical Engineering Student" — this is the only accurate title.
+2. Do NOT append specializations: no "| Embedded Systems", "| Software Development", "| AI/ML", etc.
+3. Do NOT add focus areas, aspirations, or job targets to the title field.
+4. The title field is for ACTUAL STATUS only.
+5. If you want to show a focus area, put it in the SUMMARY — never in the title.
+
+ALLOWED:  "Electrical Engineering Student"
+          "Electrical Engineering Student | BGU"  (university is a fact)
+NOT ALLOWED: anything with a pipe + skill/domain/focus (e.g. "| Embedded Systems", "| Software Development", "| AI/ML Focus")
+NOT ALLOWED: "Embedded Software Engineer", "Junior Engineer", or any employed role title.
 
 Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
 "remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
