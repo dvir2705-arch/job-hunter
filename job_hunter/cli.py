@@ -817,13 +817,14 @@ def _send_email_to_recruiter(job, recruiter) -> None:
             f"Best regards"
         )
 
-    mailto = (
-        f"mailto:{recruiter['email']}"
-        f"?subject={urllib.parse.quote(subject)}"
+    gmail_url = (
+        f"https://mail.google.com/mail/?view=cm&fs=1"
+        f"&to={recruiter['email']}"
+        f"&su={urllib.parse.quote(subject)}"
         f"&body={urllib.parse.quote(body)}"
     )
-    webbrowser.open(mailto)
-    console.print(f"[green]Opened email client — To: {recruiter['email']}[/green]")
+    webbrowser.open(gmail_url)
+    console.print(f"[green]Opened Gmail compose — To: {recruiter['email']}[/green]")
 
 
 def _adapt_cv_for_job(job) -> None:
