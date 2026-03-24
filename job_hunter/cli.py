@@ -274,7 +274,13 @@ def jobs_scan(query, location, max_per_company):
         console.print("[yellow]No jobs found across all sources.[/yellow]")
         return
 
-    _print_jobs_table(listings)
+    from job_hunter.jobs.history import JobHistory
+    jobs_with_flags = JobHistory().update_and_mark_new(listings)
+    new_count = sum(1 for _, is_new in jobs_with_flags if is_new)
+
+    _print_jobs_table(jobs_with_flags)
+    if new_count:
+        console.print(f"[bold green]{new_count} new[/bold green] [dim]since last scan[/dim]")
 
     # Interactive selection loop
     while True:
@@ -296,19 +302,29 @@ def jobs_scan(query, location, max_per_company):
 
         # Re-print table so user can pick another
         console.print()
-        _print_jobs_table(listings)
+        _print_jobs_table(jobs_with_flags)
 
 
-def _print_jobs_table(listings) -> None:
+def _print_jobs_table(jobs_with_flags) -> None:
+    """Print jobs table. Accepts either List[JobListing] or List[(JobListing, bool)]."""
+    # Normalise: accept plain list or list-of-tuples
+    if jobs_with_flags and isinstance(jobs_with_flags[0], tuple):
+        pairs = jobs_with_flags
+    else:
+        pairs = [(j, False) for j in jobs_with_flags]
+
     table = Table(show_header=True, header_style="bold cyan")
     table.add_column("#", style="dim", width=3)
     table.add_column("Title")
     table.add_column("Company", style="cyan")
     table.add_column("Location", style="dim")
     table.add_column("Posted", style="dim")
-    for i, job in enumerate(listings, 1):
-        table.add_row(str(i), job.title, job.company, job.location, job.posted or "")
-    console.print(f"[green]Found {len(listings)} jobs:[/green]")
+
+    for i, (job, is_new) in enumerate(pairs, 1):
+        title = f"[bold green][NEW][/bold green] {job.title}" if is_new else job.title
+        table.add_row(str(i), title, job.company, job.location, job.posted or "")
+
+    console.print(f"[green]Found {len(pairs)} jobs:[/green]")
     console.print(table)
 
 
