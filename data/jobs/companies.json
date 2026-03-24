@@ -596,14 +596,14 @@
       "domain": [
         "software"
       ],
-      "ats": "greenhouse",
-      "scraper": "not_tested",
+      "ats": "custom",
+      "scraper": "blocked",
       "target_keywords": [
         "student",
         "intern",
         "junior"
       ],
-      "notes": "Large Israeli web development platform"
+      "notes": "Large Israeli web development platform. careers.wix.com is a JS-rendered Wix site — no public API found. SmartRecruiters/Ashby/Greenhouse all 404. Needs browser-based scraper."
     },
     {
       "name": "Base44",

@@ -213,6 +213,60 @@ class LinkedInScraper:
 
 
 # ---------------------------------------------------------------------------
+# Greenhouse ATS scraper — reused by Wix and future Greenhouse companies
+# ---------------------------------------------------------------------------
+
+class GreenhouseScraper:
+    """Generic scraper for companies using the Greenhouse ATS public JSON API."""
+
+    API_URL = "https://boards-api.greenhouse.io/v1/boards/{board_id}/jobs"
+
+    def __init__(self, company_name: str, board_id: str):
+        self.company_name = company_name
+        self.board_id = board_id
+        self.COMPANY_NAME = company_name  # for JobScanner error reporting
+
+    def search(self, query: str = "", location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        url = self.API_URL.format(board_id=self.board_id)
+        try:
+            response = requests.get(url, params={"content": "true"}, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as e:
+            raise RuntimeError(f"Greenhouse API error for {self.company_name}: {e}")
+
+        jobs = []
+        for job in data.get("jobs", []):
+            job_location = job.get("location", {}).get("name", "")
+            title = job.get("title", "")
+
+            if location and location.lower() not in job_location.lower():
+                continue
+            if query and query.lower() not in title.lower():
+                continue
+
+            jobs.append(JobListing(
+                title=title,
+                company=self.company_name,
+                location=job_location,
+                url=job.get("absolute_url", ""),
+                posted=job.get("updated_at", "")[:10] if job.get("updated_at") else "",
+            ))
+
+            if len(jobs) >= max_results:
+                break
+
+        return jobs
+
+
+class WixScraper(GreenhouseScraper):
+    """Scraper for Wix careers (Greenhouse ATS, board_id='wix')."""
+
+    def __init__(self):
+        super().__init__(company_name="Wix", board_id="wix")
+
+
+# ---------------------------------------------------------------------------
 # Companies investigated but not yet accessible
 #
 # Apple     — Workday HTTP 500 (tenant misconfiguration or geo-block)
@@ -222,7 +276,8 @@ class LinkedInScraper:
 # Microsoft — gcsservices API returns 502; likely geo-blocked or requires session
 # Google    — Fully custom JS portal, no public API found
 #
-# Startups investigated:
+# Startups / other investigated:
+# Wix       — careers.wix.com is a Wix site itself (JS-rendered); SmartRecruiters/Ashby/Greenhouse all 404
 # Hailo     — JS-rendered careers page, no public API found
 # Arbe      — DNS resolution failed
 # Vayyar    — Workable ATS, API requires account auth
@@ -244,6 +299,7 @@ class JobScanner:
         MarvellScraper(),
         AmazonScraper(),
         LinkedInScraper(),
+        # WixScraper excluded: careers.wix.com is JS-rendered, no public API found
     ]
 
     def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
@@ -255,7 +311,7 @@ class JobScanner:
                 jobs = scraper.search(query, location, max_results=max_per_company)
                 all_jobs.extend(jobs)
             except RuntimeError as e:
-                errors.append(f"{scraper.COMPANY_NAME}: {e}")
+                errors.append(f"{getattr(scraper, 'COMPANY_NAME', type(scraper).__name__)}: {e}")
 
         if errors:
             for err in errors:
