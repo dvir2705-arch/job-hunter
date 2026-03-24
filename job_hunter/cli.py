@@ -260,9 +260,11 @@ def jobs_search(query, location, max_results, source):
 @click.option("--query", "-q", default="student", show_default=True, help="Search query.")
 @click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
 @click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
-def jobs_scan(query, location, max_per_company):
+@click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
+def jobs_scan(query, location, max_per_company, new_only):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
+    from job_hunter.jobs.history import JobHistory
 
     scanner = JobScanner()
     console.print(f"Scanning all companies for: [bold]{query}[/bold] in {location}...\n")
@@ -274,13 +276,23 @@ def jobs_scan(query, location, max_per_company):
         console.print("[yellow]No jobs found across all sources.[/yellow]")
         return
 
-    from job_hunter.jobs.history import JobHistory
     jobs_with_flags = JobHistory().update_and_mark_new(listings)
     new_count = sum(1 for _, is_new in jobs_with_flags if is_new)
 
+    if new_only:
+        jobs_with_flags = [(job, is_new) for job, is_new in jobs_with_flags if is_new]
+        if not jobs_with_flags:
+            console.print("[yellow]No new jobs since last scan.[/yellow]")
+            return
+        console.print(f"[bold green]Showing {len(jobs_with_flags)} new jobs[/bold green] [dim](last 24 hours)[/dim]\n")
+    else:
+        if new_count:
+            console.print(f"[bold green]{new_count} new[/bold green] [dim]since last scan[/dim]")
+
     _print_jobs_table(jobs_with_flags)
-    if new_count:
-        console.print(f"[bold green]{new_count} new[/bold green] [dim]since last scan[/dim]")
+
+    # listings for index lookup must match the displayed table
+    displayed_listings = [job for job, _ in jobs_with_flags]
 
     # Interactive selection loop
     while True:
@@ -293,11 +305,11 @@ def jobs_scan(query, location, max_per_company):
         if choice.strip().lower() == "q":
             break
 
-        if not choice.strip().isdigit() or not (1 <= int(choice) <= len(listings)):
-            console.print(f"[red]Please enter a number between 1 and {len(listings)}.[/red]")
+        if not choice.strip().isdigit() or not (1 <= int(choice) <= len(displayed_listings)):
+            console.print(f"[red]Please enter a number between 1 and {len(displayed_listings)}.[/red]")
             continue
 
-        job = listings[int(choice) - 1]
+        job = displayed_listings[int(choice) - 1]
         _job_action_menu(job)
 
         # Re-print table so user can pick another
