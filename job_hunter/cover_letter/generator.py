@@ -1,6 +1,7 @@
 """Cover Letter Generator using Claude AI."""
 
 import anthropic
+from datetime import datetime
 from typing import Optional
 
 from job_hunter.config import Config
@@ -18,14 +19,26 @@ Write cover letters that are:
 - Professional but personable
 - Specific to the job and company
 - Highlighting relevant skills and experience
-- Concise and impactful
+- Concise (3-4 paragraphs, no padding)
 
-CRITICAL TONE RULES for mentioning the job-hunter project:
-- Use BALANCED tone - not arrogant, not self-deprecating
-- Just state facts: "I built a job search automation tool in Python"
-- Do NOT use: "advanced", "sophisticated", "cutting-edge", "powerful"
-- Do NOT use: "small", "little", "simple", "basic"
-- Let the facts speak: Python, APIs, 24 companies, AI integration
+TONE RULES — strictly enforced:
+- Write plainly and confidently. Do NOT use hollow phrases like:
+  "strong aptitude for", "genuine drive", "rigorous systems-level thinking",
+  "when it matters most", "I engage seriously", "deeply passionate", "truly excited"
+- Let facts do the talking. Bad: "strong mathematical abilities". Good: "grades of 97-100 in calculus and linear algebra"
+- No superlatives: NOT "exceptional", "outstanding", "remarkable", "unparalleled"
+- No self-deprecation either: NOT "small project", "simple tool", "just a student"
+- Sound like a confident person talking normally, not a LinkedIn post
+
+ACADEMIC YEAR RULE — CRITICAL:
+- The prompt will tell you the candidate's current academic year explicitly (e.g. "3rd year")
+- Use EXACTLY that year. Do NOT guess or infer from dates.
+- If it says 3rd year, write "third-year". Never write "second-year" or "fourth-year".
+
+RULES for mentioning the job-hunter project:
+- Use BALANCED tone — state facts, no superlatives, no self-deprecation
+- Just say: "I built a job search automation tool in Python"
+- Facts worth stating: Python, REST APIs, 24 companies, Claude AI integration
 
 When mentioning job discovery through the tool, phrase it naturally:
 - EN: "I discovered this position through a job search automation tool I built..."
@@ -61,6 +74,8 @@ When mentioning job discovery through the tool, phrase it naturally:
         tone_instruction = TONE_INSTRUCTIONS.get(company_tone, TONE_INSTRUCTIONS["balanced"])
         should_mention = mention_job_hunter and self._is_project_relevant(job, job_description)
 
+        academic_year = self._get_academic_year(cv)
+
         prompt = self._build_prompt(
             job=job,
             cv=cv,
@@ -69,6 +84,7 @@ When mentioning job discovery through the tool, phrase it naturally:
             tone_instruction=tone_instruction,
             mention_project=should_mention,
             personal_info=personal_info,
+            academic_year=academic_year,
         )
 
         response = self.client.messages.create(
@@ -92,6 +108,24 @@ When mentioning job discovery through the tool, phrase it naturally:
 
         return content
 
+    def _get_academic_year(self, cv: dict) -> str:
+        """Compute current academic year (e.g. '3rd') from education start year."""
+        ordinals = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+        try:
+            edu = cv.get("education", [])
+            if not edu:
+                return "third"
+            year_field = edu[0].get("year", "")
+            start_year = int(year_field.split("-")[0].strip())
+            current_year = datetime.now().year
+            # Academic year starts in October; before October we're still in the same year
+            if datetime.now().month < 10:
+                current_year -= 1
+            year_num = current_year - start_year + 1
+            return ordinals.get(year_num, f"{year_num}th")
+        except (ValueError, IndexError, AttributeError):
+            return "third"
+
     def _is_project_relevant(self, job: JobListing, job_description: Optional[str]) -> bool:
         """Return True if mentioning the job-hunter project fits this role."""
         relevant_keywords = ["python", "automation", "scripting", "api", "software", "programming"]
@@ -113,6 +147,7 @@ When mentioning job discovery through the tool, phrase it naturally:
         tone_instruction: str,
         mention_project: bool,
         personal_info: dict,
+        academic_year: str = "third",
     ) -> str:
         """Build the prompt for cover letter generation."""
         import json
@@ -153,6 +188,7 @@ When mentioning job discovery through the tool, phrase it naturally:
 - {lang_instruction}
 - Tone: {tone_instruction}
 - Length: 3-4 paragraphs (not too long)
+- Academic year: the candidate is in their **{academic_year} year** — use this exactly
 - End with: {closing}
 - Include name and contact info in the signature
 {project_instruction}
