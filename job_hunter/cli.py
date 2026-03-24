@@ -796,9 +796,8 @@ def _job_action_menu(job) -> None:
 
 
 def _send_email_to_recruiter(job, recruiter) -> None:
-    """Open default email client with pre-filled email to recruiter."""
+    """Open Gmail compose in Chrome with pre-filled email to recruiter."""
     import urllib.parse
-    import webbrowser
     from job_hunter.cover_letter.history import CoverLetterHistory
 
     subject = f"Application for {job.title} position"
@@ -811,20 +810,24 @@ def _send_email_to_recruiter(job, recruiter) -> None:
         body = latest.content
     else:
         body = (
-            f"Dear {recruiter['name']},\n\n"
+            f"Dear {recruiter['name'].split()[0]},\n\n"
             f"I am writing to express my interest in the {job.title} position at {job.company}.\n\n"
-            f"Please find my application attached. I would welcome the opportunity to discuss how my background aligns with your needs.\n\n"
-            f"Best regards"
+            f"Please find my CV attached.\n\n"
+            f"Best regards,\n"
+            f"Dvir Salomon\n"
+            f"Dvir2705@gmail.com | 053-3401466"
         )
 
+    # Open Gmail compose directly in Chrome
     gmail_url = (
-        f"https://mail.google.com/mail/?view=cm&fs=1"
+        f"https://mail.google.com/mail/u/0/?view=cm&fs=1"
         f"&to={recruiter['email']}"
         f"&su={urllib.parse.quote(subject)}"
         f"&body={urllib.parse.quote(body)}"
     )
-    webbrowser.open(gmail_url)
-    console.print(f"[green]Opened Gmail compose — To: {recruiter['email']}[/green]")
+
+    open_in_chrome(gmail_url)
+    console.print(f"[green]Opened Gmail in Chrome — To: {recruiter['email']}[/green]")
 
 
 def _adapt_cv_for_job(job) -> None:
