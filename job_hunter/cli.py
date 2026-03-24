@@ -527,12 +527,22 @@ def _adapt_cv_for_job(job) -> None:
     html_path = Config.OUTPUT_DIR / f"{json_path.stem}.html"
     renderer.render_html_file(adapted, html_path)
 
-    # 5. Show result
+    # 5. Generate change summary
+    from job_hunter.cv.change_summary import generate_change_summary
+    changes_path = generate_change_summary(
+        base_cv=base_cv,
+        adapted_cv=adapted,
+        job_title=job.title,
+        company=job.company,
+    )
+
+    # 6. Show result
     from rich.panel import Panel
     console.print(Panel(
-        f"[bold]Title:[/bold]  {adapted.get('title', '')}\n"
-        f"[bold]JSON:[/bold]   {json_path}\n"
-        f"[bold]HTML:[/bold]   {html_path}",
+        f"[bold]Title:[/bold]    {adapted.get('title', '')}\n"
+        f"[bold]JSON:[/bold]     {json_path}\n"
+        f"[bold]HTML:[/bold]     {html_path}\n"
+        f"[bold]Changes:[/bold]  {changes_path}",
         title="[green]CV Adapted[/green]",
         border_style="green",
     ))
