@@ -21,7 +21,7 @@ If you exceed 150 words, you have failed. Cut ruthlessly.
 STRUCTURE — exactly 3 parts:
 1. PARAGRAPH 1 (2 sentences): Who the candidate is + what position they are applying for.
 2. PARAGRAPH 2 (2-3 sentences): ONE differentiating point relevant to this specific role.
-   - Software/Python/automation role → mention the job-hunter project (facts only: Python, REST APIs, 24 companies)
+   - Software/Python/automation role → mention the job-hunter project (facts only: Python, REST APIs, dozens of company career pages)
    - Chip/hardware/verification role → mention relevant coursework or the math grades
    - Pick ONE. Do NOT list multiple selling points.
 3. CLOSING (1 sentence): "My CV is attached. I'm available 2-3 days per week and would welcome the opportunity to discuss."
@@ -173,7 +173,7 @@ ACADEMIC YEAR — CRITICAL:
         if mention_project:
             project_hint = (
                 "- For paragraph 2, use the job-hunter project as the differentiating point "
-                "(Python, REST APIs, scraping 24 companies, Claude AI integration).\n"
+                "(Python, REST APIs, scraping dozens of company career pages, Claude AI integration).\n"
             )
 
         return f"""Write a SHORT cover letter (100-150 words body) for this application.
