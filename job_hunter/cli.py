@@ -725,8 +725,13 @@ def _print_jobs_table(jobs_with_flags) -> None:
 def _job_action_menu(job) -> None:
     from job_hunter.applications.tracker import ApplicationTracker
     from job_hunter.applications.models import ApplicationStatus
+    from job_hunter.recruiters.manager import RecruiterManager
 
     while True:
+        recruiter_mgr = RecruiterManager()
+        recruiters = recruiter_mgr.find_by_company_fuzzy(job.company)
+        recruiter = recruiters[0] if recruiters else None
+
         console.print(f"\n[bold cyan]{job.title}[/bold cyan] — {job.company}, {job.location}")
         console.print(f"[dim]{job.url}[/dim]\n")
         console.print("  [bold][1][/bold] Show full details")
@@ -734,9 +739,13 @@ def _job_action_menu(job) -> None:
         console.print("  [bold][3][/bold] Generate cover letter")
         console.print("  [bold][4][/bold] Open in browser")
         console.print("  [bold][5][/bold] Track application")
-        console.print("  [bold][6][/bold] Back to list")
+        if recruiter:
+            console.print(f"  [bold][6][/bold] Send email to recruiter ([cyan]{recruiter.email}[/cyan])")
+        else:
+            console.print("  [bold][6][/bold] Send email to recruiter [dim](no recruiter saved)[/dim]")
+        console.print("  [bold][7][/bold] Back to list")
 
-        action = click.prompt("\nChoose", default="6", show_default=False)
+        action = click.prompt("\nChoose", default="7", show_default=False)
 
         if action == "1":
             panel_text = (
@@ -774,10 +783,47 @@ def _job_action_menu(job) -> None:
                 console.print(f"[green]Tracked! Application ID: {app.id}[/green]")
 
         elif action == "6":
+            if not recruiter:
+                console.print("[yellow]No recruiter saved for this company.[/yellow]")
+            else:
+                _send_email_to_recruiter(job, recruiter)
+
+        elif action == "7":
             break
 
         else:
             console.print("[red]Invalid option.[/red]")
+
+
+def _send_email_to_recruiter(job, recruiter) -> None:
+    """Open default email client with pre-filled email to recruiter."""
+    import urllib.parse
+    import webbrowser
+    from job_hunter.cover_letter.history import CoverLetterHistory
+
+    subject = f"Application for {job.title} position"
+
+    # Use most recent cover letter for this company if available
+    history = CoverLetterHistory()
+    letters = history.get_by_company(job.company)
+    if letters:
+        latest = sorted(letters, key=lambda r: r.created_at, reverse=True)[0]
+        body = latest.content
+    else:
+        body = (
+            f"Dear {recruiter.name},\n\n"
+            f"I am writing to express my interest in the {job.title} position at {job.company}.\n\n"
+            f"Please find my application attached. I would welcome the opportunity to discuss how my background aligns with your needs.\n\n"
+            f"Best regards"
+        )
+
+    mailto = (
+        f"mailto:{recruiter.email}"
+        f"?subject={urllib.parse.quote(subject)}"
+        f"&body={urllib.parse.quote(body)}"
+    )
+    webbrowser.open(mailto)
+    console.print(f"[green]Opened email client — To: {recruiter.email}[/green]")
 
 
 def _adapt_cv_for_job(job) -> None:
