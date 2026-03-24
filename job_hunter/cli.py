@@ -319,6 +319,31 @@ def recruiters_remove(company, email):
         console.print(f"[yellow]Not found: {email} @ {company}[/yellow]")
 
 
+@recruiters.command("search")
+@click.argument("company")
+def recruiters_search(company):
+    """Open LinkedIn and Google searches to find recruiters for a company."""
+    import urllib.parse
+    import time
+
+    linkedin_query = f"{company} Israel recruiter talent acquisition HR"
+    google_query = f"{company} Israel recruiter email HR contact"
+
+    linkedin_url = f"https://www.linkedin.com/search/results/people/?keywords={urllib.parse.quote(linkedin_query)}"
+    google_url = f"https://www.google.com/search?q={urllib.parse.quote(google_query)}"
+
+    console.print(f"[bold]Searching for recruiters at {company}...[/bold]\n")
+    console.print("[cyan]Opening LinkedIn search...[/cyan]")
+    open_in_chrome(linkedin_url)
+    time.sleep(1)
+    console.print("[cyan]Opening Google search...[/cyan]")
+    open_in_chrome(google_url)
+
+    console.print(f"\n[green]Searches opened in Chrome.[/green]")
+    console.print(f"\n[dim]When you find a recruiter, save them with:[/dim]")
+    console.print(f'[bold]job-hunter recruiters add -c "{company}" -n "Name" -e "email@company.com"[/bold]')
+
+
 # ---------------------------------------------------------------------------
 # Jobs commands
 # ---------------------------------------------------------------------------
