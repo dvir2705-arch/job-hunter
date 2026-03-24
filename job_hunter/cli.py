@@ -927,8 +927,33 @@ def _adapt_cv_for_job(job) -> None:
         border_style="green",
     ))
 
-    if click.confirm("Open PDF in browser?", default=True):
-        open_in_chrome(str(pdf_path.resolve()))
+    while True:
+        console.print("\n[bold cyan]CV adapted! What would you like to do?[/bold cyan]")
+        console.print("  [bold][1][/bold] View adapted CV (PDF)")
+        console.print("  [bold][2][/bold] View changes summary (what was modified)")
+        console.print("  [bold][3][/bold] Back to job menu")
+
+        view_choice = click.prompt("\nChoose", default="3", show_default=False)
+
+        if view_choice == "1":
+            if pdf_path and Path(pdf_path).exists():
+                open_in_chrome(str(Path(pdf_path).absolute()))
+                console.print(f"[green]Opened CV: {pdf_path}[/green]")
+            else:
+                console.print("[yellow]PDF not found[/yellow]")
+
+        elif view_choice == "2":
+            if changes_path and Path(changes_path).exists():
+                open_in_chrome(str(Path(changes_path).absolute()))
+                console.print(f"[green]Opened changes summary: {changes_path}[/green]")
+            else:
+                console.print("[yellow]Changes file not found[/yellow]")
+
+        elif view_choice == "3":
+            break
+
+        else:
+            console.print("[red]Invalid option[/red]")
 
 
 def _generate_cover_letter_for_job(job) -> None:
