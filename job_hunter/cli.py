@@ -796,8 +796,10 @@ def _job_action_menu(job) -> None:
 
 
 def _send_email_to_recruiter(job, recruiter) -> None:
-    """Open Gmail compose in Chrome with pre-filled email to recruiter."""
+    """Open Gmail compose in Chrome with pre-filled email, and prepare CV for attachment."""
     import urllib.parse
+    import subprocess
+    from pathlib import Path
     from job_hunter.cover_letter.history import CoverLetterHistory
 
     subject = f"Application for {job.title} position"
@@ -818,16 +820,45 @@ def _send_email_to_recruiter(job, recruiter) -> None:
             f"Dvir2705@gmail.com | 053-3401466"
         )
 
-    # Open Gmail compose directly in Chrome
+    # Open Gmail compose in Chrome
     gmail_url = (
         f"https://mail.google.com/mail/u/0/?view=cm&fs=1"
         f"&to={recruiter['email']}"
         f"&su={urllib.parse.quote(subject)}"
         f"&body={urllib.parse.quote(body)}"
     )
-
     open_in_chrome(gmail_url)
     console.print(f"[green]Opened Gmail in Chrome — To: {recruiter['email']}[/green]")
+
+    # Find adapted CV for this company
+    cv_dir = Path("output/cv")
+    if cv_dir.exists():
+        # Look for HTML CVs for this company
+        company_clean = job.company.lower().replace(" ", "_").replace(".", "")
+        cv_files = list(cv_dir.glob(f"*{company_clean}*.html")) + list(cv_dir.glob(f"*{job.company}*.html"))
+
+        if not cv_files:
+            # Try broader search
+            cv_files = list(cv_dir.glob("*.html"))
+
+        if cv_files:
+            # Get most recent
+            latest_cv = max(cv_files, key=lambda p: p.stat().st_mtime)
+
+            # Copy path to clipboard
+            try:
+                subprocess.run(['clip'], input=str(latest_cv.absolute()).encode(), check=True)
+                console.print(f"[cyan]CV path copied to clipboard:[/cyan] {latest_cv.name}")
+            except Exception:
+                pass
+
+            # Open folder with CV selected
+            subprocess.run(['explorer', '/select,', str(latest_cv.absolute())])
+            console.print(f"[cyan]Opened CV folder — drag file to Gmail to attach[/cyan]")
+        else:
+            console.print("[yellow]No adapted CV found. Run [2] Adapt CV first.[/yellow]")
+    else:
+        console.print("[yellow]No CV folder found.[/yellow]")
 
 
 def _adapt_cv_for_job(job) -> None:
