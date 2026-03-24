@@ -927,8 +927,8 @@ def _adapt_cv_for_job(job) -> None:
         border_style="green",
     ))
 
-    if click.confirm("Open HTML in browser?", default=True):
-        open_in_chrome(str(html_path.resolve()))
+    if click.confirm("Open PDF in browser?", default=True):
+        open_in_chrome(str(pdf_path.resolve()))
 
 
 def _generate_cover_letter_for_job(job) -> None:
