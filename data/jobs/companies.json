@@ -3,70 +3,271 @@
     {
       "name": "Intel",
       "career_url": "jobs.intel.com",
-      "locations": ["Haifa", "Petah Tikva", "Jerusalem"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "FPGA", "signal processing", "communications", "student", "intern", "junior"]
+      "locations": ["Haifa", "Petah Tikva", "Jerusalem", "Kiryat Gat"],
+      "domain": ["chip_design", "ai_ml", "communications"],
+      "ats": "workday",
+      "scraper": "IntelScraper",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "FPGA", "signal processing", "communications", "student", "intern"]
     },
     {
       "name": "NVIDIA",
       "career_url": "nvidia.com/careers",
       "locations": ["Tel Aviv", "Yokneam"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "machine learning", "student", "intern", "junior"]
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "workday",
+      "scraper": "NVIDIAScraper",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "machine learning", "student", "intern"]
     },
     {
       "name": "Apple",
       "career_url": "apple.com/careers/il",
-      "locations": ["Herzliya"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "AI", "machine learning", "student", "intern", "junior"]
+      "locations": ["Herzliya", "Jerusalem"],
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "workday",
+      "scraper": "linkedin_only",
+      "notes": "Workday returns 500; found via LinkedIn guest search",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "AI", "student", "intern"]
     },
     {
       "name": "Qualcomm",
       "career_url": "qualcomm.com/careers",
-      "locations": ["Tel Aviv"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "RF", "signal processing", "communications", "PHY", "student", "intern", "junior"]
+      "locations": ["Tel Aviv", "Herzliya", "Haifa"],
+      "domain": ["chip_design", "rf", "communications"],
+      "ats": "workday",
+      "scraper": "blocked_422",
+      "notes": "Workday API returns 422; found via LinkedIn",
+      "target_keywords": ["chip design", "digital design", "RTL", "RF", "signal processing", "communications", "PHY", "student", "intern"]
     },
     {
       "name": "Mobileye",
-      "career_url": "mobileye.com/careers",
-      "locations": ["Jerusalem"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "AI", "deep learning", "algorithm", "student", "intern", "junior"]
+      "career_url": "careers.mobileye.com",
+      "locations": ["Jerusalem", "Tel Aviv", "Haifa"],
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "custom",
+      "scraper": "blocked_401",
+      "notes": "Own careers portal; Workday 401; Lever tenant not found",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "AI", "deep learning", "student", "intern"]
     },
     {
       "name": "Marvell",
       "career_url": "marvell.com/careers",
       "locations": ["Yokneam"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "PHY", "signal processing", "student", "intern", "junior"]
+      "domain": ["chip_design", "communications"],
+      "ats": "workday",
+      "scraper": "MarvellScraper",
+      "notes": "0 Israel student jobs currently; API ready for when they post",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "PHY", "signal processing", "student", "intern"]
     },
     {
       "name": "Broadcom",
       "career_url": "broadcom.com/careers",
       "locations": ["Tel Aviv"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "signal processing", "student", "intern", "junior"]
+      "domain": ["chip_design", "communications"],
+      "ats": "unknown",
+      "scraper": "blocked_dns",
+      "notes": "careers.broadcom.com DNS fails; found occasionally via LinkedIn",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "communications", "signal processing", "student", "intern"]
     },
     {
       "name": "Amazon Annapurna",
       "career_url": "amazon.jobs",
       "locations": ["Tel Aviv", "Haifa"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "inference", "student", "intern", "junior"]
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "amazon_jobs",
+      "scraper": "AmazonScraper",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "micro-architecture", "AI", "inference", "student", "intern"]
     },
     {
       "name": "Sony Semiconductor",
       "career_url": "sonysemiconductor.com/careers",
       "locations": ["Hod HaSharon"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "RF", "student", "intern", "junior"]
+      "domain": ["chip_design", "rf"],
+      "ats": "unknown",
+      "scraper": "not_tested",
+      "target_keywords": ["chip design", "digital design", "RTL", "verification", "signal processing", "RF", "student", "intern"]
     },
     {
       "name": "Hailo",
       "career_url": "hailo.ai/careers",
       "locations": ["Tel Aviv"],
-      "target_keywords": ["chip design", "digital design", "RTL", "verification", "AI", "deep learning", "machine learning", "algorithm", "inference", "student", "intern", "junior"]
+      "domain": ["ai_ml", "chip_design"],
+      "ats": "custom",
+      "scraper": "js_rendered",
+      "notes": "JS-rendered careers page, no public API found",
+      "target_keywords": ["chip design", "RTL", "verification", "AI", "deep learning", "machine learning", "algorithm", "inference", "student", "intern"]
+    },
+    {
+      "name": "Applied Materials",
+      "career_url": "amat.wd1.myworkdayjobs.com/External",
+      "locations": ["Rehovot", "Kiryat Gat", "Migdal HaEmeq"],
+      "domain": ["chip_design", "process_equipment"],
+      "ats": "workday",
+      "scraper": "AppliedMaterialsScraper",
+      "notes": "Workday API confirmed working (79 total jobs); search 'intern' not 'student'",
+      "target_keywords": ["engineer", "intern", "hardware", "process", "algorithms", "imaging", "student"]
+    },
+    {
+      "name": "Analog Devices",
+      "career_url": "analogdevices.wd1.myworkdayjobs.com/External",
+      "locations": ["Raanana"],
+      "domain": ["chip_design", "rf", "mixed_signal"],
+      "ats": "workday",
+      "scraper": "AnalogDevicesScraper",
+      "notes": "Workday API confirmed working (42 total jobs); 0 Israel student hits currently",
+      "target_keywords": ["digital design", "mixed signal", "DSP", "signal processing", "RF", "intern", "student"]
+    },
+    {
+      "name": "Tower Semiconductor",
+      "career_url": "careers.towersemi.com",
+      "locations": ["Migdal HaEmeq", "Netanya"],
+      "domain": ["chip_design", "rf"],
+      "ats": "custom",
+      "scraper": "not_tested",
+      "notes": "Specialty fabs: SiGe, BiCMOS, Silicon Photonics, RFCMOS. Active student programs",
+      "target_keywords": ["chip design", "process", "RF", "mixed signal", "student", "intern"]
+    },
+    {
+      "name": "Elbit Systems",
+      "career_url": "elbitsystems.com/careers",
+      "locations": ["Haifa", "Tel Aviv", "Netanya", "Beer Sheva"],
+      "domain": ["rf", "chip_design", "defense"],
+      "ats": "smartrecruiters",
+      "scraper": "not_implemented",
+      "notes": "SmartRecruiters API accessible; 0 Israel student jobs found currently",
+      "target_keywords": ["digital design", "FPGA", "RF", "signal processing", "communications", "student", "intern"]
+    },
+    {
+      "name": "Sandisk",
+      "career_url": "jobs.westerndigital.com",
+      "locations": ["Kfar Saba", "Omer"],
+      "domain": ["chip_design"],
+      "ats": "smartrecruiters",
+      "scraper": "not_implemented",
+      "notes": "Part of Western Digital; SmartRecruiters API accessible; found via LinkedIn",
+      "target_keywords": ["ASIC", "verification", "digital design", "chip design", "student", "intern"]
+    },
+    {
+      "name": "Samsung Semiconductor Israel",
+      "career_url": "samsung-careers.co.il",
+      "locations": ["Petah Tikva", "Tel Aviv"],
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "comeet",
+      "scraper": "not_tested",
+      "notes": "SIRC - Samsung Israel R&D Center. Focus on AI/ML, image processing. SSL cert issue on domain",
+      "target_keywords": ["chip design", "AI", "machine learning", "computer vision", "student", "intern"]
+    },
+    {
+      "name": "IBM Research Israel",
+      "career_url": "research.ibm.com/labs/israel",
+      "locations": ["Haifa", "Givatayim"],
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "ibm_internal",
+      "scraper": "not_tested",
+      "notes": "Largest IBM Research outside USA. Chip design + storage + AI. Active internship program",
+      "target_keywords": ["chip design", "storage", "AI", "research", "intern", "student"]
+    },
+    {
+      "name": "Arbe Robotics",
+      "career_url": "arberobotics.com/careers",
+      "locations": ["Tel Aviv"],
+      "domain": ["rf", "chip_design"],
+      "ats": "custom",
+      "scraper": "dns_fail",
+      "notes": "4D imaging radar chipsets. RFIC + DSP. Found via LinkedIn",
+      "target_keywords": ["RFIC", "RF", "radar", "chip design", "DSP", "signal processing", "student", "intern"]
+    },
+    {
+      "name": "Vayyar",
+      "career_url": "apply.workable.com/vayyar",
+      "locations": ["Yehud"],
+      "domain": ["rf", "chip_design"],
+      "ats": "workable",
+      "scraper": "not_implemented",
+      "notes": "4D mmWave imaging radar. RFIC + DSP. Workable API requires auth",
+      "target_keywords": ["RFIC", "RF", "mmWave", "radar", "chip design", "DSP", "student", "intern"]
+    },
+    {
+      "name": "Valens Semiconductor",
+      "career_url": "valens.com/positions",
+      "locations": ["Hod HaSharon"],
+      "domain": ["chip_design", "communications"],
+      "ats": "email",
+      "scraper": "not_implemented",
+      "notes": "Automotive in-vehicle connectivity chips. Public company (VLN). Apply via jobs@valens.com",
+      "target_keywords": ["chip design", "digital design", "SerDes", "automotive", "communications", "student", "intern"]
+    },
+    {
+      "name": "Cisco Israel",
+      "career_url": "careers.cisco.com",
+      "locations": ["Tel Aviv", "Haifa", "Petah Tikva"],
+      "domain": ["chip_design", "communications"],
+      "ats": "cisco_internal",
+      "scraper": "not_tested",
+      "notes": "ASIC design, deep packet inspection, network management. 98 Israel jobs",
+      "target_keywords": ["ASIC", "chip design", "digital design", "networking", "signal processing", "student", "intern"]
+    },
+    {
+      "name": "General Motors Israel",
+      "career_url": "search-careers.gm.com/en/locations/israel",
+      "locations": ["Herzliya"],
+      "domain": ["ai_ml", "chip_design"],
+      "ats": "gm_internal",
+      "scraper": "not_tested",
+      "notes": "750+ engineers. Autonomous, EV, connected vehicles. Active student positions posted",
+      "target_keywords": ["software", "algorithms", "AI", "autonomous", "signal processing", "student", "intern"]
+    },
+    {
+      "name": "NextSilicon",
+      "career_url": "nextsilicon.com/careers",
+      "locations": ["Givatayim"],
+      "domain": ["chip_design", "ai_ml"],
+      "ats": "custom",
+      "scraper": "not_tested",
+      "notes": "HPC/AI accelerator startup (Maverick-2 dataflow chip). Founded 2017",
+      "target_keywords": ["chip design", "RTL", "verification", "AI", "HPC", "student", "intern"]
+    },
+    {
+      "name": "Ceragon Networks",
+      "career_url": "ceragon.com/careers",
+      "locations": ["Petah Tikva"],
+      "domain": ["rf", "communications"],
+      "ats": "custom",
+      "scraper": "not_tested",
+      "notes": "Wireless backhaul microwave/mmWave systems. Israeli HQ",
+      "target_keywords": ["RF", "microwave", "signal processing", "communications", "FPGA", "student", "intern"]
     }
   ],
   "job_boards": [
-    {"name": "LinkedIn Jobs", "url": "linkedin.com/jobs", "notes": "Search by keywords, catches startups"},
-    {"name": "Indeed Israel", "url": "il.indeed.com", "notes": "General job board"},
-    {"name": "Glassdoor", "url": "glassdoor.com", "notes": "Reviews + jobs"},
-    {"name": "AllJobs", "url": "alljobs.co.il", "notes": "Israeli job board"},
-    {"name": "Drushim", "url": "drushim.co.il", "notes": "Israeli job board"},
-    {"name": "StartupNationCentral", "url": "startupnationcentral.org", "notes": "Startup database"}
-  ]
+    {"name": "LinkedIn Jobs", "url": "linkedin.com/jobs", "notes": "Best source - catches all companies, guest mode works, 46 results per search"},
+    {"name": "Indeed Israel", "url": "il.indeed.com", "notes": "General job board - blocked by anti-bot"},
+    {"name": "Glassdoor", "url": "glassdoor.com", "notes": "Reviews + jobs - blocked by Cloudflare"},
+    {"name": "AllJobs", "url": "alljobs.co.il", "notes": "Israeli job board - not yet tested"},
+    {"name": "Drushim", "url": "drushim.co.il", "notes": "Israeli job board - not yet tested"},
+    {"name": "StartupNationCentral", "url": "startupnationcentral.org", "notes": "Startup database for discovery"}
+  ],
+  "scraper_status": {
+    "working": [
+      {"name": "IntelScraper", "type": "workday_api", "israel_jobs": 6},
+      {"name": "NVIDIAScraper", "type": "workday_api", "israel_jobs": 1},
+      {"name": "MarvellScraper", "type": "workday_api", "israel_jobs": 0},
+      {"name": "AmazonScraper", "type": "amazon_jobs_api", "israel_jobs": 8},
+      {"name": "LinkedInScraper", "type": "html_guest", "israel_jobs": 46}
+    ],
+    "blocked": [
+      {"name": "Apple", "reason": "Workday 500"},
+      {"name": "Qualcomm", "reason": "Workday 422"},
+      {"name": "Mobileye", "reason": "Workday 401 / Lever tenant unknown"},
+      {"name": "Broadcom", "reason": "DNS failure"},
+      {"name": "Microsoft", "reason": "gcsservices 502"},
+      {"name": "Google", "reason": "JS-rendered portal"},
+      {"name": "Indeed", "reason": "403 anti-bot"},
+      {"name": "Glassdoor", "reason": "403 Cloudflare"}
+    ],
+    "todo": [
+      {"name": "AppliedMaterialsScraper", "type": "workday_api", "notes": "API confirmed, need Israel jobs"},
+      {"name": "AnalogDevicesScraper", "type": "workday_api", "notes": "API confirmed, 0 Israel currently"},
+      {"name": "ElbitScraper", "type": "smartrecruiters_api", "notes": "API accessible, 0 Israel currently"},
+      {"name": "SandiskScraper", "type": "smartrecruiters_api", "notes": "API accessible, 0 Israel currently"}
+    ]
+  }
 }
