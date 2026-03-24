@@ -831,15 +831,15 @@ def _send_email_to_recruiter(job, recruiter) -> None:
     console.print(f"[green]Opened Gmail in Chrome — To: {recruiter['email']}[/green]")
 
     # Find adapted CV for this company
-    cv_dir = Path("output/cv")
+    cv_dir = Path("output")
     if cv_dir.exists():
-        # Look for HTML CVs for this company
-        company_clean = job.company.lower().replace(" ", "_").replace(".", "")
-        cv_files = list(cv_dir.glob(f"*{company_clean}*.html")) + list(cv_dir.glob(f"*{job.company}*.html"))
+        # Match CV files: cv_mobileye_*.html
+        company_clean = job.company.lower().replace(" ", "_")
+        cv_files = list(cv_dir.glob(f"cv_{company_clean}*.html"))
 
         if not cv_files:
-            # Try broader search
-            cv_files = list(cv_dir.glob("*.html"))
+            # Try partial match
+            cv_files = [f for f in cv_dir.glob("cv_*.html") if company_clean in f.name.lower()]
 
         if cv_files:
             # Get most recent
