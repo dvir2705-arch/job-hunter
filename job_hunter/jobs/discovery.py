@@ -139,6 +139,46 @@ class CompanyDiscovery:
             self.data["added_to_main"].append(company)
         self._save()
 
+    def add_to_companies_json(self, company: str) -> bool:
+        """Append a basic stub entry to companies.json and mark as added.
+
+        Returns True on success, False if company already exists there.
+        """
+        if not COMPANIES_FILE.exists():
+            return False
+
+        with open(COMPANIES_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Guard: don't duplicate
+        existing_names = {c["name"].lower() for c in data.get("companies", [])}
+        if company.lower() in existing_names:
+            return False
+
+        entry = self.data["discovered"].get(company, {})
+        stub = {
+            "name": company,
+            "career_url": "",
+            "locations": list(set(entry.get("locations", []))),
+            "domain": [],
+            "ats": "unknown",
+            "scraper": "todo",
+            "target_keywords": ["student", "intern"],
+            "notes": f"Auto-discovered via {entry.get('source', 'scan')}. "
+                     f"Seen {entry.get('times_seen', 1)}x. "
+                     f"Sample roles: {', '.join(entry.get('job_titles', [])[:2])}",
+        }
+
+        data.setdefault("companies", []).append(stub)
+
+        with open(COMPANIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        self.mark_added(company)
+        # Refresh known companies so subsequent calls in the same session are correct
+        self.known_companies.add(company.lower())
+        return True
+
     def get_stats(self) -> Dict:
         pending = [c for c in self.data["discovered"].values() if c["status"] == "pending"]
         return {

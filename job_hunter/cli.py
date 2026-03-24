@@ -388,9 +388,13 @@ def jobs_discover(relevance):
                 console.print(f"[dim]Ignored: {company_name}[/dim]")
                 pending.pop(idx)
             else:
-                discovery.mark_added(company_name)
-                console.print(f"[green]Marked as added: {company_name}[/green]")
-                console.print(f"[dim]Remember to manually add it to data/jobs/companies.json[/dim]")
+                ok = discovery.add_to_companies_json(company_name)
+                if ok:
+                    console.print(f"[green]Added to companies.json: {company_name}[/green]")
+                    console.print(f"[dim]Edit data/jobs/companies.json to fill in career_url and scraper.[/dim]")
+                else:
+                    console.print(f"[yellow]{company_name} is already in companies.json.[/yellow]")
+                    discovery.mark_added(company_name)
                 pending.pop(idx)
         else:
             console.print("[red]Usage: a <N> or i <N> or q[/red]")
