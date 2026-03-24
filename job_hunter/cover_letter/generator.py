@@ -13,36 +13,43 @@ from .history import CoverLetterHistory
 class CoverLetterGenerator:
     """Generates personalized cover letters using Claude AI."""
 
-    SYSTEM_PROMPT = '''You are a professional cover letter writer.
+    SYSTEM_PROMPT = '''You are a professional cover letter writer. Write SHORT, honest cover letters.
 
-Write cover letters that are:
-- Professional but personable
-- Specific to the job and company
-- Highlighting relevant skills and experience
-- Concise (3-4 paragraphs, no padding)
+TARGET LENGTH: 100-150 words maximum (body only, not counting greeting/signature).
+If you exceed 150 words, you have failed. Cut ruthlessly.
 
-TONE RULES — strictly enforced:
-- Write plainly and confidently. Do NOT use hollow phrases like:
-  "strong aptitude for", "genuine drive", "rigorous systems-level thinking",
-  "when it matters most", "I engage seriously", "deeply passionate", "truly excited"
-- Let facts do the talking. Bad: "strong mathematical abilities". Good: "grades of 97-100 in calculus and linear algebra"
-- No superlatives: NOT "exceptional", "outstanding", "remarkable", "unparalleled"
-- No self-deprecation either: NOT "small project", "simple tool", "just a student"
-- Sound like a confident person talking normally, not a LinkedIn post
+STRUCTURE — exactly 3 parts:
+1. PARAGRAPH 1 (2 sentences): Who the candidate is + what position they are applying for.
+2. PARAGRAPH 2 (2-3 sentences): ONE differentiating point relevant to this specific role.
+   - Software/Python/automation role → mention the job-hunter project (facts only: Python, REST APIs, 24 companies)
+   - Chip/hardware/verification role → mention relevant coursework or the math grades
+   - Pick ONE. Do NOT list multiple selling points.
+3. CLOSING (1 sentence): "My CV is attached. I'm available 2-3 days per week and would welcome the opportunity to discuss."
 
-ACADEMIC YEAR RULE — CRITICAL:
-- The prompt will tell you the candidate's current academic year explicitly (e.g. "3rd year")
-- Use EXACTLY that year. Do NOT guess or infer from dates.
-- If it says 3rd year, write "third-year". Never write "second-year" or "fourth-year".
+GREETING:
+- If recruiter_name is provided: "Dear [Name],"
+- Otherwise: "Dear [Company] Hiring Team,"
 
-RULES for mentioning the job-hunter project:
-- Use BALANCED tone — state facts, no superlatives, no self-deprecation
-- Just say: "I built a job search automation tool in Python"
-- Facts worth stating: Python, REST APIs, 24 companies, Claude AI integration
+SIGNATURE (always exactly):
+[Name]
+[Email] | [Phone]
 
-When mentioning job discovery through the tool, phrase it naturally:
-- EN: "I discovered this position through a job search automation tool I built..."
-- HE: "את המשרה מצאתי דרך כלי אוטומציה לחיפוש משרות שבניתי..."
+TONE — strictly enforced:
+- Write plainly. Do NOT use: "passionate", "excited", "strong aptitude for", "genuine drive",
+  "rigorous", "when it matters most", "I engage seriously", "truly", "deeply"
+- No superlatives: not "exceptional", "outstanding", "remarkable"
+- No self-deprecation: not "small project", "just a student"
+- State facts. Let them speak.
+
+NEVER include:
+- Full list of grades (they are in the CV — the recruiter will read it)
+- Detailed military description (it is in the CV)
+- Claims about Linux, C++, or any skill not clearly in the CV
+- More than one differentiating point in paragraph 2
+- Filler sentences that add no information
+
+ACADEMIC YEAR — CRITICAL:
+- The prompt states the candidate's year explicitly. Use it exactly as given.
 '''
 
     def __init__(self):
@@ -89,7 +96,7 @@ When mentioning job discovery through the tool, phrase it naturally:
 
         response = self.client.messages.create(
             model=self.model,
-            max_tokens=1500,
+            max_tokens=600,
             system=self.SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -154,45 +161,37 @@ When mentioning job discovery through the tool, phrase it naturally:
 
         lang_instruction = "Write in English." if language == "en" else "כתוב בעברית."
 
-        project_instruction = ""
+        project_hint = ""
         if mention_project:
-            project_instruction = (
-                "\nINCLUDE THIS: Naturally mention that the candidate discovered this position "
-                "through a job search automation tool they built in Python. Keep it to 1-2 sentences. "
-                "Use balanced tone — just state the facts, no superlatives, no self-deprecation.\n"
+            project_hint = (
+                "- For paragraph 2, use the job-hunter project as the differentiating point "
+                "(Python, REST APIs, scraping 24 companies, Claude AI integration).\n"
             )
 
-        template = LETTER_STRUCTURE.get(language, LETTER_STRUCTURE["en"])
-        closing = template["closing"].format(company=job.company)
+        return f"""Write a SHORT cover letter (100-150 words body) for this application.
 
-        return f"""Write a cover letter for this job application.
-
-## Job Details:
+## Job:
 - Title: {job.title}
 - Company: {job.company}
 - Location: {job.location}
 
 ## Job Description:
-{job_description or "Not available - infer from job title and company"}
+{job_description or "Not available — infer from title and company"}
 
 ## Candidate CV (JSON):
 {json.dumps(cv, indent=2, ensure_ascii=False)}
 
-## Candidate Contact Info:
+## Candidate:
 - Name: {personal_info['name']}
 - Email: {personal_info['email']}
 - Phone: {personal_info['phone']}
-- LinkedIn: {personal_info['linkedin']}
+- Academic year: **{academic_year} year** (use this exactly — do not guess)
 
 ## Instructions:
-- {lang_instruction}
+- Language: {lang_instruction}
 - Tone: {tone_instruction}
-- Length: 3-4 paragraphs (not too long)
-- Academic year: the candidate is in their **{academic_year} year** — use this exactly
-- End with: {closing}
-- Include name and contact info in the signature
-{project_instruction}
-Write a compelling cover letter that connects the candidate's background to this role.
+- Body must be 100-150 words. Count them. Cut if over.
+{project_hint}Follow the structure and rules in the system prompt exactly.
 """
 
 
