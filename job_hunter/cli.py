@@ -234,6 +234,92 @@ def apps_stats():
 
 
 # ---------------------------------------------------------------------------
+# Recruiter commands
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def recruiters():
+    """Manage recruiter contacts."""
+
+
+@recruiters.command("add")
+@click.option("--company", "-c", required=True, help="Company name.")
+@click.option("--name", "-n", required=True, help="Recruiter full name.")
+@click.option("--email", "-e", required=True, help="Recruiter email.")
+@click.option("--linkedin", "-l", default="", help="LinkedIn profile URL.")
+@click.option("--role", "-r", default="", help="Recruiter role/title.")
+@click.option("--notes", default="", help="Free-text notes.")
+def recruiters_add(company, name, email, linkedin, role, notes):
+    """Add a recruiter contact for a company."""
+    from job_hunter.recruiters.manager import RecruiterManager
+    mgr = RecruiterManager()
+    rec = mgr.add(company=company, name=name, email=email,
+                  linkedin=linkedin, role=role, notes=notes)
+    console.print(f"[green]Saved:[/green] {rec.name} @ {rec.company} ({rec.email})")
+
+
+@recruiters.command("list")
+@click.option("--company", "-c", default=None, help="Filter by company name (fuzzy).")
+def recruiters_list(company):
+    """List saved recruiter contacts."""
+    from job_hunter.recruiters.manager import RecruiterManager
+    from rich.table import Table
+
+    mgr = RecruiterManager()
+
+    if company:
+        rows = mgr.find_by_company_fuzzy(company)
+        if not rows:
+            console.print(f"[yellow]No recruiters found for '{company}'.[/yellow]")
+            return
+    else:
+        rows = [
+            {"company": comp, **r}
+            for comp, recs in mgr.list_all().items()
+            for r in recs
+        ]
+        if not rows:
+            console.print("[yellow]No recruiters saved yet.[/yellow]")
+            return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Company", style="cyan")
+    table.add_column("Name")
+    table.add_column("Email", style="dim")
+    table.add_column("Role", style="dim")
+    table.add_column("Notes", style="dim")
+    table.add_column("Added", style="dim")
+
+    for r in rows:
+        table.add_row(
+            r.get("company", ""),
+            r.get("name", ""),
+            r.get("email", ""),
+            r.get("role", ""),
+            r.get("notes", "")[:40],
+            r.get("added_at", ""),
+        )
+    console.print(table)
+
+    stats = mgr.get_stats()
+    console.print(f"[dim]Total: {stats['total_recruiters']} recruiters across "
+                  f"{stats['companies_with_recruiters']} companies[/dim]")
+
+
+@recruiters.command("remove")
+@click.option("--company", "-c", required=True)
+@click.option("--email", "-e", required=True)
+def recruiters_remove(company, email):
+    """Remove a recruiter by email."""
+    from job_hunter.recruiters.manager import RecruiterManager
+    mgr = RecruiterManager()
+    if mgr.remove(company, email):
+        console.print(f"[green]Removed {email} from {company}.[/green]")
+    else:
+        console.print(f"[yellow]Not found: {email} @ {company}[/yellow]")
+
+
+# ---------------------------------------------------------------------------
 # Jobs commands
 # ---------------------------------------------------------------------------
 
@@ -624,9 +710,20 @@ def _generate_cover_letter_for_job(job) -> None:
         show_default=True,
     )
 
-    # 4. Ask recruiter name
-    recruiter_raw = click.prompt("Recruiter name (Enter to skip)", default="", show_default=False)
-    recruiter_name = recruiter_raw.strip() or None
+    # 4. Ask recruiter name — pre-fill if we have one saved
+    from job_hunter.recruiters.manager import RecruiterManager
+    saved_recruiters = RecruiterManager().find_by_company_fuzzy(job.company)
+    if saved_recruiters:
+        saved_name = saved_recruiters[0]["name"]
+        console.print(f"[dim]Found saved recruiter: {saved_name}[/dim]")
+        recruiter_raw = click.prompt(
+            "Recruiter name (Enter to use saved, type new name, or '-' to skip)",
+            default=saved_name,
+            show_default=True,
+        )
+    else:
+        recruiter_raw = click.prompt("Recruiter name (Enter to skip)", default="", show_default=False)
+    recruiter_name = None if recruiter_raw.strip() in ("", "-") else recruiter_raw.strip()
 
     # 5. Generate
     with console.status("Generating cover letter with Claude..."):
