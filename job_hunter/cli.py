@@ -833,13 +833,13 @@ def _send_email_to_recruiter(job, recruiter) -> None:
     # Find adapted CV for this company
     cv_dir = Path("output")
     if cv_dir.exists():
-        # Match CV files: cv_mobileye_*.html
+        # Match CV files: cv_mobileye_*.pdf
         company_clean = job.company.lower().replace(" ", "_")
-        cv_files = list(cv_dir.glob(f"cv_{company_clean}*.html"))
+        cv_files = list(cv_dir.glob(f"cv_{company_clean}*.pdf"))
 
         if not cv_files:
             # Try partial match
-            cv_files = [f for f in cv_dir.glob("cv_*.html") if company_clean in f.name.lower()]
+            cv_files = [f for f in cv_dir.glob("cv_*.pdf") if company_clean in f.name.lower()]
 
         if cv_files:
             # Get most recent
@@ -901,10 +901,11 @@ def _adapt_cv_for_job(job) -> None:
     label = f"{company_slug}_{title_slug}"
     json_path = cv_manager.save_version(adapted, label)
 
-    # 4. Render HTML
+    # 4. Render PDF
     renderer = CVRenderer()
-    html_path = Config.OUTPUT_DIR / f"{json_path.stem}.html"
-    renderer.render_html_file(adapted, html_path)
+    pdf_path = Config.OUTPUT_DIR / f"{json_path.stem}.pdf"
+    with console.status("Rendering PDF..."):
+        renderer.render_pdf(adapted, pdf_path)
 
     # 5. Generate change summary
     from job_hunter.cv.change_summary import generate_change_summary
@@ -920,7 +921,7 @@ def _adapt_cv_for_job(job) -> None:
     console.print(Panel(
         f"[bold]Title:[/bold]    {adapted.get('title', '')}\n"
         f"[bold]JSON:[/bold]     {json_path}\n"
-        f"[bold]HTML:[/bold]     {html_path}\n"
+        f"[bold]PDF:[/bold]      {pdf_path}\n"
         f"[bold]Changes:[/bold]  {changes_path}",
         title="[green]CV Adapted[/green]",
         border_style="green",
