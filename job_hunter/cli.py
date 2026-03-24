@@ -740,7 +740,7 @@ def _job_action_menu(job) -> None:
         console.print("  [bold][4][/bold] Open in browser")
         console.print("  [bold][5][/bold] Track application")
         if recruiter:
-            console.print(f"  [bold][6][/bold] Send email to recruiter ([cyan]{recruiter.email}[/cyan])")
+            console.print(f"  [bold][6][/bold] Send email to recruiter ([cyan]{recruiter['email']}[/cyan])")
         else:
             console.print("  [bold][6][/bold] Send email to recruiter [dim](no recruiter saved)[/dim]")
         console.print("  [bold][7][/bold] Back to list")
@@ -811,19 +811,19 @@ def _send_email_to_recruiter(job, recruiter) -> None:
         body = latest.content
     else:
         body = (
-            f"Dear {recruiter.name},\n\n"
+            f"Dear {recruiter['name']},\n\n"
             f"I am writing to express my interest in the {job.title} position at {job.company}.\n\n"
             f"Please find my application attached. I would welcome the opportunity to discuss how my background aligns with your needs.\n\n"
             f"Best regards"
         )
 
     mailto = (
-        f"mailto:{recruiter.email}"
+        f"mailto:{recruiter['email']}"
         f"?subject={urllib.parse.quote(subject)}"
         f"&body={urllib.parse.quote(body)}"
     )
     webbrowser.open(mailto)
-    console.print(f"[green]Opened email client — To: {recruiter.email}[/green]")
+    console.print(f"[green]Opened email client — To: {recruiter['email']}[/green]")
 
 
 def _adapt_cv_for_job(job) -> None:
