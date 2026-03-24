@@ -279,6 +279,11 @@ def jobs_scan(query, location, max_per_company, new_only):
     jobs_with_flags = JobHistory().update_and_mark_new(listings)
     new_count = sum(1 for _, is_new in jobs_with_flags if is_new)
 
+    from job_hunter.jobs.discovery import CompanyDiscovery
+    disc_stats = CompanyDiscovery().process_jobs(listings)
+    if disc_stats["new"] > 0:
+        console.print(f"[dim]Discovered {disc_stats['new']} new companies — run [bold]job-hunter jobs discover[/bold] to review[/dim]")
+
     if new_only:
         jobs_with_flags = [(job, is_new) for job, is_new in jobs_with_flags if is_new]
         if not jobs_with_flags:
@@ -315,6 +320,80 @@ def jobs_scan(query, location, max_per_company, new_only):
         # Re-print table so user can pick another
         console.print()
         _print_jobs_table(jobs_with_flags)
+
+
+@jobs.command("discover")
+@click.option("--relevance", "-r", default=None,
+              type=click.Choice(["high", "medium", "unknown", "low"]),
+              help="Filter by relevance level.")
+def jobs_discover(relevance):
+    """Review companies discovered during scans that aren't in companies.json."""
+    from job_hunter.jobs.discovery import CompanyDiscovery
+    from rich.panel import Panel
+
+    discovery = CompanyDiscovery()
+    stats = discovery.get_stats()
+
+    console.print(f"\n[bold]Company Discovery[/bold]  "
+                  f"total={stats['total_discovered']}  "
+                  f"pending={stats['pending_review']}  "
+                  f"[green]high={stats['high_relevance']}[/green]  "
+                  f"added={stats['added_to_main']}  "
+                  f"ignored={stats['ignored']}\n")
+
+    pending = discovery.get_pending(relevance=relevance)
+    if not pending:
+        msg = "No pending companies to review."
+        if relevance:
+            msg += f" (filter: {relevance})"
+        console.print(f"[yellow]{msg}[/yellow]")
+        return
+
+    for i, company in enumerate(pending, 1):
+        relevance_color = {"high": "green", "medium": "yellow", "unknown": "dim", "low": "red"}.get(
+            company["relevance_score"], "dim"
+        )
+        titles_preview = ", ".join(company["job_titles"][:3])
+        if len(company["job_titles"]) > 3:
+            titles_preview += f" (+{len(company['job_titles']) - 3} more)"
+
+        panel_text = (
+            f"[bold]{company['name']}[/bold]  "
+            f"[{relevance_color}]{company['relevance_score']}[/{relevance_color}]  "
+            f"seen {company['times_seen']}x  "
+            f"source: {company['source']}\n"
+            f"[dim]Roles:[/dim] {titles_preview}\n"
+            f"[dim]Locations:[/dim] {', '.join(company['locations'])}"
+        )
+        console.print(f"[dim]{i}.[/dim] {panel_text}\n")
+
+    console.print("  [bold][a <N>][/bold] Mark as added to companies.json")
+    console.print("  [bold][i <N>][/bold] Ignore company")
+    console.print("  [bold][q][/bold]     Done\n")
+
+    while True:
+        action = click.prompt("Action", default="q", show_default=False).strip().lower()
+        if action == "q":
+            break
+
+        parts = action.split()
+        if len(parts) == 2 and parts[0] in ("a", "i") and parts[1].isdigit():
+            idx = int(parts[1]) - 1
+            if not (0 <= idx < len(pending)):
+                console.print(f"[red]Number must be between 1 and {len(pending)}.[/red]")
+                continue
+            company_name = pending[idx]["name"]
+            if parts[0] == "i":
+                discovery.mark_ignored(company_name)
+                console.print(f"[dim]Ignored: {company_name}[/dim]")
+                pending.pop(idx)
+            else:
+                discovery.mark_added(company_name)
+                console.print(f"[green]Marked as added: {company_name}[/green]")
+                console.print(f"[dim]Remember to manually add it to data/jobs/companies.json[/dim]")
+                pending.pop(idx)
+        else:
+            console.print("[red]Usage: a <N> or i <N> or q[/red]")
 
 
 def _print_jobs_table(jobs_with_flags) -> None:
