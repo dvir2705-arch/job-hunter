@@ -66,6 +66,7 @@ ACADEMIC YEAR — CRITICAL:
         language: str = "en",
         mention_job_hunter: bool = True,
         save_to_history: bool = True,
+        recruiter_name: Optional[str] = None,
     ) -> str:
         """Generate a cover letter for a specific job."""
         # Extract personal info from CV schema (top-level name + contact sub-dict)
@@ -92,6 +93,7 @@ ACADEMIC YEAR — CRITICAL:
             mention_project=should_mention,
             personal_info=personal_info,
             academic_year=academic_year,
+            recruiter_name=recruiter_name,
         )
 
         response = self.client.messages.create(
@@ -155,11 +157,17 @@ ACADEMIC YEAR — CRITICAL:
         mention_project: bool,
         personal_info: dict,
         academic_year: str = "third",
+        recruiter_name: Optional[str] = None,
     ) -> str:
         """Build the prompt for cover letter generation."""
         import json
 
         lang_instruction = "Write in English." if language == "en" else "כתוב בעברית."
+
+        if recruiter_name:
+            greeting = f"Dear {recruiter_name} from the HR team at {job.company},"
+        else:
+            greeting = f"Dear {job.company} Hiring Team,"
 
         project_hint = ""
         if mention_project:
@@ -191,6 +199,7 @@ ACADEMIC YEAR — CRITICAL:
 - Language: {lang_instruction}
 - Tone: {tone_instruction}
 - Body must be 100-150 words. Count them. Cut if over.
+- Use this exact greeting: {greeting}
 {project_hint}Follow the structure and rules in the system prompt exactly.
 """
 

@@ -624,7 +624,11 @@ def _generate_cover_letter_for_job(job) -> None:
         show_default=True,
     )
 
-    # 4. Generate
+    # 4. Ask recruiter name
+    recruiter_raw = click.prompt("Recruiter name (Enter to skip)", default="", show_default=False)
+    recruiter_name = recruiter_raw.strip() or None
+
+    # 5. Generate
     with console.status("Generating cover letter with Claude..."):
         generator = CoverLetterGenerator()
         letter = generator.generate(
@@ -632,12 +636,13 @@ def _generate_cover_letter_for_job(job) -> None:
             cv=base_cv,
             job_description=description,
             language=lang_choice,
+            recruiter_name=recruiter_name,
         )
 
-    # 5. Display
+    # 6. Display
     console.print(Panel(letter, title=f"[green]Cover Letter — {job.company}[/green]", border_style="green"))
 
-    # 6. Save / copy options
+    # 7. Save / copy options
     console.print("\n  [bold][1][/bold] Save to file")
     console.print("  [bold][2][/bold] Copy to clipboard")
     console.print("  [bold][3][/bold] Both")
