@@ -322,7 +322,7 @@ def _job_action_menu(job) -> None:
         console.print(f"[dim]{job.url}[/dim]\n")
         console.print("  [bold][1][/bold] Show full details")
         console.print("  [bold][2][/bold] Adapt CV for this job")
-        console.print("  [bold][3][/bold] Generate cover letter  [dim](coming soon)[/dim]")
+        console.print("  [bold][3][/bold] Generate cover letter")
         console.print("  [bold][4][/bold] Open in browser")
         console.print("  [bold][5][/bold] Track application")
         console.print("  [bold][6][/bold] Back to list")
@@ -341,6 +341,9 @@ def _job_action_menu(job) -> None:
 
         elif action == "2":
             _adapt_cv_for_job(job)
+
+        elif action == "3":
+            _generate_cover_letter_for_job(job)
 
         elif action == "4":
             webbrowser.open(job.url)
@@ -426,6 +429,78 @@ def _adapt_cv_for_job(job) -> None:
     if click.confirm("Open HTML in browser?", default=True):
         import webbrowser
         webbrowser.open(str(html_path.resolve()))
+
+
+def _generate_cover_letter_for_job(job) -> None:
+    from job_hunter.jobs.scraper import fetch_job_description
+    from job_hunter.cv.manager import CVManager
+    from job_hunter.cover_letter import CoverLetterGenerator
+    from rich.panel import Panel
+    import pyperclip
+
+    # 1. Fetch job description
+    console.print(f"\n[dim]Fetching job description from {job.url}...[/dim]")
+    try:
+        with console.status("Fetching job description..."):
+            description = fetch_job_description(job)
+    except RuntimeError as e:
+        console.print(f"[red]Could not fetch job page: {e}[/red]")
+        description = None
+
+    if not description:
+        console.print(
+            "[yellow]Job description unavailable (JS-rendered page). "
+            "Generating based on job title and company only.[/yellow]"
+        )
+
+    # 2. Load base CV
+    cv_manager = CVManager()
+    base_cv = cv_manager.load_base()
+
+    # 3. Ask language
+    lang_choice = click.prompt(
+        "Language",
+        type=click.Choice(["en", "he"]),
+        default="en",
+        show_default=True,
+    )
+
+    # 4. Generate
+    with console.status("Generating cover letter with Claude..."):
+        generator = CoverLetterGenerator()
+        letter = generator.generate(
+            job=job,
+            cv=base_cv,
+            job_description=description,
+            language=lang_choice,
+        )
+
+    # 5. Display
+    console.print(Panel(letter, title=f"[green]Cover Letter — {job.company}[/green]", border_style="green"))
+
+    # 6. Save / copy options
+    console.print("\n  [bold][1][/bold] Save to file")
+    console.print("  [bold][2][/bold] Copy to clipboard")
+    console.print("  [bold][3][/bold] Both")
+    console.print("  [bold][4][/bold] Done")
+
+    post = click.prompt("Choose", default="4", show_default=False)
+
+    if post in ("1", "3"):
+        from pathlib import Path
+        from job_hunter.config import Config
+        import re
+        slug = re.sub(r"[^\w]+", "_", f"{job.company}_{job.title}").lower()[:40]
+        out_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.txt"
+        out_path.write_text(letter, encoding="utf-8")
+        console.print(f"[green]Saved to {out_path}[/green]")
+
+    if post in ("2", "3"):
+        try:
+            pyperclip.copy(letter)
+            console.print("[green]Copied to clipboard.[/green]")
+        except Exception:
+            console.print("[yellow]Could not copy to clipboard (pyperclip may not be installed).[/yellow]")
 
 
 if __name__ == "__main__":
