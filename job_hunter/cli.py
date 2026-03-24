@@ -344,6 +344,55 @@ def recruiters_search(company):
     console.print(f'[bold]job-hunter recruiters add -c "{company}" -n "Name" -e "email@company.com"[/bold]')
 
 
+@recruiters.command("find-emails")
+@click.argument("domain")
+@click.option("--limit", "-l", default=5, show_default=True, help="Max results.")
+def recruiters_find_emails(domain, limit):
+    """Search Hunter.io for emails at a company domain."""
+    from job_hunter.recruiters.hunter import HunterAPI
+    from rich.table import Table
+
+    try:
+        hunter = HunterAPI()
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+
+    console.print(f"[bold]Searching Hunter.io for {domain}...[/bold]\n")
+    result = hunter.domain_search(domain, limit=limit)
+
+    if "error" in result:
+        console.print(f"[red]Error: {result['error']}[/red]")
+        return
+
+    if result.get("pattern"):
+        console.print(f"[cyan]Email pattern:[/cyan] {result['pattern']}@{domain}\n")
+
+    emails = result.get("emails", [])
+    if not emails:
+        console.print("[yellow]No emails found for this domain.[/yellow]")
+        return
+
+    hr_keywords = ["recruit", "talent", "hr", "human", "people"]
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Name")
+    table.add_column("Email")
+    table.add_column("Position")
+    table.add_column("Confidence", justify="right")
+
+    for e in emails:
+        is_hr = any(kw in e.get("position", "").lower() for kw in hr_keywords)
+        name = f"[bold green]{e['name']}[/bold green]" if is_hr else e["name"]
+        table.add_row(name, e["email"], e["position"][:35], f"{e['confidence']}%")
+
+    console.print(table)
+
+    quota = hunter.get_quota()
+    if "error" not in quota:
+        console.print(f"\n[dim]Quota: {quota['used']} used / {quota['available']} available[/dim]")
+
+
 # ---------------------------------------------------------------------------
 # Jobs commands
 # ---------------------------------------------------------------------------
