@@ -13,6 +13,34 @@ from job_hunter.cv.manager import CVManager
 console = Console()
 
 
+def open_in_chrome(url: str) -> None:
+    """Open a URL in Google Chrome, falling back to the default browser."""
+    import webbrowser
+    import subprocess
+    import platform
+    import os
+
+    system = platform.system()
+    try:
+        if system == "Windows":
+            chrome_candidates = [
+                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            ]
+            chrome_path = next((p for p in chrome_candidates if os.path.exists(p)), None)
+            if chrome_path:
+                subprocess.Popen([chrome_path, url])
+            else:
+                raise FileNotFoundError("Chrome not found")
+        elif system == "Darwin":
+            subprocess.Popen(["open", "-a", "Google Chrome", url])
+        else:
+            subprocess.Popen(["google-chrome", url])
+    except FileNotFoundError:
+        webbrowser.open(url)
+
+
 @click.group()
 @click.version_option(package_name="job-hunter")
 def cli():
@@ -436,7 +464,6 @@ def _print_jobs_table(jobs_with_flags) -> None:
 
 
 def _job_action_menu(job) -> None:
-    import webbrowser
     from job_hunter.applications.tracker import ApplicationTracker
     from job_hunter.applications.models import ApplicationStatus
 
@@ -469,8 +496,8 @@ def _job_action_menu(job) -> None:
             _generate_cover_letter_for_job(job)
 
         elif action == "4":
-            webbrowser.open(job.url)
-            console.print(f"[green]Opened in browser.[/green]")
+            open_in_chrome(job.url)
+            console.print(f"[green]Opened in Chrome.[/green]")
 
         elif action == "5":
             tracker = ApplicationTracker()
@@ -560,8 +587,7 @@ def _adapt_cv_for_job(job) -> None:
     ))
 
     if click.confirm("Open HTML in browser?", default=True):
-        import webbrowser
-        webbrowser.open(str(html_path.resolve()))
+        open_in_chrome(str(html_path.resolve()))
 
 
 def _generate_cover_letter_for_job(job) -> None:
