@@ -5,6 +5,54 @@ from typing import Dict
 
 from job_hunter.config import Config
 
+COMPANY_DOMAINS = {
+    "intel": "intel.com",
+    "nvidia": "nvidia.com",
+    "amazon": "amazon.com",
+    "annapurna labs": "amazon.com",
+    "marvell": "marvell.com",
+    "wix": "wix.com",
+    "microsoft": "microsoft.com",
+    "google": "google.com",
+    "apple": "apple.com",
+    "qualcomm": "qualcomm.com",
+    "broadcom": "broadcom.com",
+    "applied materials": "amat.com",
+    "analog devices": "analog.com",
+    "tower semiconductor": "towersemi.com",
+    "sandisk": "sandisk.com",
+    "samsung": "samsung.com",
+    "ibm": "ibm.com",
+    "cisco": "cisco.com",
+    "elbit": "elbitsystems.com",
+    "gm": "gm.com",
+    "vayyar": "vayyar.com",
+    "arbe": "arberobotics.com",
+    "ceragon": "ceragon.com",
+    "valens": "valens.com",
+    "nextsilicon": "nextsilicon.com",
+    "hailo": "hailotech.com",
+    "base44": "base44.com",
+    "imagen": "imagen-ai.com",
+    "siemens": "siemens.com",
+    "texas instruments": "ti.com",
+    "nanox": "nanox.vision",
+    "stratasys": "stratasys.com",
+    "mobileye": "mobileye.com",
+    "experis": "experis.com",
+}
+
+
+def get_domain_for_company(company_name: str) -> str:
+    """Return the email domain for a company name."""
+    name_lower = company_name.lower()
+    for key, domain in COMPANY_DOMAINS.items():
+        if key in name_lower or name_lower in key:
+            return domain
+    # Fallback: first word + .com
+    simple = name_lower.split()[0].rstrip(".,")
+    return f"{simple}.com"
+
 
 class HunterAPI:
     BASE_URL = "https://api.hunter.io/v2"

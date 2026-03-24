@@ -393,6 +393,105 @@ def recruiters_find_emails(domain, limit):
         console.print(f"\n[dim]Quota: {quota['used']} used / {quota['available']} available[/dim]")
 
 
+@recruiters.command("scan-all")
+@click.option("--limit", "-l", default=2, show_default=True,
+              help="Max HR contacts to save per company.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Show what would happen without saving or using quota.")
+def recruiters_scan_all(limit, dry_run):
+    """Scan all companies from companies.json and find recruiter emails via Hunter.io."""
+    import json
+    from pathlib import Path
+    from job_hunter.recruiters.hunter import HunterAPI, get_domain_for_company
+    from job_hunter.recruiters.manager import RecruiterManager
+    from rich.table import Table
+
+    companies_file = Path("data/jobs/companies.json")
+    with open(companies_file, "r", encoding="utf-8") as f:
+        companies = json.load(f).get("companies", [])
+
+    try:
+        hunter = HunterAPI()
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+
+    quota = hunter.get_quota()
+    available = quota.get("available", 0)
+    console.print(f"[cyan]Quota:[/cyan] {quota.get('used', 0)} used / {available} available")
+
+    if not dry_run and available < len(companies):
+        console.print(f"[yellow]Warning: {available} searches for {len(companies)} companies.[/yellow]")
+        if not click.confirm("Continue anyway?"):
+            return
+
+    if dry_run:
+        console.print("[yellow]Dry-run mode — no searches will be made, no data saved.[/yellow]")
+
+    console.print(f"\n[bold]Scanning {len(companies)} companies...[/bold]\n")
+
+    manager = RecruiterManager()
+    hr_keywords = ["recruit", "talent", "hr", "human resource", "people", "staffing", "hiring"]
+
+    table = Table(title="Scan Results", show_header=True, header_style="bold cyan")
+    table.add_column("Company")
+    table.add_column("Domain")
+    table.add_column("Pattern")
+    table.add_column("HR found", justify="right")
+    table.add_column("Saved", justify="right")
+
+    total_found = total_saved = 0
+
+    for company in companies:
+        name = company.get("name", "")
+        domain = get_domain_for_company(name)
+
+        if dry_run:
+            table.add_row(name, domain, "—", "—", "[dim]dry-run[/dim]")
+            continue
+
+        console.print(f"[dim]  {name} ({domain})...[/dim]")
+        result = hunter.domain_search(domain, limit=limit + 5)
+
+        if "error" in result:
+            table.add_row(name, domain, "—", "[red]error[/red]", "0")
+            continue
+
+        pattern = result.get("pattern", "")
+        hr_contacts = [
+            e for e in result.get("emails", [])
+            if any(kw in (e.get("position") or "").lower() for kw in hr_keywords)
+        ][:limit]
+
+        total_found += len(hr_contacts)
+        saved = 0
+        for contact in hr_contacts:
+            if contact.get("email") and contact.get("name"):
+                manager.add(
+                    company=name,
+                    name=contact["name"],
+                    email=contact["email"],
+                    role=contact.get("position", ""),
+                    notes=f"Hunter.io (confidence: {contact.get('confidence', 0)}%)",
+                )
+                saved += 1
+        total_saved += saved
+        table.add_row(name, domain, pattern or "?", str(len(hr_contacts)), str(saved))
+
+    console.print()
+    console.print(table)
+    console.print(f"\n[bold]Summary:[/bold] {len(companies)} companies scanned | "
+                  f"{total_found} HR contacts found | "
+                  f"[green]{total_saved} saved[/green]")
+
+    if not dry_run:
+        new_quota = hunter.get_quota()
+        console.print(f"[dim]Quota after scan: {new_quota.get('used','?')} used / "
+                      f"{new_quota.get('available','?')} available[/dim]")
+        if total_saved:
+            console.print("\n[green]View saved recruiters:[/green] [bold]job-hunter recruiters list[/bold]")
+
+
 # ---------------------------------------------------------------------------
 # Jobs commands
 # ---------------------------------------------------------------------------
