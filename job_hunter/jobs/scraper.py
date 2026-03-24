@@ -37,7 +37,7 @@ class WorkdayScraper:
     def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
         payload = {
             "appliedFacets": {},
-            "limit": min(max_results, 20),   # Workday API caps at 20 per request
+            "limit": 20,   # Always fetch Workday's maximum; filter after
             "offset": 0,
             "searchText": query,
         }
