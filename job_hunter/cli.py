@@ -5,7 +5,6 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from job_hunter.applications.models import ApplicationStatus
 from job_hunter.applications.tracker import ApplicationTracker
 from job_hunter.config import Config
 from job_hunter.cv.manager import CVManager
@@ -164,27 +163,14 @@ def apps():
     """Track job applications."""
 
 
-@apps.command("add")
-@click.option("--company", "-c", required=True)
-@click.option("--position", "-p", required=True)
-@click.option("--url", "-u", required=True)
-@click.option("--salary", "-s", default=None)
-@click.option("--notes", "-n", default="")
-def apps_add(company, position, url, salary, notes):
-    """Add a new job application."""
-    tracker = ApplicationTracker()
-    app = tracker.add(company=company, position=position, url=url, salary_range=salary, notes=notes)
-    console.print(f"[green]Application added (ID: {app.id})[/green]")
-    console.print(f"  {company} — {position}")
-
-
 @apps.command("list")
-@click.option("--status", "-s", default=None, type=click.Choice([s.value for s in ApplicationStatus]))
+@click.option("--status", "-s", default=None,
+              type=click.Choice(["applied", "screening", "interview", "offer", "rejected", "withdrawn"]))
 def apps_list(status):
     """List all applications."""
+    from job_hunter.applications.models import VALID_STATUSES
     tracker = ApplicationTracker()
-    filter_status = ApplicationStatus(status) if status else None
-    applications = tracker.list(filter_status)
+    applications = tracker.get_by_status(status) if status else tracker.get_all()
 
     if not applications:
         console.print("No applications found.")
@@ -196,6 +182,7 @@ def apps_list(status):
     table.add_column("Position")
     table.add_column("Status", style="bold")
     table.add_column("Date", style="dim")
+    table.add_column("Follow-up", style="dim")
 
     status_colors = {
         "applied": "blue", "screening": "yellow", "interview": "magenta",
@@ -203,32 +190,44 @@ def apps_list(status):
     }
 
     for app in applications:
-        color = status_colors.get(app.status.value, "white")
+        color = status_colors.get(app.status, "white")
+        fu_flag = " ⚠" if app.needs_follow_up() else ""
         table.add_row(
-            app.id, app.company, app.position,
-            f"[{color}]{app.status.value}[/{color}]",
+            app.id, app.company, app.job_title,
+            f"[{color}]{app.status}[/{color}]",
             app.applied_date,
+            f"{app.follow_up_date}{fu_flag}",
         )
     console.print(table)
 
 
 @apps.command("update")
 @click.argument("app_id")
-@click.option("--status", "-s", required=True, type=click.Choice([s.value for s in ApplicationStatus]))
+@click.option("--status", "-s", required=True,
+              type=click.Choice(["applied", "screening", "interview", "offer", "rejected", "withdrawn"]))
 @click.option("--notes", "-n", default="")
 def apps_update(app_id, status, notes):
     """Update the status of an application."""
     tracker = ApplicationTracker()
-    app = tracker.update_status(app_id, ApplicationStatus(status), notes)
-    console.print(f"[green]Updated {app.company} — {app.position} → {app.status.value}[/green]")
+    try:
+        app = tracker.update_status(app_id, status, notes)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+    if not app:
+        console.print(f"[red]Application '{app_id}' not found.[/red]")
+        return
+    console.print(f"[green]Updated {app.company} — {app.job_title} → {app.status}[/green]")
 
 
 @apps.command("stats")
 def apps_stats():
     """Show application statistics."""
     tracker = ApplicationTracker()
-    stats = tracker.stats()
+    stats = tracker.get_stats()
     console.print(f"[bold]Total applications:[/bold] {stats['total']}")
+    console.print(f"[bold]Response rate:[/bold] {stats['response_rate']}%")
+    console.print(f"[bold]Needs follow-up:[/bold] {stats['needs_follow_up']}")
     for status, count in stats["by_status"].items():
         console.print(f"  {status}: {count}")
 
@@ -723,8 +722,6 @@ def _print_jobs_table(jobs_with_flags) -> None:
 
 
 def _job_action_menu(job) -> None:
-    from job_hunter.applications.tracker import ApplicationTracker
-    from job_hunter.applications.models import ApplicationStatus
     from job_hunter.recruiters.manager import RecruiterManager
 
     while True:
@@ -768,19 +765,7 @@ def _job_action_menu(job) -> None:
             console.print(f"[green]Opened in Chrome.[/green]")
 
         elif action == "5":
-            tracker = ApplicationTracker()
-            existing = [a for a in tracker.list() if a.url == job.url]
-            if existing:
-                console.print(f"[yellow]Already tracked (ID: {existing[0].id}, status: {existing[0].status.value})[/yellow]")
-            else:
-                notes = click.prompt("Notes (optional)", default="", show_default=False)
-                app = tracker.add(
-                    company=job.company,
-                    position=job.title,
-                    url=job.url,
-                    notes=notes,
-                )
-                console.print(f"[green]Tracked! Application ID: {app.id}[/green]")
+            _track_application(job, recruiter)
 
         elif action == "6":
             if not recruiter:
@@ -793,6 +778,85 @@ def _job_action_menu(job) -> None:
 
         else:
             console.print("[red]Invalid option.[/red]")
+
+
+def _track_application(job, recruiter) -> None:
+    """Auto-detect context and save application to tracker."""
+    import json
+    from rich.panel import Panel
+    from job_hunter.applications.models import Application
+    from job_hunter.applications.tracker import ApplicationTracker
+
+    # --- Auto-detect CV ---
+    output_dir = Path("output")
+    company_clean = job.company.lower().replace(" ", "_")
+    cv_files = list(output_dir.glob(f"cv_{company_clean}*.pdf")) if output_dir.exists() else []
+    if not cv_files:
+        cv_files = [f for f in output_dir.glob("cv_*.pdf") if company_clean in f.name.lower()] if output_dir.exists() else []
+    cv_file = str(max(cv_files, key=lambda p: p.stat().st_mtime)) if cv_files else ""
+
+    # --- Auto-detect cover letter ---
+    cl_dir = output_dir / "cover_letters"
+    cl_files = list(cl_dir.glob(f"cover_letter_{company_clean}*.txt")) if cl_dir.exists() else []
+    if not cl_files:
+        cl_files = [f for f in cl_dir.glob("cover_letter_*.txt") if company_clean in f.name.lower()] if cl_dir.exists() else []
+    cl_file = str(max(cl_files, key=lambda p: p.stat().st_mtime)) if cl_files else ""
+
+    # --- Recruiter info ---
+    recruiter_name = recruiter["name"] if recruiter else ""
+    recruiter_email = recruiter["email"] if recruiter else ""
+
+    # --- Check if already tracked ---
+    tracker = ApplicationTracker()
+    existing = [a for a in tracker.get_all() if a.job_url == job.url]
+    if existing:
+        a = existing[0]
+        console.print(f"[yellow]Already tracked — ID: {a.id}, status: {a.status}[/yellow]")
+        return
+
+    # --- Show summary panel ---
+    from datetime import datetime, timedelta
+    follow_up = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+    cv_line = f"[green]{Path(cv_file).name} ✅[/green]" if cv_file else "[red]Not found ❌[/red]"
+    cl_line = f"[green]{Path(cl_file).name} ✅[/green]" if cl_file else "[red]Not found ❌[/red]"
+    rec_line = f"[green]{recruiter_name} ({recruiter_email}) ✅[/green]" if recruiter_name else "[red]Not saved ❌[/red]"
+
+    console.print(Panel(
+        f"[bold]Job:[/bold]          {job.title}\n"
+        f"[bold]Company:[/bold]      {job.company}\n"
+        f"[bold]Location:[/bold]     {job.location}\n"
+        f"[bold]CV:[/bold]           {cv_line}\n"
+        f"[bold]Cover letter:[/bold] {cl_line}\n"
+        f"[bold]Recruiter:[/bold]    {rec_line}\n"
+        f"[bold]Follow-up:[/bold]    {follow_up}",
+        title="[cyan]Track Application[/cyan]",
+        border_style="cyan",
+    ))
+
+    notes = click.prompt("Notes (optional)", default="", show_default=False)
+
+    app = Application(
+        job_title=job.title,
+        company=job.company,
+        location=getattr(job, "location", ""),
+        job_url=job.url,
+        source=getattr(job, "source", ""),
+        cv_file=cv_file,
+        cover_letter_file=cl_file,
+        recruiter_name=recruiter_name,
+        recruiter_email=recruiter_email,
+        notes=notes,
+    )
+    tracker.add(app)
+
+    console.print(Panel(
+        f"[bold]ID:[/bold]          {app.id}\n"
+        f"[bold]Status:[/bold]      {app.status}\n"
+        f"[bold]Follow-up:[/bold]   {app.follow_up_date}",
+        title="[green]Application Tracked ✅[/green]",
+        border_style="green",
+    ))
 
 
 def _send_email_to_recruiter(job, recruiter) -> None:
