@@ -384,9 +384,9 @@ def _fetch_from_url(url: str) -> Optional[str]:
             if len(text) > 500:
                 return text
 
-    # Intel / Workday — JS-rendered, no static description available
+    # Workday — JS-rendered; use the CXS detail API instead
     if "myworkdayjobs.com" in url:
-        return None
+        return _fetch_workday_description(url)
 
     # Generic fallback: find the longest div > 300 chars
     candidates = [
@@ -398,6 +398,40 @@ def _fetch_from_url(url: str) -> Optional[str]:
         return best.get_text(separator="\n", strip=True)
 
     return None
+
+
+def _fetch_workday_description(url: str) -> Optional[str]:
+    """Fetch job description from Workday via the CXS detail API.
+
+    Workday job URL:  https://{host}/{site}/job/...
+    CXS detail URL:   https://{host}/wday/cxs/{tenant}/{site}/job/...
+    Tenant = first segment of the hostname (e.g. 'intel' from 'intel.wd1.myworkdayjobs.com').
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    host = parsed.netloc                    # e.g. intel.wd1.myworkdayjobs.com
+    tenant = host.split(".")[0]             # e.g. intel
+    path = parsed.path                      # e.g. /External/job/Israel-Haifa/...
+
+    cxs_url = f"https://{host}/wday/cxs/{tenant}{path}"
+
+    try:
+        r = requests.get(
+            cxs_url,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            timeout=15,
+        )
+        r.raise_for_status()
+        html_desc = r.json().get("jobPostingInfo", {}).get("jobDescription", "")
+        if not html_desc:
+            return None
+        # Strip HTML tags
+        soup = BeautifulSoup(html_desc, "html.parser")
+        return soup.get_text(separator="\n", strip=True)
+    except Exception as e:
+        logger.warning("Workday detail API failed for %s: %s", url, e)
+        return None
 
 
 def _fetch_via_search(title: str, company: str) -> Optional[str]:
