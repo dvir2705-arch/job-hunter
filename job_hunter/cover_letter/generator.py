@@ -16,18 +16,22 @@ logger = get_logger(__name__)
 class CoverLetterGenerator:
     """Generates personalized cover letters using Claude AI."""
 
-    SYSTEM_PROMPT = '''You are a professional cover letter writer. Write SHORT, honest cover letters.
+    SYSTEM_PROMPT = '''You write short cover letters that sound like a real person wrote them.
 
-TARGET LENGTH: 100-150 words maximum (body only, not counting greeting/signature).
-If you exceed 150 words, you have failed. Cut ruthlessly.
+RULES:
+- 100-150 words maximum (excluding signature)
+- 3 short paragraphs only
+- Sound natural and human — like an email you'd write to someone you respect
+- Do NOT mention any automation tools, bots, or job search tools
+- Do NOT use corporate buzzwords: "leverage", "synergy", "dynamic", "passionate"
+- Do NOT start with "I am writing to express my interest" — find a more natural opening
+- Use simple, direct language
+- Be specific about WHY this company and WHY this role — not generic flattery
 
-STRUCTURE — exactly 3 parts:
-1. PARAGRAPH 1 (2 sentences): Who the candidate is + what position they are applying for.
-2. PARAGRAPH 2 (2-3 sentences): ONE differentiating point relevant to this specific role.
-   - Software/Python/automation role → mention the job-hunter project (facts only: Python, REST APIs, dozens of company career pages)
-   - Chip/hardware/verification role → mention relevant coursework or the math grades
-   - Pick ONE. Do NOT list multiple selling points.
-3. CLOSING (1 sentence): "My CV is attached. I'm available 2-3 days per week and would welcome the opportunity to discuss."
+STRUCTURE:
+Paragraph 1: Who you are + what caught your attention about this specific role (not generic)
+Paragraph 2: One concrete thing that makes you relevant (a grade, a project, a skill — pick ONE)
+Paragraph 3: CV is attached, availability, looking forward to talking
 
 GREETING:
 - If recruiter_name is provided: "Dear [Name],"
@@ -37,19 +41,12 @@ SIGNATURE (always exactly):
 [Name]
 [Email] | [Phone]
 
-TONE — strictly enforced:
-- Write plainly. Do NOT use: "passionate", "excited", "strong aptitude for", "genuine drive",
-  "rigorous", "when it matters most", "I engage seriously", "truly", "deeply"
+TONE:
+- Like a confident email to a professional contact
+- Not formal and stiff, not casual and sloppy
+- Honest and direct
 - No superlatives: not "exceptional", "outstanding", "remarkable"
 - No self-deprecation: not "small project", "just a student"
-- State facts. Let them speak.
-
-NEVER include:
-- Full list of grades (they are in the CV — the recruiter will read it)
-- Detailed military description (it is in the CV)
-- Claims about Linux, C++, or any skill not clearly in the CV
-- More than one differentiating point in paragraph 2
-- Filler sentences that add no information
 
 ACADEMIC YEAR — CRITICAL:
 - The prompt states the candidate's year explicitly. Use it exactly as given.
@@ -67,12 +64,10 @@ ACADEMIC YEAR — CRITICAL:
         cv: dict,
         job_description: Optional[str] = None,
         language: str = "en",
-        mention_job_hunter: bool = True,
         save_to_history: bool = True,
         recruiter_name: Optional[str] = None,
     ) -> str:
         """Generate a cover letter for a specific job."""
-        # Extract personal info from CV schema (top-level name + contact sub-dict)
         contact = cv.get("contact", {})
         personal_info = {
             "name":     cv.get("name", ""),
@@ -83,8 +78,6 @@ ACADEMIC YEAR — CRITICAL:
 
         company_tone = get_company_tone(job.company)
         tone_instruction = TONE_INSTRUCTIONS.get(company_tone, TONE_INSTRUCTIONS["balanced"])
-        should_mention = mention_job_hunter and self._is_project_relevant(job, job_description)
-
         academic_year = self._get_academic_year(cv)
 
         prompt = self._build_prompt(
@@ -93,7 +86,6 @@ ACADEMIC YEAR — CRITICAL:
             job_description=job_description,
             language=language,
             tone_instruction=tone_instruction,
-            mention_project=should_mention,
             personal_info=personal_info,
             academic_year=academic_year,
             recruiter_name=recruiter_name,
@@ -119,7 +111,6 @@ ACADEMIC YEAR — CRITICAL:
                 language=language,
                 content=content,
                 job_description=job_description or "",
-                mentioned_job_hunter=should_mention,
             )
 
         return content
@@ -142,18 +133,6 @@ ACADEMIC YEAR — CRITICAL:
         except (ValueError, IndexError, AttributeError):
             return "third"
 
-    def _is_project_relevant(self, job: JobListing, job_description: Optional[str]) -> bool:
-        """Return True if mentioning the job-hunter project fits this role."""
-        relevant_keywords = ["python", "automation", "scripting", "api", "software", "programming"]
-        hardware_only = ["vlsi", "layout", "physical design", "dft"]
-
-        text = f"{job.title} {job_description or ''}".lower()
-
-        if any(kw in text for kw in hardware_only):
-            if not any(kw in text for kw in relevant_keywords):
-                return False
-        return True
-
     def _build_prompt(
         self,
         job: JobListing,
@@ -161,7 +140,6 @@ ACADEMIC YEAR — CRITICAL:
         job_description: Optional[str],
         language: str,
         tone_instruction: str,
-        mention_project: bool,
         personal_info: dict,
         academic_year: str = "third",
         recruiter_name: Optional[str] = None,
@@ -175,13 +153,6 @@ ACADEMIC YEAR — CRITICAL:
             greeting = f"Dear {recruiter_name} from the HR team at {job.company},"
         else:
             greeting = f"Dear {job.company} Hiring Team,"
-
-        project_hint = ""
-        if mention_project:
-            project_hint = (
-                "- For paragraph 2, use the job-hunter project as the differentiating point "
-                "(Python, REST APIs, scraping dozens of company career pages, Claude AI integration).\n"
-            )
 
         return f"""Write a SHORT cover letter (100-150 words body) for this application.
 
@@ -207,7 +178,7 @@ ACADEMIC YEAR — CRITICAL:
 - Tone: {tone_instruction}
 - Body must be 100-150 words. Count them. Cut if over.
 - Use this exact greeting: {greeting}
-{project_hint}Follow the structure and rules in the system prompt exactly.
+Follow the structure and rules in the system prompt exactly.
 """
 
 

@@ -21,7 +21,6 @@ class CoverLetterRecord:
     job_description: str
     created_at: str
     file_path: str
-    mentioned_job_hunter: bool
     critique: Optional[str] = None
     score: Optional[int] = None
 
@@ -42,7 +41,10 @@ class CoverLetterHistory:
         if self.history_file.exists():
             with open(self.history_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                self.records = [CoverLetterRecord(**r) for r in data.get("records", [])]
+                self.records = [
+                    CoverLetterRecord(**{k: v for k, v in r.items() if k != "mentioned_job_hunter"})
+                    for r in data.get("records", [])
+                ]
         else:
             self.records = []
 
@@ -56,8 +58,7 @@ class CoverLetterHistory:
              company: str,
              language: str,
              content: str,
-             job_description: str,
-             mentioned_job_hunter: bool) -> CoverLetterRecord:
+             job_description: str) -> CoverLetterRecord:
         """Save a new cover letter to history."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         company_slug = company.lower().replace(" ", "_").replace("/", "_")[:20]
@@ -79,7 +80,6 @@ class CoverLetterHistory:
             job_description=job_description,
             created_at=datetime.now().isoformat(),
             file_path=str(file_path),
-            mentioned_job_hunter=mentioned_job_hunter,
         )
 
         self.records.append(record)
