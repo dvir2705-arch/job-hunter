@@ -924,7 +924,7 @@ def _job_action_menu(job) -> None:
         else:
             console.print("  [bold][6][/bold] Send email to recruiter [dim](no recruiter saved)[/dim]")
         console.print("  [bold][7][/bold] Back to list")
-        if tracked:
+        if tracked and tracked.status != "applied":
             console.print("  [bold][8][/bold] Reset application status")
 
         action = click.prompt("\nChoose", default="7", show_default=False)
