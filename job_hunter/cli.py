@@ -163,61 +163,108 @@ def apps():
     """Track job applications."""
 
 
+_STATUS_ICONS = {
+    "applied": "[yellow]applied[/yellow]",
+    "screening": "[blue]screening[/blue]",
+    "interview": "[green]interview[/green]",
+    "offer": "[bold green]OFFER[/bold green]",
+    "rejected": "[red]rejected[/red]",
+    "withdrawn": "[dim]withdrawn[/dim]",
+}
+
+_STATUS_CHOICES = ["applied", "screening", "interview", "offer", "rejected", "withdrawn"]
+
+
 @apps.command("list")
-@click.option("--status", "-s", default=None,
-              type=click.Choice(["applied", "screening", "interview", "offer", "rejected", "withdrawn"]))
-def apps_list(status):
-    """List all applications."""
-    from job_hunter.applications.models import VALID_STATUSES
+@click.option("--status", "-s", default=None, type=click.Choice(_STATUS_CHOICES))
+@click.option("--company", "-c", default=None)
+@click.option("--follow-up", "follow_up", is_flag=True, help="Show only applications needing follow-up")
+def apps_list(status, company, follow_up):
+    """List job applications."""
+    from datetime import datetime
     tracker = ApplicationTracker()
-    applications = tracker.get_by_status(status) if status else tracker.get_all()
+
+    if follow_up:
+        applications = tracker.get_needing_follow_up()
+    elif status:
+        applications = tracker.get_by_status(status)
+    elif company:
+        applications = tracker.get_by_company(company)
+    else:
+        applications = tracker.get_all()
 
     if not applications:
         console.print("No applications found.")
         return
 
-    table = Table(title="Job Applications")
-    table.add_column("ID", style="dim", width=10)
-    table.add_column("Company", style="cyan")
-    table.add_column("Position")
-    table.add_column("Status", style="bold")
-    table.add_column("Date", style="dim")
-    table.add_column("Follow-up", style="dim")
+    today = datetime.now().strftime("%Y-%m-%d")
 
-    status_colors = {
-        "applied": "blue", "screening": "yellow", "interview": "magenta",
-        "offer": "green", "rejected": "red", "withdrawn": "dim",
-    }
+    table = Table(title=f"Job Applications ({len(applications)})")
+    table.add_column("ID", style="dim", width=8)
+    table.add_column("Position")
+    table.add_column("Company", style="cyan")
+    table.add_column("Status", width=16)
+    table.add_column("Applied", style="dim")
+    table.add_column("Follow-up")
 
     for app in applications:
-        color = status_colors.get(app.status, "white")
-        fu_flag = " ⚠" if app.needs_follow_up() else ""
+        icon = _STATUS_ICONS.get(app.status, "")
+        # Applied date: "Mar 23" format
+        try:
+            applied_fmt = datetime.strptime(app.applied_date, "%Y-%m-%d").strftime("%b %d")
+        except ValueError:
+            applied_fmt = app.applied_date
+
+        # Follow-up column
+        if app.status in ("rejected", "withdrawn", "offer"):
+            fu_cell = "[dim]-[/dim]"
+        elif app.follow_up_date and today > app.follow_up_date:
+            from datetime import datetime as dt
+            days_over = (dt.strptime(today, "%Y-%m-%d") - dt.strptime(app.follow_up_date, "%Y-%m-%d")).days
+            fu_cell = f"[red]! overdue ({days_over}d)[/red]"
+        else:
+            fu_cell = app.follow_up_date
+
         table.add_row(
-            app.id, app.company, app.job_title,
-            f"[{color}]{app.status}[/{color}]",
-            app.applied_date,
-            f"{app.follow_up_date}{fu_flag}",
+            app.id[:8],
+            app.job_title[:40],
+            app.company[:25],
+            icon,
+            applied_fmt,
+            fu_cell,
         )
+
     console.print(table)
 
 
 @apps.command("update")
 @click.argument("app_id")
-@click.option("--status", "-s", required=True,
-              type=click.Choice(["applied", "screening", "interview", "offer", "rejected", "withdrawn"]))
+@click.option("--status", "-s", required=True, type=click.Choice(_STATUS_CHOICES))
 @click.option("--notes", "-n", default="")
 def apps_update(app_id, status, notes):
     """Update the status of an application."""
+    from job_hunter.applications.models import VALID_TRANSITIONS
     tracker = ApplicationTracker()
-    try:
-        app = tracker.update_status(app_id, status, notes)
-    except ValueError as e:
-        console.print(f"[red]{e}[/red]")
-        return
+
+    app = tracker.get_by_id(app_id)
     if not app:
         console.print(f"[red]Application '{app_id}' not found.[/red]")
         return
-    console.print(f"[green]Updated {app.company} — {app.job_title} → {app.status}[/green]")
+
+    old_status = app.status
+    try:
+        tracker.update_status(app_id, status, notes)
+    except ValueError:
+        allowed = VALID_TRANSITIONS.get(old_status, [])
+        allowed_str = ", ".join(allowed) if allowed else "(none)"
+        console.print(f"[red]Cannot change from '{old_status}' to '{status}'[/red]")
+        console.print(f"   Valid transitions from '{old_status}': {allowed_str}")
+        return
+
+    console.print(f"[green]Updated: {app.company} - {app.job_title}[/green]")
+    console.print(f"   Status: {old_status} -> {status}")
+    if notes:
+        console.print(f"   Note: {notes}")
 
 
 @apps.command("stats")
