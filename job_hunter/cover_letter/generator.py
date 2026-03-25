@@ -70,6 +70,18 @@ HARD RULES:
 - When unsure, use general terms: "signal processing" not "PHY-layer optimization"
 - Do NOT change the template structure — only fill in the brackets
 - If recruiter_name is provided, use "Dear [Name] from the [Company] team," instead
+- NEVER use the word "strong" in any form ("strong background", "strong skills", "strong foundation", etc.)
+- NEVER reference military service, army, combat, or hint at it with phrases like:
+  "high-pressure environments", "leadership roles in demanding settings",
+  "cross-functional collaboration developed through military", "proven ability under pressure"
+  Military details are in the CV. The cover letter must not mention them at all.
+- NEVER use vague filler phrases. Every sentence must say something specific.
+  BAD (ban these): "gave me a foundation in building functional, real-world applications",
+  "developed skills through team-based projects", "cross-functional collaboration skills",
+  "technical problem-solving capabilities"
+  GOOD (specific): "I built a Python CLI tool that processes data from multiple APIs",
+  "My coursework covered digital signal processing and communication systems",
+  "I have practical experience with Python and MATLAB"
 
 The letter should read like a short professional email, not a formal document.
 '''
