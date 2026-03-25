@@ -62,6 +62,12 @@ HARD RULES:
 - Do NOT say "passionate", "genuinely", "solid", "excited", "caught my attention"
 - Do NOT claim skills the candidate doesn\'t have (no Linux, no C++, no FPGA)
 - Do NOT write "grade sheet attached" or "grades attached" — only CV is attached
+- Do NOT say coursework "aligns directly with" or "maps directly to" a role
+- Coursework gives FOUNDATION and BACKGROUND, not job-task expertise
+- Use honest phrasing: "gave me a foundation relevant to..." or "covers fundamentals useful for..."
+- Do NOT use jargon from the job description that the candidate hasn\'t actually studied
+- Only mention specific technical terms (e.g. PHY-layer, beamforming) if they were part of the candidate\'s courses
+- When unsure, use general terms: "signal processing" not "PHY-layer optimization"
 - Do NOT change the template structure — only fill in the brackets
 - If recruiter_name is provided, use "Dear [Name] from the [Company] team," instead
 
