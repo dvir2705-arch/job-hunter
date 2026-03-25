@@ -1,47 +1,96 @@
-from dataclasses import dataclass, field
-from datetime import date
-from enum import Enum
-from typing import Optional
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional
+from datetime import datetime, timedelta
+import uuid
 
 
-class ApplicationStatus(Enum):
-    APPLIED = "applied"
-    SCREENING = "screening"
-    INTERVIEW = "interview"
-    OFFER = "offer"
-    REJECTED = "rejected"
-    WITHDRAWN = "withdrawn"
+@dataclass
+class ApplicationEvent:
+    """Single event in application history."""
+    date: str
+    action: str  # applied, screening, interview, offer, rejected, withdrawn, follow_up, note
+    note: str = ""
 
 
 @dataclass
 class Application:
-    id: str
+    """Full application record with context."""
+    # Job info
+    job_title: str
     company: str
-    position: str
-    url: str
-    status: ApplicationStatus = ApplicationStatus.APPLIED
-    applied_date: str = field(default_factory=lambda: date.today().isoformat())
+    location: str = ""
+    job_url: str = ""
+    source: str = ""  # workday, linkedin, amazon, manual
+
+    # Status
+    status: str = "applied"  # applied | screening | interview | offer | rejected | withdrawn
+    applied_date: str = ""
+    last_updated: str = ""
+    follow_up_date: str = ""
+
+    # Linked files
+    cv_file: str = ""
+    cover_letter_file: str = ""
+
+    # Recruiter
+    recruiter_name: str = ""
+    recruiter_email: str = ""
+
+    # Metadata
+    id: str = ""
     notes: str = ""
-    cv_version: Optional[str] = None
-    salary_range: Optional[str] = None
-    contact: Optional[str] = None
+    history: List[dict] = field(default_factory=list)
+
+    def __post_init__(self):
+        if not self.id:
+            self.id = uuid.uuid4().hex[:8]
+        if not self.applied_date:
+            self.applied_date = datetime.now().strftime("%Y-%m-%d")
+        if not self.last_updated:
+            self.last_updated = self.applied_date
+        if not self.follow_up_date:
+            follow_up = datetime.now() + timedelta(days=7)
+            self.follow_up_date = follow_up.strftime("%Y-%m-%d")
+        if not self.history:
+            self.history = [{"date": self.applied_date, "action": "applied", "note": "Initial application"}]
+
+    def update_status(self, new_status: str, note: str = "") -> None:
+        """Update status and add to history."""
+        self.status = new_status
+        self.last_updated = datetime.now().strftime("%Y-%m-%d")
+        self.history.append({
+            "date": self.last_updated,
+            "action": new_status,
+            "note": note
+        })
+
+    def needs_follow_up(self) -> bool:
+        """Check if follow-up is overdue."""
+        if self.status in ("rejected", "withdrawn", "offer"):
+            return False
+        today = datetime.now().strftime("%Y-%m-%d")
+        return today >= self.follow_up_date
+
+    def days_since_applied(self) -> int:
+        """Days since application was submitted."""
+        applied = datetime.strptime(self.applied_date, "%Y-%m-%d")
+        return (datetime.now() - applied).days
 
     def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "company": self.company,
-            "position": self.position,
-            "url": self.url,
-            "status": self.status.value,
-            "applied_date": self.applied_date,
-            "notes": self.notes,
-            "cv_version": self.cv_version,
-            "salary_range": self.salary_range,
-            "contact": self.contact,
-        }
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "Application":
-        data = data.copy()
-        data["status"] = ApplicationStatus(data.get("status", "applied"))
-        return cls(**data)
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+
+
+VALID_STATUSES = ["applied", "screening", "interview", "offer", "rejected", "withdrawn"]
+
+VALID_TRANSITIONS = {
+    "applied": ["screening", "interview", "rejected", "withdrawn"],
+    "screening": ["interview", "rejected", "withdrawn"],
+    "interview": ["offer", "rejected", "withdrawn"],
+    "offer": ["withdrawn"],
+    "rejected": [],
+    "withdrawn": [],
+}
