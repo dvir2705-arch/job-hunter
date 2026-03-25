@@ -401,11 +401,11 @@ def _fetch_from_url(url: str) -> Optional[str]:
 
 
 def _fetch_via_search(title: str, company: str) -> Optional[str]:
-    """Search Google for the job and try to scrape the description from results."""
+    """Search for job description via DuckDuckGo and fetch from results."""
     import urllib.parse
 
-    query = f'"{title}" "{company}" job description'
-    search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+    query = f"{title} {company} job description"
+    search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
 
     try:
         response = requests.get(
@@ -416,18 +416,26 @@ def _fetch_via_search(title: str, company: str) -> Optional[str]:
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
-        for link in soup.find_all("a", href=True):
-            href = link["href"]
-            if "/url?q=" in href:
-                actual_url = href.split("/url?q=")[1].split("&")[0]
-                if any(site in actual_url for site in ["linkedin.com/jobs", "glassdoor.com/job"]):
-                    result = _fetch_from_url_direct(actual_url)
-                    if result:
-                        return result
+        for link in soup.find_all("a", class_="result__a"):
+            href = link.get("href", "")
 
+            if "linkedin.com/jobs/view" in href:
+                logger.info("Found LinkedIn link via DuckDuckGo: %s", href)
+                desc = _fetch_from_url_direct(href)
+                if desc:
+                    return desc
+
+            if "glassdoor.com/job" in href:
+                logger.info("Found Glassdoor link via DuckDuckGo: %s", href)
+                desc = _fetch_from_url_direct(href)
+                if desc:
+                    return desc
+
+        logger.info("No job description links found in DuckDuckGo results for: %s at %s", title, company)
         return None
+
     except Exception as e:
-        logger.warning("Google search fallback failed for '%s' at %s: %s", title, company, e)
+        logger.warning("DuckDuckGo search fallback failed: %s", e)
         return None
 
 
