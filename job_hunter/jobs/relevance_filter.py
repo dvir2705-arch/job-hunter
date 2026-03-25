@@ -41,6 +41,10 @@ IRRELEVANT_KEYWORDS = [
     "supply chain", "logistics", "procurement",
     "office manager", "administrative", "secretary",
     "manual testing", "qa manual",
+    # Facilities / operations
+    "catering", "leasing", "facilities", "food", "kitchen",
+    "receptionist", "warehouse", "driver", "delivery", "cafeteria",
+    "maintenance", "cleaning", "security guard", "personal assistant",
 ]
 
 IRRELEVANT_COMPANIES = [
@@ -48,37 +52,77 @@ IRRELEVANT_COMPANIES = [
 ]
 
 
-def filter_relevant_jobs(jobs: List[JobListing]) -> Tuple[List[JobListing], List[JobListing]]:
-    """Split jobs into (relevant, removed) based on profile keywords.
+def filter_relevant_jobs(
+    jobs: List[JobListing],
+    deep_check: bool = True,
+) -> Tuple[List[JobListing], List[JobListing]]:
+    """Filter jobs in two layers.
 
-    Keep a job if:
-      - It has a RELEVANT keyword in the title, OR
-      - It contains 'student' or 'intern' AND has no IRRELEVANT keyword
-    Drop a job if:
-      - Its company matches IRRELEVANT_COMPANIES, OR
-      - Its title contains an IRRELEVANT keyword
+    Layer 1: Fast title-based filtering.
+    Layer 2: If deep_check=True, fetch description for uncertain jobs.
+
+    Returns (accepted, rejected).
     """
-    relevant = []
-    removed = []
+    accepted = []
+    rejected = []
+    uncertain = []
 
     for job in jobs:
         title_lower = job.title.lower()
         company_lower = job.company.lower()
 
+        # Company blacklist
         if any(kw in company_lower for kw in IRRELEVANT_COMPANIES):
-            removed.append(job)
+            rejected.append(job)
             continue
 
+        # Irrelevant keyword in title — reject even if "student" is present
         if any(kw in title_lower for kw in IRRELEVANT_KEYWORDS):
-            removed.append(job)
+            rejected.append(job)
             continue
 
-        has_relevant = any(kw in title_lower for kw in RELEVANT_KEYWORDS)
-        is_student_intern = "student" in title_lower or "intern" in title_lower
+        # Relevant keyword in title — accept immediately
+        if any(kw in title_lower for kw in RELEVANT_KEYWORDS):
+            accepted.append(job)
+            continue
 
-        if has_relevant or is_student_intern:
-            relevant.append(job)
+        # Has "student"/"intern" but no clear signal — needs description check
+        if "student" in title_lower or "intern" in title_lower:
+            uncertain.append(job)
         else:
-            removed.append(job)
+            rejected.append(job)
 
-    return relevant, removed
+    # Layer 2: description-based check for uncertain jobs
+    if deep_check and uncertain:
+        from job_hunter.jobs.scraper import fetch_job_description
+        from job_hunter.logger import get_logger
+        logger = get_logger("relevance_filter")
+
+        for job in uncertain:
+            try:
+                description = fetch_job_description(job)
+                if not description:
+                    # Can't fetch — benefit of doubt
+                    accepted.append(job)
+                    continue
+
+                desc_lower = description.lower()
+                has_relevant = any(kw in desc_lower for kw in RELEVANT_KEYWORDS)
+                has_irrelevant = any(kw in desc_lower for kw in IRRELEVANT_KEYWORDS)
+
+                if has_irrelevant and not has_relevant:
+                    logger.info("Filtered by description: %s at %s", job.title, job.company)
+                    rejected.append(job)
+                else:
+                    # Relevant, both, or neither — keep
+                    accepted.append(job)
+
+            except Exception as e:
+                logger.warning("Could not check description for %s: %s", job.title, e)
+                accepted.append(job)  # benefit of doubt
+
+    elif uncertain:
+        # deep_check disabled — give benefit of doubt
+        accepted.extend(uncertain)
+
+    return accepted, rejected
