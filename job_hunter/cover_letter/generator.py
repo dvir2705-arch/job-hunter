@@ -16,46 +16,56 @@ logger = get_logger(__name__)
 class CoverLetterGenerator:
     """Generates personalized cover letters using Claude AI."""
 
-    SYSTEM_PROMPT = '''You write short cover letters that sound like a real person wrote them.
+    SYSTEM_PROMPT = '''You fill in a cover letter template. Follow the structure exactly.
+
+TEMPLATE (follow this exactly):
+
+---
+Dear [Company] Hiring Team,
+
+I'm a third-year Electrical Engineering student at Ben-Gurion University, [FOCUS AREA]. I'm reaching out about the [EXACT JOB TITLE] position [in LOCATION if known].
+
+[ONE SENTENCE connecting your relevant background to what the role requires]. I also have [ONE OTHER RELEVANT SKILL OR EXPERIENCE].
+
+My CV is attached. I'm available for [internship/position] and happy to discuss further.
+
+Dvir Salomon
+Dvir2705@gmail.com | 053-3401466
+---
+
+RULES FOR FILLING THE TEMPLATE:
+
+[FOCUS AREA] — adapt based on job type:
+- RF/Communications/DSP role → "specializing in Signals and Communications"
+- Software/Python role → "with hands-on experience in Python development"
+- Chip Design/Verification role → "specializing in digital systems and signal processing"
+- AI/ML role → "with experience in Python and machine learning fundamentals"
+- General/unclear → "specializing in Signals and Communications"
+
+[ONE SENTENCE connecting background] — pick the most relevant thing:
+- If the role mentions signal processing → mention signal processing coursework
+- If the role mentions Python → mention Python project experience
+- If the role mentions digital design → mention Digital Systems coursework
+- Do NOT list multiple things. Pick ONE that fits best.
+
+[ONE OTHER RELEVANT SKILL] — pick one more thing that adds value:
+- "practical Python and MATLAB experience"
+- "experience building CLI tools and working with REST APIs"
+- "background in both hardware and software concepts"
+- Pick whichever is most relevant to the role. ONE only.
 
 HARD RULES:
-- 80-120 words maximum (excluding signature)
-- 3 short paragraphs only
-- Do NOT list grades or GPA — they are in the attached CV
-- Do NOT repeat information that appears in the CV (courses, military service, skills list)
-- Do NOT use the word "genuinely", "solid", "strong", "passionate", "excited"
-- Do NOT use "caught my attention" or "I am writing to express"
-- Do NOT describe what the job posting says — the reader already knows
+- Total body: 50-80 words. Not more.
+- Do NOT add extra paragraphs
+- Do NOT list grades (they are in the CV)
+- Do NOT add flattery about the company
+- Do NOT say "passionate", "genuinely", "solid", "excited", "caught my attention"
+- Do NOT claim skills the candidate doesn\'t have (no Linux, no C++, no FPGA)
+- Do NOT mention grade sheets unless the candidate actually attaches one
+- Do NOT change the template structure — only fill in the brackets
+- If recruiter_name is provided, use "Dear [Name] from the [Company] team," instead
 
-WHAT THE LETTER SHOULD DO:
-The cover letter answers ONE question: "Why should we talk to this person?"
-It should say something the CV cannot say:
-- A specific reason you want THIS company (not generic praise)
-- What you would bring that other candidates probably don't
-- Something personal that connects you to the role
-
-PARAGRAPH 1 (2 sentences max):
-Who you are + why this specific company/role interests you.
-Be specific — mention something about the company that you actually know or care about.
-
-PARAGRAPH 2 (2 sentences max):
-ONE thing that makes you different. Not a list of skills.
-Something like: "I built X which taught me Y" or "My background in Z gives me a perspective that..."
-Do NOT list grades. Do NOT list courses. The CV handles that.
-
-PARAGRAPH 3 (1 sentence):
-CV attached + availability. Nothing more.
-
-GREETING:
-- If recruiter_name is provided: "Dear [Name],"
-- Otherwise: "Dear [Company] Hiring Team,"
-
-SIGNATURE:
-[Name]
-[Email] | [Phone]
-
-ACADEMIC YEAR — CRITICAL:
-- The prompt states the candidate's year explicitly. Use it exactly as given.
+The letter should read like a short professional email, not a formal document.
 '''
 
     def __init__(self):
@@ -182,7 +192,7 @@ ACADEMIC YEAR — CRITICAL:
 ## Instructions:
 - Language: {lang_instruction}
 - Tone: {tone_instruction}
-- Body must be 100-150 words. Count them. Cut if over.
+- Body must be 50-80 words. Count them. Cut if over.
 - Use this exact greeting: {greeting}
 Follow the structure and rules in the system prompt exactly.
 """
