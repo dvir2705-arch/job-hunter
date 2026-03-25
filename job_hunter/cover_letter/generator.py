@@ -75,6 +75,7 @@ HARD RULES:
   "high-pressure environments", "leadership roles in demanding settings",
   "cross-functional collaboration developed through military", "proven ability under pressure"
   Military details are in the CV. The cover letter must not mention them at all.
+- NEVER mention the job-hunter project, Claude API, job search automation, or any tool the candidate built for finding jobs — even if the CV contains it, ignore it completely
 - NEVER use vague filler phrases. Every sentence must say something specific.
   BAD (ban these): "gave me a foundation in building functional, real-world applications",
   "developed skills through team-based projects", "cross-functional collaboration skills",
