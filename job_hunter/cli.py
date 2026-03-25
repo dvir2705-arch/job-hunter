@@ -896,12 +896,24 @@ def _job_action_menu(job) -> None:
     from job_hunter.recruiters.manager import RecruiterManager
 
     while True:
+        from datetime import datetime as _dt
         recruiter_mgr = RecruiterManager()
         recruiters = recruiter_mgr.find_by_company_fuzzy(job.company)
         recruiter = recruiters[0] if recruiters else None
 
-        console.print(f"\n[bold cyan]{job.title}[/bold cyan] — {job.company}, {job.location}")
-        console.print(f"[dim]{job.url}[/dim]\n")
+        tracked = next((a for a in ApplicationTracker().get_all() if a.job_url == job.url), None)
+
+        console.print(f"\n[bold cyan]{job.title}[/bold cyan] - {job.company}, {job.location}")
+        console.print(f"[dim]{job.url}[/dim]")
+
+        if tracked:
+            try:
+                date_fmt = _dt.strptime(tracked.applied_date, "%Y-%m-%d").strftime("%b %d")
+            except ValueError:
+                date_fmt = tracked.applied_date
+            console.print(f"  [dim]Tracked: {tracked.status} ({date_fmt}) - ID: {tracked.id}[/dim]")
+
+        console.print()
         console.print("  [bold][1][/bold] Show full details")
         console.print("  [bold][2][/bold] Adapt CV for this job")
         console.print("  [bold][3][/bold] Generate cover letter")
@@ -912,6 +924,8 @@ def _job_action_menu(job) -> None:
         else:
             console.print("  [bold][6][/bold] Send email to recruiter [dim](no recruiter saved)[/dim]")
         console.print("  [bold][7][/bold] Back to list")
+        if tracked:
+            console.print("  [bold][8][/bold] Reset application status")
 
         action = click.prompt("\nChoose", default="7", show_default=False)
 
@@ -946,6 +960,14 @@ def _job_action_menu(job) -> None:
 
         elif action == "7":
             break
+
+        elif action == "8":
+            if not tracked:
+                console.print("[red]Invalid option.[/red]")
+            else:
+                note = click.prompt("Note (optional)", default="", show_default=False)
+                ApplicationTracker().reset_status(tracked.id, note)
+                console.print(f"[green]Reset to applied: {tracked.company} - {tracked.job_title}[/green]")
 
         else:
             console.print("[red]Invalid option.[/red]")
