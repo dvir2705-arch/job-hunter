@@ -279,6 +279,117 @@ def apps_stats():
         console.print(f"  {status}: {count}")
 
 
+@apps.command("dashboard")
+def apps_dashboard():
+    """Show a full application dashboard with stats, follow-ups, and recent activity."""
+    from datetime import datetime
+    from rich.panel import Panel
+
+    tracker = ApplicationTracker()
+    apps = tracker.get_all()
+
+    if not apps:
+        console.print(Panel(
+            "[dim]No applications tracked yet.\nUse: jobs scan → select job → [5] Track[/dim]",
+            title="[cyan]Application Dashboard[/cyan]",
+            border_style="cyan",
+        ))
+        return
+
+    stats = tracker.get_stats()
+    total = stats["total"]
+    by_status = stats["by_status"]
+
+    _ICONS = {
+        "applied":   "[yellow]~[/yellow]",
+        "screening": "[blue]>[/blue]",
+        "interview": "[green]+[/green]",
+        "offer":     "[bold green]$[/bold green]",
+        "rejected":  "[red]x[/red]",
+        "withdrawn": "[dim]-[/dim]",
+    }
+
+    # --- Status breakdown with bar ---
+    max_count = max(by_status.values(), default=1)
+    status_lines = []
+    for s, icon in _ICONS.items():
+        count = by_status.get(s, 0)
+        if count == 0:
+            continue
+        bar = "#" * max(1, round(count / max_count * 8))
+        status_lines.append(f"  {icon} {s:<10} {count:>2}  [cyan]{bar}[/cyan]")
+
+    # --- Follow-up warnings ---
+    overdue = tracker.get_needing_follow_up()
+    today = datetime.now().strftime("%Y-%m-%d")
+    fu_lines = []
+    for app in overdue:
+        try:
+            days_ago = (
+                datetime.strptime(today, "%Y-%m-%d")
+                - datetime.strptime(app.follow_up_date, "%Y-%m-%d")
+            ).days
+            fu_lines.append(f"  • {app.company} — {app.job_title[:35]} ({days_ago}d overdue)")
+        except ValueError:
+            fu_lines.append(f"  • {app.company} — {app.job_title[:35]}")
+
+    # --- Recent activity (last 5 events across all apps) ---
+    events = []
+    for app in apps:
+        for event in app.history:
+            events.append((event.get("date", ""), app.company, event.get("action", ""), event.get("note", "")))
+    events.sort(key=lambda e: e[0], reverse=True)
+    recent_lines = []
+    for date, company, action, note in events[:5]:
+        try:
+            date_fmt = datetime.strptime(date, "%Y-%m-%d").strftime("%b %d")
+        except ValueError:
+            date_fmt = date
+        note_part = f" - {note}" if note and note != "Initial application" else ""
+        recent_lines.append(f"  {date_fmt}  {action:<12} {company}{note_part}")
+
+    # --- Company breakdown ---
+    company_table = Table(box=None, show_header=False, padding=(0, 1))
+    company_table.add_column(style="cyan")
+    company_table.add_column(justify="right", style="dim")
+    for company, count in sorted(stats["by_company"].items(), key=lambda x: -x[1])[:8]:
+        company_table.add_row(company, str(count))
+
+    # --- Assemble output ---
+    console.print()
+    console.print(Panel(
+        "\n".join([
+            f"[bold]Total:[/bold] {total} application{'s' if total != 1 else ''}",
+            f"[bold]Response rate:[/bold] {stats['response_rate']}%",
+            "",
+            "[bold]By status:[/bold]",
+            *status_lines,
+        ]),
+        title="[cyan]Application Dashboard[/cyan]",
+        border_style="cyan",
+    ))
+
+    if fu_lines:
+        console.print(Panel(
+            "\n".join(fu_lines),
+            title="[yellow]! Needs Follow-up[/yellow]",
+            border_style="yellow",
+        ))
+
+    if recent_lines:
+        console.print(Panel(
+            "\n".join(recent_lines),
+            title="[blue]Recent Activity[/blue]",
+            border_style="blue",
+        ))
+
+    console.print(Panel(
+        company_table,
+        title="[dim]By Company[/dim]",
+        border_style="dim",
+    ))
+
+
 # ---------------------------------------------------------------------------
 # Recruiter commands
 # ---------------------------------------------------------------------------
