@@ -42,17 +42,17 @@ RULES FOR FILLING THE TEMPLATE:
 - AI/ML role → "with experience in Python and machine learning fundamentals"
 - General/unclear → "specializing in Signals and Communications"
 
-[ONE SENTENCE connecting background] — pick the most relevant thing:
+[ONE SENTENCE connecting background to role] — mention ONE relevant experience:
 - If the role mentions signal processing → mention signal processing coursework
 - If the role mentions Python → mention Python project experience
 - If the role mentions digital design → mention Digital Systems coursework
 - Do NOT list multiple things. Pick ONE that fits best.
 
-[ONE OTHER RELEVANT SKILL] — pick one more thing that adds value:
-- "practical Python and MATLAB experience"
-- "experience building CLI tools and working with REST APIs"
-- "background in both hardware and software concepts"
-- Pick whichever is most relevant to the role. ONE only.
+[ONE ADDITIONAL SKILL] — must be DIFFERENT from what you just said. Examples:
+- If sentence 1 mentions Python → sentence 2 can mention MATLAB or math background
+- If sentence 1 mentions signal processing → sentence 2 can mention Python
+- NEVER repeat the same skill or technology in both sentences
+- Keep sentence 2 short: "I also have [something different]."
 
 HARD RULES:
 - Total body: 50-80 words. Not more.
@@ -61,7 +61,7 @@ HARD RULES:
 - Do NOT add flattery about the company
 - Do NOT say "passionate", "genuinely", "solid", "excited", "caught my attention"
 - Do NOT claim skills the candidate doesn\'t have (no Linux, no C++, no FPGA)
-- Do NOT mention grade sheets unless the candidate actually attaches one
+- Do NOT write "grade sheet attached" or "grades attached" — only CV is attached
 - Do NOT change the template structure — only fill in the brackets
 - If recruiter_name is provided, use "Dear [Name] from the [Company] team," instead
 
