@@ -267,6 +267,19 @@ def apps_update(app_id, status, notes):
         console.print(f"   Note: {notes}")
 
 
+@apps.command("reset")
+@click.argument("app_id")
+@click.option("--notes", "-n", default="")
+def apps_reset(app_id, notes):
+    """Reset an application status back to 'applied'."""
+    tracker = ApplicationTracker()
+    app = tracker.reset_status(app_id, notes)
+    if not app:
+        console.print(f"[red]Application '{app_id}' not found.[/red]")
+        return
+    console.print(f"[green]Reset: {app.company} - {app.job_title} -> applied[/green]")
+
+
 @apps.command("stats")
 def apps_stats():
     """Show application statistics."""
@@ -290,7 +303,7 @@ def apps_dashboard():
 
     if not apps:
         console.print(Panel(
-            "[dim]No applications tracked yet.\nUse: jobs scan → select job → [5] Track[/dim]",
+            "[dim]No applications tracked yet.\nUse: jobs scan -> select job -> [5] Track[/dim]",
             title="[cyan]Application Dashboard[/cyan]",
             border_style="cyan",
         ))

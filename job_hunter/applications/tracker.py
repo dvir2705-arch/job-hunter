@@ -82,6 +82,15 @@ class ApplicationTracker:
                 return app
         return None
 
+    def reset_status(self, app_id: str, note: str = "") -> Optional[Application]:
+        """Reset application status to 'applied'. For corrections only."""
+        app = self.get_by_id(app_id)
+        if not app:
+            return None
+        app.reset_status(note)
+        self._save()
+        return app
+
     def update_status(self, app_id: str, new_status: str, note: str = "") -> Optional[Application]:
         """Update status with transition validation."""
         app = self.get_by_id(app_id)

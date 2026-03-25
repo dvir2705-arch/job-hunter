@@ -54,6 +54,16 @@ class Application:
         if not self.history:
             self.history = [{"date": self.applied_date, "action": "applied", "note": "Initial application"}]
 
+    def reset_status(self, note: str = "") -> None:
+        """Reset application back to 'applied' status. Used for corrections only."""
+        self.status = "applied"
+        self.last_updated = datetime.now().strftime("%Y-%m-%d")
+        self.history.append({
+            "date": self.last_updated,
+            "action": "reset",
+            "note": note or "Status reset to applied"
+        })
+
     def update_status(self, new_status: str, note: str = "") -> None:
         """Update status and add to history."""
         self.status = new_status
