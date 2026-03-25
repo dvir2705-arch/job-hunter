@@ -347,28 +347,37 @@ _FETCH_HEADERS = {
 
 
 def fetch_job_description(job: "JobListing") -> Optional[str]:
-    """Fetch the full job description text from a job listing URL.
+    """Fetch job description. Falls back to web search if direct fetch fails."""
+    description = _fetch_from_url(job.url)
+    if description:
+        return description
 
-    Supports LinkedIn and Amazon job pages.
-    Returns None if the page is JS-rendered or the description cannot be extracted.
-    """
+    description = _fetch_via_search(job.title, job.company)
+    if description:
+        return description
+
+    return None
+
+
+def _fetch_from_url(url: str) -> Optional[str]:
+    """Fetch job description directly from the job URL."""
     try:
-        r = requests.get(job.url, headers=_FETCH_HEADERS, timeout=10)
+        r = requests.get(url, headers=_FETCH_HEADERS, timeout=10)
         r.raise_for_status()
     except requests.RequestException as e:
-        logger.error("Could not fetch job page %s: %s", job.url, e)
+        logger.error("Could not fetch job page %s: %s", url, e)
         return None
 
     soup = BeautifulSoup(r.text, "html.parser")
 
     # LinkedIn public job page
-    if "linkedin.com" in job.url:
+    if "linkedin.com" in url:
         el = soup.find("div", class_="show-more-less-html__markup")
         if el:
             return el.get_text(separator="\n", strip=True)
 
     # Amazon / Annapurna Labs job page
-    if "amazon.jobs" in job.url:
+    if "amazon.jobs" in url:
         rows = soup.find_all("div", class_="row")
         for row in rows:
             text = row.get_text(separator="\n", strip=True)
@@ -376,7 +385,7 @@ def fetch_job_description(job: "JobListing") -> Optional[str]:
                 return text
 
     # Intel / Workday — JS-rendered, no static description available
-    if "myworkdayjobs.com" in job.url:
+    if "myworkdayjobs.com" in url:
         return None
 
     # Generic fallback: find the longest div > 300 chars
@@ -389,6 +398,64 @@ def fetch_job_description(job: "JobListing") -> Optional[str]:
         return best.get_text(separator="\n", strip=True)
 
     return None
+
+
+def _fetch_via_search(title: str, company: str) -> Optional[str]:
+    """Search Google for the job and try to scrape the description from results."""
+    import urllib.parse
+
+    query = f'"{title}" "{company}" job description'
+    search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+
+    try:
+        response = requests.get(
+            search_url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for link in soup.find_all("a", href=True):
+            href = link["href"]
+            if "/url?q=" in href:
+                actual_url = href.split("/url?q=")[1].split("&")[0]
+                if any(site in actual_url for site in ["linkedin.com/jobs", "glassdoor.com/job"]):
+                    result = _fetch_from_url_direct(actual_url)
+                    if result:
+                        return result
+
+        return None
+    except Exception as e:
+        logger.warning("Google search fallback failed for '%s' at %s: %s", title, company, e)
+        return None
+
+
+def _fetch_from_url_direct(url: str) -> Optional[str]:
+    """Fetch job description from a LinkedIn or Glassdoor URL."""
+    try:
+        response = requests.get(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        if "linkedin.com" in url:
+            el = soup.find("div", class_="show-more-less-html__markup")
+            if el:
+                return el.get_text(separator="\n", strip=True)
+
+        if "glassdoor.com" in url:
+            el = soup.find("div", class_="jobDescriptionContent")
+            if el:
+                return el.get_text(separator="\n", strip=True)
+
+        return None
+    except Exception as e:
+        logger.warning("Failed to fetch from %s: %s", url, e)
+        return None
 
 
 # ---------------------------------------------------------------------------
