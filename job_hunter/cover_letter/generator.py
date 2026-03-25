@@ -6,8 +6,11 @@ from typing import Optional
 
 from job_hunter.config import Config
 from job_hunter.jobs.scraper import JobListing
+from job_hunter.logger import get_logger
 from .templates import LETTER_STRUCTURE, get_company_tone, TONE_INSTRUCTIONS
 from .history import CoverLetterHistory
+
+logger = get_logger(__name__)
 
 
 class CoverLetterGenerator:
@@ -96,12 +99,16 @@ ACADEMIC YEAR — CRITICAL:
             recruiter_name=recruiter_name,
         )
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=600,
-            system=self.SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=600,
+                system=self.SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except anthropic.APIError as e:
+            logger.error("Claude API error in CoverLetterGenerator.generate: %s", e)
+            return None
 
         content = response.content[0].text.strip()
 

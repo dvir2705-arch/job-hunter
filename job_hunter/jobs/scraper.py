@@ -3,6 +3,10 @@ from bs4 import BeautifulSoup
 from dataclasses import dataclass
 from typing import List, Optional
 
+from job_hunter.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class JobListing:
@@ -51,7 +55,8 @@ class WorkdayScraper:
             )
             response.raise_for_status()
         except requests.RequestException as e:
-            raise RuntimeError(f"Request failed: {e}")
+            logger.error("%s request failed: %s", self.COMPANY_NAME, e)
+            return []
 
         data = response.json()
         postings = data.get("jobPostings", [])
@@ -129,7 +134,8 @@ class AmazonScraper:
             )
             response.raise_for_status()
         except requests.RequestException as e:
-            raise RuntimeError(f"Request failed: {e}")
+            logger.error("Amazon request failed: %s", e)
+            return []
 
         data = response.json()
         jobs = []
@@ -170,7 +176,8 @@ class LinkedInScraper:
             )
             response.raise_for_status()
         except requests.RequestException as e:
-            raise RuntimeError(f"Request failed: {e}")
+            logger.error("LinkedIn request failed: %s", e)
+            return []
 
         if "authwall" in response.url or "login" in response.url:
             raise RuntimeError("LinkedIn redirected to login — guest access blocked.")
@@ -233,7 +240,8 @@ class GreenhouseScraper:
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
-            raise RuntimeError(f"Greenhouse API error for {self.company_name}: {e}")
+            logger.error("Greenhouse API error for %s: %s", self.company_name, e)
+            return []
 
         jobs = []
         for job in data.get("jobs", []):
@@ -315,7 +323,7 @@ class JobScanner:
 
         if errors:
             for err in errors:
-                print(f"[warning] {err}")
+                logger.warning(err)
 
         # Deduplicate by URL
         seen = set()
@@ -348,7 +356,8 @@ def fetch_job_description(job: "JobListing") -> Optional[str]:
         r = requests.get(job.url, headers=_FETCH_HEADERS, timeout=10)
         r.raise_for_status()
     except requests.RequestException as e:
-        raise RuntimeError(f"Could not fetch job page: {e}")
+        logger.error("Could not fetch job page %s: %s", job.url, e)
+        return None
 
     soup = BeautifulSoup(r.text, "html.parser")
 

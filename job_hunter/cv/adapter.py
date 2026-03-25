@@ -3,6 +3,9 @@ import json
 import anthropic
 
 from job_hunter.config import Config
+from job_hunter.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 SYSTEM_PROMPT = """\
@@ -48,12 +51,16 @@ class CVAdapter:
             f"Candidate CV (JSON):\n{json.dumps(cv_data, indent=2)}"
         )
 
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
-        )
+        try:
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_message}],
+            )
+        except anthropic.APIError as e:
+            logger.error("Claude API error in CVAdapter.adapt: %s", e)
+            return None
 
         raw = message.content[0].text.strip()
 
@@ -74,10 +81,14 @@ class CVAdapter:
             "Write a concise, professional cover letter (3-4 paragraphs) for this candidate."
         )
 
-        message = self.client.messages.create(
-            model=self.model,
-            max_tokens=1024,
-            messages=[{"role": "user", "content": user_message}],
-        )
+        try:
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                messages=[{"role": "user", "content": user_message}],
+            )
+        except anthropic.APIError as e:
+            logger.error("Claude API error in CVAdapter.generate_cover_letter: %s", e)
+            return None
 
         return message.content[0].text.strip()

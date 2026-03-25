@@ -4,6 +4,9 @@ from typing import Dict, List, Optional
 
 from job_hunter.applications.models import Application, VALID_TRANSITIONS
 from job_hunter.config import Config
+from job_hunter.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ApplicationTracker:
@@ -17,8 +20,17 @@ class ApplicationTracker:
             self.applications = []
             return
 
-        with open(self.filepath, "r", encoding="utf-8") as f:
-            data = json.load(f)
+        try:
+            with open(self.filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            logger.error("Corrupted applications file %s: %s", self.filepath, e)
+            self.applications = []
+            return
+        except PermissionError as e:
+            logger.error("Cannot read applications file %s: %s", self.filepath, e)
+            self.applications = []
+            return
 
         # Support both old list format and new {"applications": [...]} format
         records = data.get("applications", data) if isinstance(data, dict) else data
@@ -50,8 +62,11 @@ class ApplicationTracker:
 
     def _save(self) -> None:
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.filepath, "w", encoding="utf-8") as f:
-            json.dump({"applications": [a.to_dict() for a in self.applications]}, f, indent=2)
+        try:
+            with open(self.filepath, "w", encoding="utf-8") as f:
+                json.dump({"applications": [a.to_dict() for a in self.applications]}, f, indent=2)
+        except PermissionError as e:
+            logger.error("Cannot write applications file %s: %s", self.filepath, e)
 
     # --- CRUD ---
 

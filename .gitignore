@@ -31,6 +31,9 @@ data/cv/cv_*.json
 .coverage
 htmlcov/
 
+# Logs
+data/logs/*.log
+
 # OS
 .DS_Store
 Thumbs.db

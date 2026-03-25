@@ -4,6 +4,9 @@ import requests
 from typing import Dict
 
 from job_hunter.config import Config
+from job_hunter.logger import get_logger
+
+logger = get_logger(__name__)
 
 COMPANY_DOMAINS = {
     "intel": "intel.com",
@@ -87,6 +90,7 @@ class HunterAPI:
                 ],
             }
         except requests.RequestException as e:
+            logger.error("Hunter.io domain_search failed for %s: %s", domain, e)
             return {"error": str(e), "domain": domain, "emails": []}
 
     def get_quota(self) -> Dict:
@@ -104,5 +108,6 @@ class HunterAPI:
                 "used": searches.get("used", 0),
                 "available": searches.get("available", 0),
             }
-        except requests.RequestException:
+        except requests.RequestException as e:
+            logger.error("Hunter.io get_quota failed: %s", e)
             return {"error": "Could not fetch quota"}
