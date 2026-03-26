@@ -1,12 +1,11 @@
 # Session State
 
 ## Last Session (2026-03-26)
-**Completed:** requirements.txt fixed (requests, bs4, python-jobspy added; weasyprint removed); Chrome PDF confirmed; irrelevant keyword list expanded; JobSpy results set to 50; LinkedIn+JobSpy scrapers both enabled
-**Commits:** 788273b, 614f03e, bd64518, b29ae63, 2258dcb, 1bf2edd, 266f454
+**Completed:** tracker.py:43 — replaced silent `pass` with `logger.warning` for malformed records
+**Commits:** 941ad08, 5f43f6f + session-end commit
 
 ## Current Status
 Priority 1 bugs remaining:
-- [ ] `tracker.py:43` — replace silent `pass` with error log on malformed records
 - [ ] `scraper.py` `JobSpyScraper.search()` — honor `max_results` param (currently hardcoded 50)
 - [ ] `hunter.py` — add `HUNTER_API_KEY` to `.env.example`
 - [ ] `logger.py` — use `Config.DATA_DIR` instead of hardcoded `"data/logs"`
@@ -15,7 +14,7 @@ Priority 2 (next after bugs):
 - 10 unit tests across relevance_filter, models, tracker, scraper, cv/adapter
 
 ## Next Session
-**Goal:** Priority 1 remaining bugs (4 small fixes across 4 files)
+**Goal:** Priority 1 remaining bugs (3 small fixes: scraper.py, hunter.py, logger.py)
 **Start message:** "Working on job-hunter. Read `knowladge/SESSION.md`. Tell me: last completed, current status, next task."
 
 ## Session End Checklist

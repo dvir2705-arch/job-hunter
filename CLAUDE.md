@@ -73,7 +73,7 @@
 
 ### Priority 1 — Bugs & broken things
 - [x] `requirements.txt`: add `requests`, `beautifulsoup4`, `python-jobspy`
-- [ ] `tracker.py:43`: replace silent `pass` with error log on malformed records
+- [x] `tracker.py:43`: replace silent `pass` with error log on malformed records
 - [ ] `scraper.py` `JobSpyScraper.search()`: honor `max_results` param (currently hardcoded 50)
 - [ ] `hunter.py`: add `HUNTER_API_KEY` to `.env.example`
 - [ ] `logger.py`: use `Config.DATA_DIR` instead of hardcoded `"data/logs"`

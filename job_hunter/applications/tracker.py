@@ -39,8 +39,8 @@ class ApplicationTracker:
         for record in records:
             try:
                 self.applications.append(self._migrate(record))
-            except Exception:
-                pass  # Skip malformed records
+            except Exception as e:
+                logger.warning("Skipping malformed record %s: %s", record, e)
 
     def _migrate(self, record: dict) -> Application:
         """Migrate old-format records to new Application model."""
