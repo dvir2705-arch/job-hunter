@@ -6,29 +6,13 @@ from typing import List, Optional, Tuple
 import anthropic
 
 from job_hunter.config import Config
+from job_hunter.profile import get_profile
 from .scraper import JobListing
 
-RELEVANT_KEYWORDS = [
-    # Electrical Engineering
-    "electrical", "electronic", "electronics", "ee", "e&e",
-    # Software / Programming
-    "software", "developer", "programming", "python", "code", "coding",
-    # Chip Design / Hardware
-    "chip", "asic", "fpga", "rtl", "verilog", "vhdl", "verification",
-    "digital design", "analog", "hardware", "silicon", "semiconductor",
-    "processor", "architecture", "vlsi", "dsp",
-    # AI / ML
-    "ai", "ml", "machine learning", "deep learning", "neural", "data science",
-    "computer vision", "nlp",
-    # Embedded / Firmware
-    "embedded", "firmware", "rtos", "microcontroller", "arm", "drivers",
-    # RF / Signals
-    "rf", "radio", "signal", "communication", "wireless", "antenna", "radar",
-    "modem", "5g", "lte",
-    # General tech
-    "algorithm", "devops", "cloud", "backend", "frontend",
-    "full stack", "fullstack", "api", "automation",
-]
+
+def _get_relevant_keywords() -> List[str]:
+    """Load domain keywords from user profile."""
+    return get_profile().domains
 
 IRRELEVANT_KEYWORDS = [
     # Completely different fields
@@ -69,24 +53,30 @@ SENIORITY_KEYWORDS = [
 ]
 
 
-FIT_SCORE_PROMPT = """\
+def _build_fit_score_prompt() -> str:
+    """Build the fit-score system prompt from user profile."""
+    p = get_profile()
+    skills_str = ", ".join(p.skills)
+    skills_not_str = ", ".join(p.skills_not)
+    targets_str = ", ".join(p.target_positions)
+    return f"""\
 You are a job-fit evaluator. Score how well a job fits this candidate:
 
 **Candidate profile:**
-- 3rd-year Electrical Engineering student (BSc), Ben-Gurion University
-- Skills: Python, MATLAB, Assembly, signal processing, digital systems, ML basics
-- Looking for: student/internship positions in software, DSP, chip design, RF, embedded, AI/ML
-- NOT experienced in: Linux administration, C++, FPGA hands-on, DevOps
+- {p.cv_title}, {p.university}
+- Skills: {skills_str}
+- Looking for: student/internship positions in {targets_str}
+- NOT experienced in: {skills_not_str}
 
 **Scoring guide:**
-- 80-100: Strong fit — domain matches (software/DSP/RF/embedded/AI), student-level, uses candidate's skills
+- 80-100: Strong fit — domain matches ({targets_str}), student-level, uses candidate's skills
 - 60-79: Decent fit — related field, some skill overlap, reasonable for a student to apply
 - 40-59: Weak fit — tangential field or requires significant skills the candidate lacks
 - 20-39: Poor fit — different field, heavy experience requirements, or unrelated skills
 - 0-19: No fit — completely unrelated field or clearly senior role
 
 Return ONLY valid JSON:
-{"score": <0-100>, "reason": "<one sentence explaining the score>"}
+{{"score": <0-100>, "reason": "<one sentence explaining the score>"}}
 """
 
 
@@ -103,7 +93,7 @@ def score_job_fit(
         response = client.messages.create(
             model=Config.CLAUDE_MODEL,
             max_tokens=150,
-            system=FIT_SCORE_PROMPT,
+            system=_build_fit_score_prompt(),
             messages=[{
                 "role": "user",
                 "content": f"Job: {title} at {company}\n\nDescription:\n{description}",
@@ -158,7 +148,7 @@ def filter_relevant_jobs(
             continue
 
         # Relevant keyword in title — accept immediately
-        if any(kw in title_lower for kw in RELEVANT_KEYWORDS):
+        if any(kw in title_lower for kw in _get_relevant_keywords()):
             accepted.append(job)
             continue
 

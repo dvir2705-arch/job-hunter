@@ -7,30 +7,30 @@ from typing import Optional
 from job_hunter.config import Config
 from job_hunter.jobs.scraper import JobListing
 from job_hunter.logger import get_logger
+from job_hunter.profile import get_profile
 from .templates import LETTER_STRUCTURE, get_company_tone, TONE_INSTRUCTIONS
 from .history import CoverLetterHistory
 
 logger = get_logger(__name__)
 
 
-class CoverLetterGenerator:
-    """Generates personalized cover letters using Claude AI."""
-
-    SYSTEM_PROMPT = '''You fill in a cover letter template. Follow the structure exactly.
+def _build_system_prompt() -> str:
+    """Build the cover letter system prompt from user profile."""
+    p = get_profile()
+    return f'''You fill in a cover letter template. Follow the structure exactly.
 
 TEMPLATE (follow this exactly):
 
 ---
 Dear [Company] Hiring Team,
 
-I'm a third-year Electrical Engineering student at Ben-Gurion University, [FOCUS AREA]. I'm reaching out about the [EXACT JOB TITLE] position [in LOCATION if known].
+I'm a [YEAR]-year {p.cv_title} at {p.university}, [FOCUS AREA]. I'm reaching out about the [EXACT JOB TITLE] position [in LOCATION if known].
 
 [ONE SENTENCE connecting your relevant background to what the role requires]. I also have [ONE OTHER RELEVANT SKILL OR EXPERIENCE].
 
 My CV is attached. I'm available for [internship/position] and happy to discuss further.
 
-Dvir Salomon
-Dvir2705@gmail.com | 053-3401466
+{p.signature_block()}
 ---
 
 RULES FOR FILLING THE TEMPLATE:
@@ -87,6 +87,9 @@ HARD RULES:
 The letter should read like a short professional email, not a formal document.
 '''
 
+class CoverLetterGenerator:
+    """Generates personalized cover letters using Claude AI."""
+
     def __init__(self):
         Config.validate()
         self.client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
@@ -103,12 +106,12 @@ The letter should read like a short professional email, not a formal document.
         recruiter_name: Optional[str] = None,
     ) -> str:
         """Generate a cover letter for a specific job."""
-        contact = cv.get("contact", {})
+        profile = get_profile()
         personal_info = {
-            "name":     cv.get("name", ""),
-            "email":    contact.get("email", ""),
-            "phone":    contact.get("phone", ""),
-            "linkedin": contact.get("linkedin", ""),
+            "name":     profile.name,
+            "email":    profile.email,
+            "phone":    profile.phone,
+            "linkedin": profile.linkedin,
         }
 
         company_tone = get_company_tone(job.company)
@@ -130,7 +133,7 @@ The letter should read like a short professional email, not a formal document.
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=600,
-                system=self.SYSTEM_PROMPT,
+                system=_build_system_prompt(),
                 messages=[{"role": "user", "content": prompt}],
             )
         except anthropic.APIError as e:

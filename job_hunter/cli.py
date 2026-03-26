@@ -8,6 +8,7 @@ from rich.table import Table
 from job_hunter.applications.tracker import ApplicationTracker
 from job_hunter.config import Config
 from job_hunter.cv.manager import CVManager
+from job_hunter.profile import get_profile
 
 console = Console()
 
@@ -1074,8 +1075,7 @@ def _send_email_to_recruiter(job, recruiter) -> None:
             f"I am writing to express my interest in the {job.title} position at {job.company}.\n\n"
             f"Please find my CV attached.\n\n"
             f"Best regards,\n"
-            f"Dvir Salomon\n"
-            f"Dvir2705@gmail.com | 053-3401466"
+            f"{get_profile().signature_block()}"
         )
 
     # Open Gmail compose in Chrome

@@ -86,11 +86,11 @@
 - [x] `tests/test_cv_adapter.py` — JSON fence stripping, None on API failure
 
 ### Priority 3 — Centralize user data (multi-user prep)
-- [ ] Create `data/user_profile.json` + `job_hunter/profile.py` (`UserProfile` dataclass)
-- [ ] Refactor `cover_letter/generator.py`: inject name/email/phone/degree from `UserProfile`
-- [ ] Refactor `cv/adapter.py`: derive title rule from `UserProfile.degree`
-- [ ] Refactor `cli.py:_send_email_to_recruiter()`: read contact info from `UserProfile`
-- [ ] Refactor `relevance_filter.py`: load domain keywords from `UserProfile.domains`
+- [x] Create `data/user_profile.json` + `job_hunter/profile.py` (`UserProfile` dataclass)
+- [x] Refactor `cover_letter/generator.py`: inject name/email/phone/degree from `UserProfile`
+- [x] Refactor `cv/adapter.py`: derive title rule from `UserProfile.degree`
+- [x] Refactor `cli.py:_send_email_to_recruiter()`: read contact info from `UserProfile`
+- [x] Refactor `relevance_filter.py`: load domain keywords from `UserProfile.domains`
 
 ### Priority 4 — Onboarding flow
 - [ ] `job-hunter init` command: 6-question setup → writes `data/user_profile.json`

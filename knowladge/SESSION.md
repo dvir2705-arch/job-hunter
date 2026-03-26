@@ -1,19 +1,20 @@
 # Session State
 
 ## Last Session (2026-03-26)
-**Completed:** AI-enhanced relevance filter — added seniority guard to Layer 1, replaced Layer 2 rule-based logic with AI fit scoring (score_job_fit, 0-100 scale, threshold 55). Updated session-end skill to auto-save summaries.
+**Completed:** Priority 3 — centralized user data. Created `data/user_profile.json` + `job_hunter/profile.py` (UserProfile dataclass). Refactored hardcoded personal data out of 5 files: cover_letter/generator.py, cv/adapter.py, cli.py, relevance_filter.py (keywords + fit score prompt). All 45 tests passing.
 **Commits:** (this session's commit)
 
 ## Current Status
 Priority 1 bugs: all done ✓
 Priority 2 tests: all done ✓
-Relevance filter: AI-enhanced (seniority guard + fit scoring) ✓
+Relevance filter: AI-enhanced ✓
+Priority 3 centralize user data: all done ✓
 
-Priority 3 (next):
-- Centralize user data: UserProfile dataclass + refactor hardcoded personal data out of 5 files
+Priority 4 (next):
+- Onboarding flow: `job-hunter init` command, CV upload path, guard all commands
 
 ## Next Session
-**Goal:** Priority 3 — create UserProfile dataclass and refactor hardcoded personal data (cover_letter/generator.py, cv/adapter.py, cli.py, relevance_filter.py, fit score prompt)
+**Goal:** Priority 4 — onboarding flow (`job-hunter init` command: 6-question setup → writes user_profile.json, CV upload path, guard commands if profile not initialized)
 **Start message:** "Working on job-hunter. Read `knowladge/SESSION.md`. Tell me: last completed, current status, next task."
 
 ## Session End Checklist
