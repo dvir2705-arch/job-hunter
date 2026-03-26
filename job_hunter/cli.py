@@ -1138,16 +1138,29 @@ def _adapt_cv_for_job(job) -> None:
         existing = existing_cvs[0]
         console.print(f"\n  Found existing CV for {job.company}: [cyan]{existing.name}[/cyan]")
         console.print("  [bold][1][/bold] Open existing CV")
-        console.print("  [bold][2][/bold] Generate new adapted CV")
-        console.print("  [bold][3][/bold] Back")
+        console.print("  [bold][2][/bold] View changes (diff comparison)")
+        console.print("  [bold][3][/bold] Generate new adapted CV")
+        console.print("  [bold][4][/bold] Back")
         reuse = click.prompt("\nChoose", default="1", show_default=False)
         if reuse == "1":
             open_in_chrome(str(existing.absolute()))
             console.print(f"[green]Opened {existing.name}[/green]")
             return
-        elif reuse == "3":
+        elif reuse == "2":
+            diff_files = sorted(
+                Config.OUTPUT_DIR.glob(f"cv_diff_*{company_clean}*.html"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if diff_files:
+                open_in_chrome(str(diff_files[0].absolute()))
+                console.print(f"[green]Opened {diff_files[0].name}[/green]")
+            else:
+                console.print("[yellow]No comparison file found. Generate a new CV to create one.[/yellow]")
             return
-        # reuse == "2": fall through to generate
+        elif reuse == "4":
+            return
+        # reuse == "3": fall through to generate
 
     # 1. Fetch job description
     console.print(f"\n[dim]Fetching job description from {job.url}...[/dim]")
