@@ -32,3 +32,9 @@
 - WeasyPrint for PDF generation
 - Click for CLI
 - JSON for data storage (no database yet)
+
+## Token Efficiency Rules
+- Don't read files unless I tell you which files to change
+- Keep responses short — no lengthy explanations unless asked
+- Combine related changes into one commit
+- Don't re-read files you already read in this session

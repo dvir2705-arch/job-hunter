@@ -719,7 +719,8 @@ def jobs_search(query, location, max_results, source):
 @click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
 @click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
 @click.option("--all", "show_all", is_flag=True, default=False, help="Show all jobs including irrelevant ones (disables profile filter).")
-def jobs_scan(query, location, max_per_company, new_only, show_all):
+@click.option("--deep", is_flag=True, default=False, help="Analyze uncertain job descriptions with AI to improve filtering (costs tokens).")
+def jobs_scan(query, location, max_per_company, new_only, show_all, deep):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
     from job_hunter.jobs.history import JobHistory
@@ -737,7 +738,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all):
 
     # Apply relevance filter unless --all is passed
     if not show_all:
-        listings, removed = filter_relevant_jobs(listings)
+        listings, removed = filter_relevant_jobs(listings, deep_check=deep)
         if removed:
             console.print(f"[dim]Filtered out {len(removed)} irrelevant jobs "
                           f"(use --all to see everything)[/dim]")
@@ -1124,6 +1125,29 @@ def _adapt_cv_for_job(job) -> None:
     from job_hunter.cv.manager import CVManager
     from job_hunter.cv.renderer import CVRenderer
     from job_hunter.config import Config
+    import re
+
+    # 0. Check for existing CV
+    company_clean = re.sub(r"[^\w]+", "_", job.company).lower()[:20]
+    existing_cvs = sorted(
+        Config.OUTPUT_DIR.glob(f"cv_*{company_clean}*.pdf"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if existing_cvs:
+        existing = existing_cvs[0]
+        console.print(f"\n  Found existing CV for {job.company}: [cyan]{existing.name}[/cyan]")
+        console.print("  [bold][1][/bold] Open existing CV")
+        console.print("  [bold][2][/bold] Generate new adapted CV")
+        console.print("  [bold][3][/bold] Back")
+        reuse = click.prompt("\nChoose", default="1", show_default=False)
+        if reuse == "1":
+            open_in_chrome(str(existing.absolute()))
+            console.print(f"[green]Opened {existing.name}[/green]")
+            return
+        elif reuse == "3":
+            return
+        # reuse == "2": fall through to generate
 
     # 1. Fetch job description
     console.print(f"\n[dim]Fetching job description from {job.url}...[/dim]")
@@ -1144,27 +1168,49 @@ def _adapt_cv_for_job(job) -> None:
 
     console.print(f"[dim]Fetched {len(description)} characters of job description.[/dim]")
 
-    # 2. Load base CV and adapt
+    # 2. Analyze job description into structured requirements
+    from job_hunter.jobs.analyzer import JobAnalyzer
+    requirements = None
+    with console.status("Analyzing job requirements..."):
+        analyzer = JobAnalyzer()
+        requirements = analyzer.analyze(
+            job_title=job.title,
+            company=job.company,
+            location=getattr(job, "location", ""),
+            description=description,
+        )
+
+    if requirements:
+        req_skills = ", ".join(requirements.required_skills) if requirements.required_skills else "none listed"
+        console.print(
+            f"[dim]Detected: [bold]{requirements.domain}[/bold] role requiring {req_skills}. "
+            f"Adapting CV...[/dim]"
+        )
+
+    # 3. Load base CV and adapt
     cv_manager = CVManager()
     base_cv = cv_manager.load_base()
 
     with console.status("Adapting CV with Claude..."):
         adapter = CVAdapter()
-        adapted = adapter.adapt(base_cv, description, job_title=job.title)
+        if requirements:
+            adapted = adapter.adapt_with_requirements(base_cv, requirements)
+        else:
+            adapted = adapter.adapt(base_cv, description, job_title=job.title)
 
-    # 3. Save adapted CV JSON
+    # 4. Save adapted CV JSON
     company_slug = job.company.lower().replace(" ", "_").replace("/", "_")[:20]
     title_slug = job.title.lower().replace(" ", "_").replace("/", "_")[:25]
     label = f"{company_slug}_{title_slug}"
     json_path = cv_manager.save_version(adapted, label)
 
-    # 4. Render PDF
+    # 5. Render PDF
     renderer = CVRenderer()
     pdf_path = Config.OUTPUT_DIR / f"{json_path.stem}.pdf"
     with console.status("Rendering PDF..."):
         renderer.render_pdf(adapted, pdf_path)
 
-    # 5. Generate change summary
+    # 6. Generate change summary
     from job_hunter.cv.change_summary import generate_change_summary
     changes_path = generate_change_summary(
         base_cv=base_cv,
@@ -1173,7 +1219,7 @@ def _adapt_cv_for_job(job) -> None:
         company=job.company,
     )
 
-    # 6. Show result
+    # 7. Show result
     from rich.panel import Panel
     console.print(Panel(
         f"[bold]Title:[/bold]    {adapted.get('title', '')}\n"
@@ -1217,8 +1263,32 @@ def _generate_cover_letter_for_job(job) -> None:
     from job_hunter.jobs.scraper import fetch_job_description
     from job_hunter.cv.manager import CVManager
     from job_hunter.cover_letter import CoverLetterGenerator
+    from job_hunter.config import Config
     from rich.panel import Panel
     import pyperclip
+    import re
+
+    # 0. Check for existing cover letter
+    company_clean = re.sub(r"[^\w]+", "_", job.company).lower()[:20]
+    existing_letters = sorted(
+        Config.OUTPUT_DIR.glob(f"cover_letter_*{company_clean}*.txt"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if existing_letters:
+        existing = existing_letters[0]
+        console.print(f"\n  Found existing cover letter for {job.company}: [cyan]{existing.name}[/cyan]")
+        console.print("  [bold][1][/bold] Open existing letter")
+        console.print("  [bold][2][/bold] Generate new cover letter")
+        console.print("  [bold][3][/bold] Back")
+        reuse = click.prompt("\nChoose", default="1", show_default=False)
+        if reuse == "1":
+            click.launch(str(existing.absolute()))
+            console.print(f"[green]Opened {existing.name}[/green]")
+            return
+        elif reuse == "3":
+            return
+        # reuse == "2": fall through to generate
 
     # 1. Fetch job description
     console.print(f"\n[dim]Fetching job description from {job.url}...[/dim]")
