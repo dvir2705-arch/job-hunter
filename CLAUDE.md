@@ -79,11 +79,11 @@
 - [x] `logger.py`: use `Config.DATA_DIR` instead of hardcoded `"data/logs"`
 
 ### Priority 2 — Tests
-- [ ] `tests/test_relevance_filter.py` — 5 accept / 5 reject title cases
-- [ ] `tests/test_application_models.py` — status transition validation
-- [ ] `tests/test_tracker.py` — load/save, malformed JSON recovery, follow-up detection
-- [ ] `tests/test_scraper.py` — JobSpyScraper returns `List[JobListing]`
-- [ ] `tests/test_cv_adapter.py` — JSON fence stripping, None on API failure
+- [x] `tests/test_relevance_filter.py` — 5 accept / 5 reject title cases
+- [x] `tests/test_application_models.py` — status transition validation
+- [x] `tests/test_tracker.py` — load/save, malformed JSON recovery, follow-up detection
+- [x] `tests/test_scraper.py` — JobSpyScraper returns `List[JobListing]`
+- [x] `tests/test_cv_adapter.py` — JSON fence stripping, None on API failure
 
 ### Priority 3 — Centralize user data (multi-user prep)
 - [ ] Create `data/user_profile.json` + `job_hunter/profile.py` (`UserProfile` dataclass)

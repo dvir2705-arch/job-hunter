@@ -1,17 +1,18 @@
 # Session State
 
 ## Last Session (2026-03-26)
-**Completed:** Fixed all remaining Priority 1 bugs — scraper.py max_results, HUNTER_API_KEY in .env.example, logger.py hardcoded path
-**Commits:** 5f53d01
+**Completed:** Priority 2 — wrote all 5 unit test files (45 tests, all passing): test_relevance_filter.py, test_application_models.py, test_tracker.py, test_scraper.py, test_cv_adapter.py
+**Commits:** (this session — no new commits yet, files written only)
 
 ## Current Status
 Priority 1 bugs: all done ✓
+Priority 2 tests: all done ✓
 
-Priority 2 (next):
-- 10 unit tests across relevance_filter, models, tracker, scraper, cv/adapter
+Priority 3 (next):
+- Centralize user data: UserProfile dataclass + refactor hardcoded personal data out of 5 files
 
 ## Next Session
-**Goal:** Priority 2 — write unit tests (relevance_filter, application models, tracker, scraper, cv/adapter)
+**Goal:** Priority 3 — create UserProfile dataclass and refactor hardcoded personal data (cover_letter/generator.py, cv/adapter.py, cli.py, relevance_filter.py)
 **Start message:** "Working on job-hunter. Read `knowladge/SESSION.md`. Tell me: last completed, current status, next task."
 
 ## Session End Checklist
