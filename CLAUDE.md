@@ -47,3 +47,51 @@
 - Keep repository structure clean — no duplicate files
 - Never commit output files, logs, or personal data
 - Before every push, verify with: git status
+
+---
+
+## Roadmap (from full project audit, 2026-03-26)
+
+### Priority 1 — Bugs & broken things
+- [ ] `requirements.txt`: add `requests`, `beautifulsoup4`, `python-jobspy`
+- [ ] `tracker.py:43`: replace silent `pass` with error log on malformed records
+- [ ] `scraper.py` `JobSpyScraper.search()`: honor `max_results` param (currently hardcoded 50)
+- [ ] `hunter.py`: add `HUNTER_API_KEY` to `.env.example`
+- [ ] `logger.py`: use `Config.DATA_DIR` instead of hardcoded `"data/logs"`
+
+### Priority 2 — Tests
+- [ ] `tests/test_relevance_filter.py` — 5 accept / 5 reject title cases
+- [ ] `tests/test_application_models.py` — status transition validation
+- [ ] `tests/test_tracker.py` — load/save, malformed JSON recovery, follow-up detection
+- [ ] `tests/test_scraper.py` — JobSpyScraper returns `List[JobListing]`
+- [ ] `tests/test_cv_adapter.py` — JSON fence stripping, None on API failure
+
+### Priority 3 — Centralize user data (multi-user prep)
+- [ ] Create `data/user_profile.json` + `job_hunter/profile.py` (`UserProfile` dataclass)
+- [ ] Refactor `cover_letter/generator.py`: inject name/email/phone/degree from `UserProfile`
+- [ ] Refactor `cv/adapter.py`: derive title rule from `UserProfile.degree`
+- [ ] Refactor `cli.py:_send_email_to_recruiter()`: read contact info from `UserProfile`
+- [ ] Refactor `relevance_filter.py`: load domain keywords from `UserProfile.domains`
+
+### Priority 4 — Onboarding flow
+- [ ] `job-hunter init` command: 6-question setup → writes `data/user_profile.json`
+- [ ] CV upload path: parse uploaded JSON → pre-fill profile fields
+- [ ] Guard all commands: helpful error if profile not initialized
+
+### Priority 5 — New features
+- [ ] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
+- [ ] Retry logic in scrapers (exponential backoff on 429/503)
+- [ ] Unify `RELEVANT_KEYWORDS` between `relevance_filter.py` and `discovery.py`
+- [ ] Cover letter critique loop (Claude scores and suggests improvements after generation)
+- [ ] Job analytics: applications per week, response rate trend
+- [ ] Hebrew cover letter option for Israeli companies
+
+### Known hardcoded personal data (to fix in Priority 3)
+| File | What's hardcoded |
+|------|-----------------|
+| `cover_letter/generator.py:32–33` | Name, email, phone, university, degree in AI prompt |
+| `cli.py:1077–1078` | Name, email, phone in email compose |
+| `cv/adapter.py:24–39` | Title rule: "Electrical Engineering Student" |
+| `jobs/relevance_filter.py:6–48` | EE-specific keyword lists |
+| `change_summary.py:298–318` | EE/Python interview prep tips |
+| `recruiters/hunter.py:11–46` | Israel company→domain map |
