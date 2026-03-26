@@ -41,10 +41,17 @@ IRRELEVANT_KEYWORDS = [
     "supply chain", "logistics", "procurement",
     "office manager", "administrative", "secretary",
     "manual testing", "qa manual",
+    "support engineer", "technical writer",
     # Facilities / operations
     "catering", "leasing", "facilities", "food", "kitchen",
     "receptionist", "warehouse", "driver", "delivery", "cafeteria",
     "maintenance", "cleaning", "security guard", "personal assistant",
+    "night operator", "night shift",
+    "technical support", "manual qa",
+    "documentation student", "composites manufacturing",
+    "network operations center", "assembly team",
+    "solution designer", "intralogistics", "operator student",
+    "quality engineering", "quality assurance",
 ]
 
 IRRELEVANT_COMPANIES = [
