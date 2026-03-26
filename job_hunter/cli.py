@@ -1156,7 +1156,27 @@ def _adapt_cv_for_job(job) -> None:
                 open_in_chrome(str(diff_files[0].absolute()))
                 console.print(f"[green]Opened {diff_files[0].name}[/green]")
             else:
-                console.print("[yellow]No comparison file found. Generate a new CV to create one.[/yellow]")
+                # Diff missing (old CV) — regenerate from adapted JSON + base CV
+                from job_hunter.cv.change_summary import generate_change_summary
+                cv_manager = CVManager()
+                json_path = Config.CV_DIR / f"{existing.stem}.json"
+                if json_path.exists():
+                    try:
+                        base_cv = cv_manager.load_base()
+                        adapted_cv = cv_manager.load_version(json_path.name)
+                        with console.status("Regenerating diff..."):
+                            diff_path = generate_change_summary(
+                                base_cv=base_cv,
+                                adapted_cv=adapted_cv,
+                                job_title=job.title,
+                                company=job.company,
+                            )
+                        open_in_chrome(str(diff_path.absolute()))
+                        console.print(f"[green]Regenerated and opened {diff_path.name}[/green]")
+                    except Exception as e:
+                        console.print(f"[red]Could not regenerate diff: {e}[/red]")
+                else:
+                    console.print("[yellow]No adapted CV JSON found — cannot regenerate diff. Generate a new CV.[/yellow]")
             return
         elif reuse == "4":
             return
