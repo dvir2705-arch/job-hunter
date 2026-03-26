@@ -44,3 +44,6 @@
 - Never leave modified files uncommitted
 - Use: git add [files] && git commit -m "message" && git push origin master
 - Do NOT commit output files (PDFs, HTMLs, cover letters) — they are in .gitignore
+- Keep repository structure clean — no duplicate files
+- Never commit output files, logs, or personal data
+- Before every push, verify with: git status
