@@ -93,9 +93,9 @@
 - [x] Refactor `relevance_filter.py`: load domain keywords from `UserProfile.domains`
 
 ### Priority 4 — Onboarding flow
-- [ ] `job-hunter init` command: 6-question setup → writes `data/user_profile.json`
-- [ ] CV upload path: parse uploaded JSON → pre-fill profile fields
-- [ ] Guard all commands: helpful error if profile not initialized
+- [x] `job-hunter init` command: 6-question setup → writes `data/user_profile.json`
+- [x] CV upload path: parse uploaded JSON → pre-fill profile fields
+- [x] Guard all commands: helpful error if profile not initialized
 
 ### Priority 5 — New features
 - [ ] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)

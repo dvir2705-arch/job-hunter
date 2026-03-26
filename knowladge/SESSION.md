@@ -1,20 +1,21 @@
 # Session State
 
 ## Last Session (2026-03-26)
-**Completed:** Priority 3 — centralized user data. Created `data/user_profile.json` + `job_hunter/profile.py` (UserProfile dataclass). Refactored hardcoded personal data out of 5 files: cover_letter/generator.py, cv/adapter.py, cli.py, relevance_filter.py (keywords + fit score prompt). All 45 tests passing.
-**Commits:** (this session's commit)
+**Completed:** Priority 4 — onboarding flow. Added `job-hunter init` interactive setup command with --from-cv option, require_profile guard on key commands, and 14 tests covering the flow. Files changed: cli.py, profile.py, tests/test_onboarding.py.
+**Commits:** 6ee388b
 
 ## Current Status
 Priority 1 bugs: all done ✓
 Priority 2 tests: all done ✓
 Relevance filter: AI-enhanced ✓
 Priority 3 centralize user data: all done ✓
+Priority 4 onboarding flow: all done ✓
 
-Priority 4 (next):
-- Onboarding flow: `job-hunter init` command, CV upload path, guard all commands
+Priority 5 (next):
+- Cross-platform browser/clipboard, retry logic, keyword unification, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Priority 4 — onboarding flow (`job-hunter init` command: 6-question setup → writes user_profile.json, CV upload path, guard commands if profile not initialized)
+**Goal:** Priority 5 — new features (start with cross-platform browser/clipboard: replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
 **Start message:** "Working on job-hunter. Read `knowladge/SESSION.md`. Tell me: last completed, current status, next task."
 
 ## Session End Checklist
