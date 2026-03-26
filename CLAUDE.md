@@ -29,7 +29,7 @@
 ## Tech Stack
 - Claude API for AI features
 - Jinja2 for templates
-- WeasyPrint for PDF generation
+- Chrome (via subprocess) for PDF generation
 - Click for CLI
 - JSON for data storage (no database yet)
 
