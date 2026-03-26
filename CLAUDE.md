@@ -38,3 +38,9 @@
 - Keep responses short — no lengthy explanations unless asked
 - Combine related changes into one commit
 - Don't re-read files you already read in this session
+
+## Git Rules
+- Always commit and push at the end of every task
+- Never leave modified files uncommitted
+- Use: git add [files] && git commit -m "message" && git push origin master
+- Do NOT commit output files (PDFs, HTMLs, cover letters) — they are in .gitignore
