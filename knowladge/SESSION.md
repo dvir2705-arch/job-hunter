@@ -1,8 +1,8 @@
 # Session State
 
 ## Last Session (2026-03-26)
-**Completed:** Priority 2 — wrote all 5 unit test files (45 tests, all passing): test_relevance_filter.py, test_application_models.py, test_tracker.py, test_scraper.py, test_cv_adapter.py
-**Commits:** (this session — no new commits yet, files written only)
+**Completed:** Analysis only — deep dive into relevance_filter.py: explained Layer 1 (title/company keyword filtering, uncertain bucket) and Layer 2 (description fetch + JobAnalyzer/Claude API, domain + skill overlap checks, benefit-of-doubt logic). No code written.
+**Commits:** (none this session)
 
 ## Current Status
 Priority 1 bugs: all done ✓
