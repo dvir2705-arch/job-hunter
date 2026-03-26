@@ -1,5 +1,10 @@
 # Job Hunter - Project Context
 
+## Session Protocol
+At session start: read `knowladge/SESSION.md`. Report last completed, current status, and next task in 3 bullets.
+At session end: update SESSION.md (last session, status, next task), check off completed roadmap items, then commit:
+`git add knowladge/SESSION.md CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
+
 ## About the Developer
 - Name: Dvir Salomon
 - Background: 3rd year Electrical Engineering student at Ben-Gurion University
@@ -53,7 +58,7 @@
 ## Roadmap (from full project audit, 2026-03-26)
 
 ### Priority 1 — Bugs & broken things
-- [ ] `requirements.txt`: add `requests`, `beautifulsoup4`, `python-jobspy`
+- [x] `requirements.txt`: add `requests`, `beautifulsoup4`, `python-jobspy`
 - [ ] `tracker.py:43`: replace silent `pass` with error log on malformed records
 - [ ] `scraper.py` `JobSpyScraper.search()`: honor `max_results` param (currently hardcoded 50)
 - [ ] `hunter.py`: add `HUNTER_API_KEY` to `.env.example`
@@ -95,3 +100,26 @@
 | `jobs/relevance_filter.py:6–48` | EE-specific keyword lists |
 | `change_summary.py:298–318` | EE/Python interview prep tips |
 | `recruiters/hunter.py:11–46` | Israel company→domain map |
+
+---
+
+## CV Rules
+- Title is always "Electrical Engineering Student" — never changes
+- Never claim skills Dvir doesn't have (no Linux, no C++, no FPGA)
+- "strong" allowed only near math grades (100, 99, 97)
+- Grades not repeated in cover letter — they're in the CV
+
+## Cover Letter Rules
+- 80-120 words, 3 paragraphs, strict template
+- Focus area adapts by job type: RF→signals, software→Python, chip→digital systems
+- Banned words: "passionate", "genuinely", "solid", "excited", "caught my attention"
+- No "aligns directly with" or "maps directly to" — use "gave me a foundation relevant to"
+- No vague filler phrases — every sentence must say something specific
+- No military references or "high-pressure environments"
+- Job Hunter project not mentioned; military not mentioned
+
+## Past Mistakes — Never Repeat
+- Deleted Siemens application instead of resetting → never delete user data without explicit permission
+- Cover letter claimed "comfortable with Linux" → never claim skills Dvir doesn't have
+- CV title changed to "Embedded Systems" → title is fixed: "Electrical Engineering Student"
+- Wrote "second year" instead of "third year" → Dvir is in third year (2026)
