@@ -291,7 +291,7 @@ class JobSpyScraper:
                 site_name=["linkedin", "indeed"],
                 search_term=query,
                 location=location,
-                results_wanted=50,
+                results_wanted=max_results,
             )
         except Exception as e:
             logger.error("JobSpy scrape failed: %s", e)

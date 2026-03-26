@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
+import os
 
-LOG_DIR = Path("data/logs")
+LOG_DIR = Path(os.getenv("DATA_DIR", "./data")) / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
