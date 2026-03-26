@@ -50,6 +50,24 @@ class UserProfile:
 
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
+    def save(self, path: Path = None) -> Path:
+        """Save profile to JSON file.
+
+        Args:
+            path: Optional override; defaults to data/user_profile.json.
+
+        Returns:
+            The path the profile was saved to.
+        """
+        if path is None:
+            path = Config.DATA_DIR / "user_profile.json"
+
+        from dataclasses import asdict
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(asdict(self), f, indent=2, ensure_ascii=False)
+        return path
+
     def signature_block(self) -> str:
         """Return formatted name + contact for email/letter sign-off."""
         return f"{self.name}\n{self.email} | {self.phone}"
@@ -57,6 +75,13 @@ class UserProfile:
 
 # Module-level cached instance
 _profile: UserProfile = None
+
+
+def profile_exists(path: Path = None) -> bool:
+    """Check whether user_profile.json exists."""
+    if path is None:
+        path = Config.DATA_DIR / "user_profile.json"
+    return path.exists()
 
 
 def get_profile(path: Path = None) -> UserProfile:

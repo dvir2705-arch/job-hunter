@@ -8,7 +8,7 @@ from rich.table import Table
 from job_hunter.applications.tracker import ApplicationTracker
 from job_hunter.config import Config
 from job_hunter.cv.manager import CVManager
-from job_hunter.profile import get_profile
+from job_hunter.profile import get_profile, profile_exists, UserProfile
 
 console = Console()
 
@@ -48,6 +48,104 @@ def cli():
     Config.ensure_dirs()
 
 
+def require_profile(f):
+    """Decorator that aborts with a helpful message if profile is missing."""
+    import functools
+
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        if not profile_exists():
+            console.print(
+                "[red]Profile not found.[/red] "
+                "Run [bold]job-hunter init[/bold] to get started."
+            )
+            sys.exit(1)
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+DEFAULT_DOMAINS = [
+    "software", "developer", "python", "backend", "frontend", "full stack",
+    "devops", "cloud", "api", "automation", "algorithm",
+    "embedded", "firmware", "rtos", "microcontroller", "arm",
+    "chip", "asic", "fpga", "rtl", "verilog", "vhdl", "verification",
+    "digital design", "analog", "hardware", "semiconductor", "vlsi",
+    "ai", "ml", "machine learning", "deep learning", "data science",
+    "dsp", "signal", "rf", "communication", "wireless",
+    "electrical", "electronic", "ee",
+]
+
+
+@cli.command()
+@click.option("--from-cv", type=click.Path(exists=True), default=None,
+              help="Path to existing CV JSON to pre-fill profile fields.")
+def init(from_cv):
+    """Set up your profile — required before using other commands."""
+    import json as _json
+
+    profile_path = Config.DATA_DIR / "user_profile.json"
+
+    if profile_path.exists():
+        if not click.confirm("Profile already exists. Overwrite?", default=False):
+            console.print("Aborted.")
+            return
+
+    prefill = {}
+    if from_cv:
+        with open(from_cv, encoding="utf-8") as f:
+            cv_data = _json.load(f)
+        prefill["name"] = cv_data.get("name", "")
+        prefill["email"] = cv_data.get("email", "")
+        prefill["phone"] = cv_data.get("phone", "")
+        prefill["university"] = cv_data.get("education", [{}])[0].get("institution", "")
+        prefill["degree"] = cv_data.get("education", [{}])[0].get("degree", "")
+        skills_list = cv_data.get("skills", [])
+        if isinstance(skills_list, list) and skills_list:
+            if isinstance(skills_list[0], dict):
+                prefill["skills"] = [s.get("name", str(s)) for s in skills_list]
+            else:
+                prefill["skills"] = skills_list
+        if prefill.get("name"):
+            console.print(f"[green]Pre-filled from CV:[/green] {prefill['name']}")
+
+    console.print("[bold]Welcome to Job Hunter![/bold] Let's set up your profile.\n")
+
+    name = click.prompt("Full name", default=prefill.get("name", ""))
+    email = click.prompt("Email", default=prefill.get("email", ""))
+    phone = click.prompt("Phone number", default=prefill.get("phone", ""))
+    university = click.prompt("University", default=prefill.get("university", ""))
+    degree = click.prompt("Degree (e.g. B.Sc. Electrical Engineering)",
+                          default=prefill.get("degree", ""))
+    domains_input = click.prompt(
+        "Target domains (comma-separated, or press Enter for defaults)",
+        default="",
+    )
+
+    if domains_input.strip():
+        domains = [d.strip() for d in domains_input.split(",") if d.strip()]
+    else:
+        domains = DEFAULT_DOMAINS
+        console.print(f"[dim]Using {len(domains)} default domain keywords.[/dim]")
+
+    skills = prefill.get("skills", [])
+
+    profile = UserProfile(
+        name=name,
+        email=email,
+        phone=phone,
+        university=university,
+        degree=degree,
+        domains=domains,
+        skills=skills,
+        cv_title=degree if degree else "",
+    )
+
+    saved = profile.save(profile_path)
+    console.print(f"\n[green]Profile saved to {saved}[/green]")
+    console.print("You're ready to go! Try [bold]job-hunter cv init[/bold] next.")
+
+
 # ---------------------------------------------------------------------------
 # CV commands
 # ---------------------------------------------------------------------------
@@ -83,6 +181,7 @@ def cv_show(version):
 @click.option("--pdf", is_flag=True, help="Also render a PDF.")
 @click.option("--cover-letter", is_flag=True, help="Also generate a cover letter.")
 @click.option("--company", "-c", default="", help="Company name (used in cover letter).")
+@require_profile
 def cv_adapt(job_desc, job_title, label, pdf, cover_letter, company):
     """Adapt your CV for a specific job using Claude AI."""
     from job_hunter.cv.adapter import CVAdapter
@@ -122,6 +221,7 @@ def cv_adapt(job_desc, job_title, label, pdf, cover_letter, company):
 @click.option("--version", "-v", default=None, help="CV version filename (default: base CV).")
 @click.option("--output", "-o", default=None, help="Output PDF path.")
 @click.option("--template", "-t", default="cv/modern.html", help="Template to use.")
+@require_profile
 def cv_render(version, output, template):
     """Render a CV version to PDF."""
     from job_hunter.cv.renderer import CVRenderer
@@ -677,6 +777,7 @@ def jobs():
 @click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
 @click.option("--max", "-n", "max_results", default=10, show_default=True, help="Max results to return.")
 @click.option("--source", "-s", default="intel", type=click.Choice(["intel", "glassdoor", "indeed"]), show_default=True, help="Job board to search.")
+@require_profile
 def jobs_search(query, location, max_results, source):
     """Search job boards for listings."""
     from job_hunter.jobs.scraper import IndeedScraper, GlassdoorScraper, IntelScraper
@@ -721,6 +822,7 @@ def jobs_search(query, location, max_results, source):
 @click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
 @click.option("--all", "show_all", is_flag=True, default=False, help="Show all jobs including irrelevant ones (disables profile filter).")
 @click.option("--deep", is_flag=True, default=False, help="Analyze uncertain job descriptions with AI to improve filtering (costs tokens).")
+@require_profile
 def jobs_scan(query, location, max_per_company, new_only, show_all, deep):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
@@ -797,6 +899,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, deep):
 @click.option("--relevance", "-r", default=None,
               type=click.Choice(["high", "medium", "unknown", "low"]),
               help="Filter by relevance level.")
+@require_profile
 def jobs_discover(relevance):
     """Review companies discovered during scans that aren't in companies.json."""
     from job_hunter.jobs.discovery import CompanyDiscovery
