@@ -351,8 +351,8 @@ class JobScanner:
         NVIDIAScraper(),
         MarvellScraper(),
         AmazonScraper(),
+        LinkedInScraper(),
         JobSpyScraper(),
-        # LinkedInScraper replaced by JobSpyScraper (covers LinkedIn + Indeed with full descriptions)
         # WixScraper excluded: careers.wix.com is JS-rendered, no public API found
     ]
 
