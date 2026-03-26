@@ -92,11 +92,19 @@ def filter_relevant_jobs(
         else:
             rejected.append(job)
 
-    # Layer 2: description-based check for uncertain jobs
+    # Layer 2: JobAnalyzer-based check for uncertain jobs
     if deep_check and uncertain:
         from job_hunter.jobs.scraper import fetch_job_description
+        from job_hunter.jobs.analyzer import JobAnalyzer
         from job_hunter.logger import get_logger
         logger = get_logger("relevance_filter")
+
+        RELEVANT_DOMAINS = {"software", "chip_design", "rf", "embedded", "ai_ml"}
+        DVIR_SKILLS = {"python", "matlab", "assembly", "signal processing", "digital systems", "machine learning"}
+
+        analyzer = JobAnalyzer()
+        deep_accepted = 0
+        deep_rejected = 0
 
         for job in uncertain:
             try:
@@ -104,22 +112,49 @@ def filter_relevant_jobs(
                 if not description:
                     # Can't fetch — benefit of doubt
                     accepted.append(job)
+                    deep_accepted += 1
                     continue
 
-                desc_lower = description.lower()
-                has_relevant = any(kw in desc_lower for kw in RELEVANT_KEYWORDS)
-                has_irrelevant = any(kw in desc_lower for kw in IRRELEVANT_KEYWORDS)
+                requirements = analyzer.analyze(
+                    job_title=job.title,
+                    company=job.company,
+                    location=getattr(job, "location", ""),
+                    description=description,
+                )
 
-                if has_irrelevant and not has_relevant:
-                    logger.info("Filtered by description: %s at %s", job.title, job.company)
-                    rejected.append(job)
-                else:
-                    # Relevant, both, or neither — keep
+                if requirements is None:
+                    # Analyzer failed — benefit of doubt
                     accepted.append(job)
+                    deep_accepted += 1
+                    continue
+
+                if requirements.domain in RELEVANT_DOMAINS:
+                    accepted.append(job)
+                    deep_accepted += 1
+                else:
+                    # domain is "other" — check for skill overlap
+                    job_skills = {s.lower() for s in requirements.required_skills}
+                    if job_skills & DVIR_SKILLS:
+                        accepted.append(job)
+                        deep_accepted += 1
+                    else:
+                        logger.info(
+                            "Deep-filtered (domain=%s, no skill overlap): %s at %s",
+                            requirements.domain, job.title, job.company,
+                        )
+                        rejected.append(job)
+                        deep_rejected += 1
 
             except Exception as e:
-                logger.warning("Could not check description for %s: %s", job.title, e)
+                logger.warning("Could not deep-check %s: %s", job.title, e)
                 accepted.append(job)  # benefit of doubt
+                deep_accepted += 1
+
+        if deep_accepted + deep_rejected > 0:
+            print(
+                f"Deep-checked {deep_accepted + deep_rejected} uncertain jobs "
+                f"({deep_accepted} accepted, {deep_rejected} rejected)"
+            )
 
     elif uncertain:
         # deep_check disabled — give benefit of doubt

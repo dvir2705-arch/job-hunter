@@ -1,9 +1,13 @@
 import json
+from typing import TYPE_CHECKING
 
 import anthropic
 
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
+
+if TYPE_CHECKING:
+    from job_hunter.jobs.analyzer import JobRequirements
 
 logger = get_logger(__name__)
 
@@ -71,6 +75,49 @@ class CVAdapter:
 
         adapted = json.loads(raw)
         return adapted
+
+    def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements") -> dict:
+        """Adapt CV using structured job requirements instead of raw description."""
+        prompt = f"""Adapt this CV for the following role.
+
+ROLE: {requirements.title} at {requirements.company}
+DOMAIN: {requirements.domain}
+WHAT THE PERSON WILL DO: {requirements.role_summary}
+
+REQUIRED SKILLS: {', '.join(requirements.required_skills)}
+PREFERRED SKILLS: {', '.join(requirements.preferred_skills)}
+KEY TECHNOLOGIES: {', '.join(requirements.key_technologies)}
+EDUCATION REQUIRED: {requirements.education}
+
+ADAPTATION RULES:
+1. SKILLS ORDERING: If the candidate HAS a required skill, move it to the top of the skills section. Do NOT add skills the candidate doesn't have.
+2. SUMMARY: Adjust the summary to emphasize the relevant domain ({requirements.domain}). Same person, same facts, different emphasis.
+3. PROJECTS: Highlight aspects of projects that are relevant to {requirements.domain}. Don't change what the project does, just what's emphasized.
+4. TITLE: Keep exactly as "Electrical Engineering Student" — never change this.
+5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
+
+CV DATA:
+{json.dumps(cv_data, indent=2)}
+
+Return ONLY valid JSON in the exact same schema as the input CV."""
+
+        try:
+            message = self.client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except anthropic.APIError as e:
+            logger.error("Claude API error in CVAdapter.adapt_with_requirements: %s", e)
+            return None
+
+        raw = message.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            raw = raw.rsplit("```", 1)[0]
+
+        return json.loads(raw)
 
     def generate_cover_letter(self, cv_data: dict, job_description: str, company: str, job_title: str = "") -> str:
         user_message = (

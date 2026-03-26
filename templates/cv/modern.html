@@ -23,6 +23,11 @@
     ul li { margin-bottom: 3px; line-height: 1.5; color: #333; }
     .skills { display: flex; flex-wrap: wrap; gap: 8px; }
     .skill-tag { background: #f0f0f5; border-radius: 4px; padding: 3px 10px; font-size: 9.5pt; color: #333; }
+    @media print {
+      body { margin: 0; }
+      section { page-break-inside: avoid; }
+      .entry { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>

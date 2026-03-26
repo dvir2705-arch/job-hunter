@@ -49,6 +49,8 @@ class CVRenderer:
                 '--headless',
                 '--disable-gpu',
                 '--no-sandbox',
+                '--print-to-pdf-no-header',
+                '--no-pdf-header-footer',
                 f'--print-to-pdf={output_path.absolute()}',
                 temp_html,
             ], check=True, capture_output=True)

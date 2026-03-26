@@ -13,6 +13,7 @@ class Config:
     APPLICATIONS_FILE: Path = DATA_DIR / "applications" / "applications.json"
     TEMPLATES_DIR: Path = Path("./templates")
     CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
+    HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
 
     @classmethod
     def validate(cls) -> None:
