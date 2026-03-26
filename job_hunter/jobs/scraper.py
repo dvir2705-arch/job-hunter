@@ -274,6 +274,51 @@ class WixScraper(GreenhouseScraper):
         super().__init__(company_name="Wix", board_id="wix")
 
 
+class JobSpyScraper:
+    """Wraps the python-jobspy library to scrape LinkedIn and Indeed."""
+
+    COMPANY_NAME = "JobSpy"
+
+    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+        try:
+            from jobspy import scrape_jobs
+        except ImportError:
+            logger.error("python-jobspy is not installed. Run: pip install python-jobspy")
+            return []
+
+        try:
+            df = scrape_jobs(
+                site_name=["linkedin", "indeed"],
+                search_term=query,
+                location=location,
+                results_wanted=max_results,
+            )
+        except Exception as e:
+            logger.error("JobSpy scrape failed: %s", e)
+            return []
+
+        jobs = []
+        for _, row in df.iterrows():
+            title = row.get("title") or ""
+            company = row.get("company") or ""
+            loc = row.get("location") or ""
+            url = row.get("job_url") or ""
+            posted = str(row.get("date_posted") or "")[:10]
+
+            if not title or not url:
+                continue
+
+            jobs.append(JobListing(
+                title=title,
+                company=company,
+                location=loc,
+                url=url,
+                posted=posted,
+            ))
+
+        return jobs
+
+
 # ---------------------------------------------------------------------------
 # Companies investigated but not yet accessible
 #
@@ -306,7 +351,8 @@ class JobScanner:
         NVIDIAScraper(),
         MarvellScraper(),
         AmazonScraper(),
-        LinkedInScraper(),
+        JobSpyScraper(),
+        # LinkedInScraper replaced by JobSpyScraper (covers LinkedIn + Indeed with full descriptions)
         # WixScraper excluded: careers.wix.com is JS-rendered, no public API found
     ]
 
@@ -325,13 +371,17 @@ class JobScanner:
             for err in errors:
                 logger.warning(err)
 
-        # Deduplicate by URL
-        seen = set()
+        # Deduplicate by URL and by (title, company) to catch cross-source duplicates
+        seen_urls: set = set()
+        seen_title_company: set = set()
         unique = []
         for job in all_jobs:
-            if job.url not in seen:
-                seen.add(job.url)
-                unique.append(job)
+            title_company_key = (job.title.lower().strip(), job.company.lower().strip())
+            if job.url in seen_urls or title_company_key in seen_title_company:
+                continue
+            seen_urls.add(job.url)
+            seen_title_company.add(title_company_key)
+            unique.append(job)
 
         return unique
 
