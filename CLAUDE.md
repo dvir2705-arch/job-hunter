@@ -74,9 +74,9 @@
 ### Priority 1 — Bugs & broken things
 - [x] `requirements.txt`: add `requests`, `beautifulsoup4`, `python-jobspy`
 - [x] `tracker.py:43`: replace silent `pass` with error log on malformed records
-- [ ] `scraper.py` `JobSpyScraper.search()`: honor `max_results` param (currently hardcoded 50)
-- [ ] `hunter.py`: add `HUNTER_API_KEY` to `.env.example`
-- [ ] `logger.py`: use `Config.DATA_DIR` instead of hardcoded `"data/logs"`
+- [x] `scraper.py` `JobSpyScraper.search()`: honor `max_results` param (currently hardcoded 50)
+- [x] `hunter.py`: add `HUNTER_API_KEY` to `.env.example`
+- [x] `logger.py`: use `Config.DATA_DIR` instead of hardcoded `"data/logs"`
 
 ### Priority 2 — Tests
 - [ ] `tests/test_relevance_filter.py` — 5 accept / 5 reject title cases
