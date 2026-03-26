@@ -1,9 +1,23 @@
 # Job Hunter - Project Context
 
 ## Session Protocol
-At session start: read `knowladge/SESSION.md`. Report last completed, current status, and next task in 3 bullets.
-At session end: update SESSION.md (last session, status, next task), check off completed roadmap items, then commit:
-`git add knowladge/SESSION.md CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
+
+### Rules
+- One session = one feature or task. Never spread work across multiple features in one session.
+- Never start coding without a confirmed session goal.
+- Follow the roadmap priority order — don't jump ahead unless explicitly told to.
+- Build in layers: data model → logic → CLI. Test each layer before moving on.
+- If the task is unclear, ask one focused question before starting — don't assume.
+
+### Session Start
+1. Read `knowladge/SESSION.md`
+2. Report in 3 bullets: last completed / current status / next task
+3. Wait for Dvir to confirm the goal before writing any code
+
+### Session End
+1. Update `knowladge/SESSION.md`: last session summary, advance next task, add any blockers
+2. Check off completed items in the roadmap below
+3. Commit: `git add knowladge/SESSION.md CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
 
 ## About the Developer
 - Name: Dvir Salomon
