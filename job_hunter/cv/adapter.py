@@ -41,6 +41,12 @@ PAGE LENGTH (CRITICAL):
 The adapted CV MUST fit on exactly one page. Never add new content or skills. \
 Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
 
+BANNED SKILLS (CRITICAL):
+Never list "debugging" as a skill in the summary or skills section — it is too generic \
+(same category as "saving files"). If the job mentions debugging, emphasize the relevant \
+technical skills instead (e.g. Python, digital systems, signal processing) but do NOT list \
+"debugging" itself.
+
 Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
 "remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
 "strong mathematical background" or let the grades speak for themselves. The CV should be \
@@ -105,6 +111,7 @@ ADAPTATION RULES:
 4. TITLE: Keep exactly as "{cv_title}" — never change this.
 5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
 6. ONE PAGE: The adapted CV MUST fit on exactly one page. Never add new content or skills. Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
+7. BANNED SKILLS: Never list "debugging" as a skill — it is too generic. If the job mentions debugging, emphasize the relevant technical skills instead (e.g. Python, digital systems) but do NOT list "debugging" itself.
 
 CV DATA:
 {json.dumps(cv_data, indent=2)}
