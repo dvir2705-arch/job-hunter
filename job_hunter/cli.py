@@ -1017,9 +1017,14 @@ def _print_jobs_table(jobs_with_flags) -> None:
     table.add_column("Location", style="dim")
     table.add_column("Posted", style="dim")
 
+    def _safe(text: str) -> str:
+        """Replace problematic Unicode chars that crash Windows cp1255 console."""
+        return text.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-").replace("\u2192", "->")
+
     for i, (job, is_new) in enumerate(pairs, 1):
-        title = f"[bold green][NEW][/bold green] {job.title}" if is_new else job.title
-        table.add_row(str(i), title, job.company, job.location, job.posted or "")
+        safe_title = _safe(job.title)
+        title = f"[bold green][NEW][/bold green] {safe_title}" if is_new else safe_title
+        table.add_row(str(i), title, _safe(job.company), _safe(job.location), job.posted or "")
 
     console.print(f"[green]Found {len(pairs)} jobs:[/green]")
     console.print(table)
