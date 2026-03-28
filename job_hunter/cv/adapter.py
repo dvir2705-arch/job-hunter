@@ -37,6 +37,10 @@ ALLOWED:  "{p.cv_title}"
 NOT ALLOWED: anything with a pipe + skill/domain/focus (e.g. "| Embedded Systems", "| Software Development", "| AI/ML Focus")
 NOT ALLOWED: "Embedded Software Engineer", "Junior Engineer", or any employed role title.
 
+PAGE LENGTH (CRITICAL):
+The adapted CV MUST fit on exactly one page. Never add new content or skills. \
+Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
+
 Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
 "remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
 "strong mathematical background" or let the grades speak for themselves. The CV should be \
@@ -100,6 +104,7 @@ ADAPTATION RULES:
 3. PROJECTS: Highlight aspects of projects that are relevant to {requirements.domain}. Don't change what the project does, just what's emphasized.
 4. TITLE: Keep exactly as "{cv_title}" — never change this.
 5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
+6. ONE PAGE: The adapted CV MUST fit on exactly one page. Never add new content or skills. Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
 
 CV DATA:
 {json.dumps(cv_data, indent=2)}

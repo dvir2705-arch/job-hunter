@@ -46,7 +46,7 @@ class CVRenderer:
         try:
             subprocess.run([
                 _find_chrome(),
-                '--headless',
+                '--headless=new',
                 '--disable-gpu',
                 '--no-sandbox',
                 '--print-to-pdf-no-header',

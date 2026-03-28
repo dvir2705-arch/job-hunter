@@ -3,28 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    @page { margin: 10mm 12mm; size: A4; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #222; padding: 40px; max-width: 800px; margin: auto; }
-    h1 { font-size: 26pt; font-weight: 700; color: #1a1a2e; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #222; padding: 10px; max-width: 800px; margin: auto; }
+    h1 { font-size: 20pt; font-weight: 700; color: #1a1a2e; }
     h2 { font-size: 10pt; font-weight: 400; color: #555; letter-spacing: 0.5px; margin-top: 4px; }
     .contact { margin-top: 8px; font-size: 9pt; color: #555; display: flex; flex-wrap: wrap; gap: 12px; }
     .contact span::before { content: "• "; color: #aaa; }
     .contact span:first-child::before { content: ""; }
-    hr { border: none; border-top: 2px solid #1a1a2e; margin: 16px 0 12px; }
-    section { margin-bottom: 20px; }
-    .section-title { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 10px; }
-    .summary { color: #333; line-height: 1.6; }
-    .entry { margin-bottom: 14px; }
+    hr { border: none; border-top: 2px solid #1a1a2e; margin: 8px 0 6px; }
+    section { margin-bottom: 12px; }
+    .section-title { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 6px; }
+    .summary { color: #333; line-height: 1.4; }
+    .entry { margin-bottom: 8px; }
     .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
     .entry-title { font-weight: 700; font-size: 11pt; }
     .entry-subtitle { font-size: 10pt; color: #555; }
     .entry-date { font-size: 9pt; color: #888; white-space: nowrap; }
     ul { padding-left: 18px; margin-top: 6px; }
-    ul li { margin-bottom: 3px; line-height: 1.5; color: #333; }
-    .skills { display: flex; flex-wrap: wrap; gap: 8px; }
-    .skill-tag { background: #f0f0f5; border-radius: 4px; padding: 3px 10px; font-size: 9.5pt; color: #333; }
+    ul li { margin-bottom: 3px; line-height: 1.35; color: #333; }
+    .skills { font-size: 10pt; color: #333; }
+    .skill-category { margin-bottom: 4px; }
     @media print {
-      body { margin: 0; }
+      body { margin: 0; padding: 0; }
       section { page-break-inside: avoid; }
       .entry { page-break-inside: avoid; }
     }
@@ -114,15 +115,12 @@
     <div class="section-title">Skills</div>
     {% if skills is mapping %}
       {% for category, items in skills.items() %}
-      <div style="display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-bottom:8px;">
-        <span style="font-weight:600; text-transform:capitalize; min-width:90px;">{{ category }}:</span>
-        {% for skill in items %}<span class="skill-tag">{{ skill }}</span>{% endfor %}
+      <div class="skill-category">
+        <span style="font-weight:600; text-transform:capitalize;">{{ category }}:</span> {{ items | join(', ') }}
       </div>
       {% endfor %}
     {% else %}
-      <div class="skills">
-        {% for skill in skills %}<span class="skill-tag">{{ skill }}</span>{% endfor %}
-      </div>
+      <div class="skills">{{ skills | join(', ') }}</div>
     {% endif %}
   </section>
 
@@ -165,9 +163,7 @@
   {% if languages is defined and languages %}
   <section>
     <div class="section-title">Languages</div>
-    <div class="skills">
-      {% for lang in languages %}<span class="skill-tag">{{ lang }}</span>{% endfor %}
-    </div>
+    <div class="skills">{{ languages | join(' | ') }}</div>
   </section>
   {% endif %}
 

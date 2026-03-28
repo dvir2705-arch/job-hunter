@@ -1,8 +1,7 @@
 # Session State
 
 ## Last Session (2026-03-28)
-**Completed:** Company-targeted JobSpy search. Added Microsoft, Google, Meta to companies.json (now 30 companies). Added `priority` field (12 priority companies). Default `jobs scan` now runs regular sources + priority company search combined and deduplicated. `--no-companies` for fast scan, `--companies-all` for all 30. Fixed Unicode crash on Windows cp1255 console.
-**Commits:** a189fd3, ac6e0bd, 5307902, e009f4a
+**Completed:** CV template & adapt pipeline improvements. (1) Updated base_cv.json education to "3rd year". (2) Added one-page hard rule to CV adapter system prompt (both methods). (3) Optimized modern.html CSS for one-page fit: @page margins, tighter spacing, inline skills. (4) Fixed Chrome headless to use `--headless=new` so @page rules work. (5) Upgraded `cv adapt` CLI command: added `--url` and `--desc` flags, integrated JobAnalyzer (smart path), auto PDF render + diff generation. Removed old `--job-desc`/`--pdf`/`--cover-letter` flags.
 
 ## Current Status
 Priority 1 bugs: all done ✓

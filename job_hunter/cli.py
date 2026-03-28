@@ -189,46 +189,120 @@ def cv_show(version):
 
 
 @cv.command("adapt")
-@click.option("--job-desc", "-j", required=True, help="Path to a file containing the job description.")
+@click.option("--url", "-u", default=None, help="Job listing URL (fetches description automatically).")
+@click.option("--desc", "-d", default=None, help="Path to a file containing the job description.")
 @click.option("--job-title", "-t", default="", help="Job title.")
-@click.option("--label", "-l", default="adapted", help="Label for the saved CV version.")
-@click.option("--pdf", is_flag=True, help="Also render a PDF.")
-@click.option("--cover-letter", is_flag=True, help="Also generate a cover letter.")
-@click.option("--company", "-c", default="", help="Company name (used in cover letter).")
+@click.option("--company", "-c", default="", help="Company name.")
+@click.option("--label", "-l", default="", help="Label for the saved CV version.")
 @require_profile
-def cv_adapt(job_desc, job_title, label, pdf, cover_letter, company):
+def cv_adapt(url, desc, job_title, company, label, **_kwargs):
     """Adapt your CV for a specific job using Claude AI."""
+    import re
     from job_hunter.cv.adapter import CVAdapter
     from job_hunter.cv.renderer import CVRenderer
+    from job_hunter.cv.change_summary import generate_change_summary
+    from job_hunter.jobs.analyzer import JobAnalyzer
 
-    job_desc_path = Path(job_desc)
-    if not job_desc_path.exists():
-        console.print(f"[red]File not found: {job_desc}[/red]")
+    # --- 1. Get job description ---
+    if url and desc:
+        console.print("[red]Use --url or --desc, not both.[/red]")
+        sys.exit(1)
+    if not url and not desc:
+        console.print("[red]Provide --url <job-url> or --desc <file>.[/red]")
         sys.exit(1)
 
-    job_description = job_desc_path.read_text(encoding="utf-8")
+    if url:
+        from job_hunter.jobs.scraper import JobListing, fetch_job_description
+        stub = JobListing(
+            title=job_title or "Unknown",
+            company=company or "Unknown",
+            location="",
+            url=url,
+        )
+        with console.status("Fetching job description..."):
+            job_description = fetch_job_description(stub)
+        if not job_description:
+            console.print(
+                "[red]Could not fetch job description from URL.[/red]\n"
+                "[yellow]Tip: copy the text manually and use --desc <file> instead.[/yellow]"
+            )
+            sys.exit(1)
+        console.print(f"[dim]Fetched {len(job_description)} characters.[/dim]")
+    else:
+        desc_path = Path(desc)
+        if not desc_path.exists():
+            console.print(f"[red]File not found: {desc}[/red]")
+            sys.exit(1)
+        job_description = desc_path.read_text(encoding="utf-8")
+
+    # --- 2. Analyze job requirements ---
+    requirements = None
+    with console.status("Analyzing job requirements..."):
+        analyzer = JobAnalyzer()
+        requirements = analyzer.analyze(
+            job_title=job_title,
+            company=company,
+            location="",
+            description=job_description,
+        )
+
+    if requirements:
+        req_skills = ", ".join(requirements.required_skills) if requirements.required_skills else "none listed"
+        console.print(
+            f"[dim]Detected: [bold]{requirements.domain}[/bold] role requiring {req_skills}.[/dim]"
+        )
+        if not job_title:
+            job_title = requirements.title
+        if not company:
+            company = requirements.company
+
+    # --- 3. Adapt CV ---
     manager = CVManager()
     base_cv = manager.load_base()
 
     with console.status("Adapting CV with Claude..."):
         adapter = CVAdapter()
-        adapted = adapter.adapt(base_cv, job_description, job_title)
+        if requirements:
+            adapted = adapter.adapt_with_requirements(base_cv, requirements)
+        else:
+            adapted = adapter.adapt(base_cv, job_description, job_title)
 
-    version_path = manager.save_version(adapted, label)
-    console.print(f"[green]Adapted CV saved to {version_path}[/green]")
+    if not adapted:
+        console.print("[red]CV adaptation failed (API error).[/red]")
+        sys.exit(1)
 
-    if pdf:
-        renderer = CVRenderer()
-        pdf_path = Config.OUTPUT_DIR / f"{version_path.stem}.pdf"
+    # --- 4. Save JSON + render PDF + generate diff ---
+    if not label:
+        company_slug = re.sub(r"[^\w]+", "_", company).lower()[:20] if company else "job"
+        title_slug = re.sub(r"[^\w]+", "_", job_title).lower()[:25] if job_title else "adapted"
+        label = f"{company_slug}_{title_slug}"
+
+    json_path = manager.save_version(adapted, label)
+
+    renderer = CVRenderer()
+    pdf_path = Config.OUTPUT_DIR / f"{json_path.stem}.pdf"
+    with console.status("Rendering PDF..."):
         renderer.render_pdf(adapted, pdf_path)
-        console.print(f"[green]PDF saved to {pdf_path}[/green]")
 
-    if cover_letter:
-        with console.status("Generating cover letter..."):
-            letter = adapter.generate_cover_letter(adapted, job_description, company, job_title)
-        letter_path = Config.OUTPUT_DIR / f"cover_letter_{label}.txt"
-        letter_path.write_text(letter, encoding="utf-8")
-        console.print(f"[green]Cover letter saved to {letter_path}[/green]")
+    diff_path = generate_change_summary(
+        base_cv=base_cv,
+        adapted_cv=adapted,
+        job_title=job_title,
+        company=company,
+    )
+
+    # --- 5. Show results ---
+    from rich.panel import Panel
+    console.print(Panel(
+        f"[bold]Title:[/bold]    {adapted.get('title', '')}\n"
+        f"[bold]JSON:[/bold]     {json_path}\n"
+        f"[bold]PDF:[/bold]      {pdf_path}\n"
+        f"[bold]Changes:[/bold]  {diff_path}",
+        title="[green]CV Adapted[/green]",
+        border_style="green",
+    ))
+
+    open_in_chrome(str(Path(pdf_path).absolute()))
 
 
 @cv.command("render")
