@@ -624,6 +624,75 @@
       "notes": "Startup acquired by Wix 2023. May hire through Wix careers."
     },
     {
+      "name": "Microsoft",
+      "career_url": "careers.microsoft.com",
+      "locations": [
+        "Tel Aviv",
+        "Herzliya",
+        "Haifa"
+      ],
+      "domain": [
+        "software",
+        "ai_ml"
+      ],
+      "ats": "microsoft_internal",
+      "scraper": "blocked_502",
+      "target_keywords": [
+        "software",
+        "AI",
+        "machine learning",
+        "cloud",
+        "student",
+        "intern"
+      ],
+      "notes": "gcsservices 502 on direct scraping. Use JobSpy/LinkedIn."
+    },
+    {
+      "name": "Google",
+      "career_url": "careers.google.com",
+      "locations": [
+        "Tel Aviv",
+        "Haifa"
+      ],
+      "domain": [
+        "software",
+        "ai_ml"
+      ],
+      "ats": "google_internal",
+      "scraper": "js_rendered",
+      "target_keywords": [
+        "software",
+        "AI",
+        "machine learning",
+        "cloud",
+        "student",
+        "intern"
+      ],
+      "notes": "JS-rendered portal. Use JobSpy/LinkedIn."
+    },
+    {
+      "name": "Meta",
+      "career_url": "metacareers.com",
+      "locations": [
+        "Tel Aviv",
+        "Ramat Gan"
+      ],
+      "domain": [
+        "software",
+        "ai_ml"
+      ],
+      "ats": "meta_internal",
+      "scraper": "not_tested",
+      "target_keywords": [
+        "software",
+        "AI",
+        "machine learning",
+        "student",
+        "intern"
+      ],
+      "notes": "Use JobSpy/LinkedIn for discovery."
+    },
+    {
       "name": "Imagen",
       "career_url": "https://imagen-ai.com/careers",
       "locations": [

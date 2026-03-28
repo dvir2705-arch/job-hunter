@@ -371,19 +371,68 @@ class JobScanner:
             for err in errors:
                 logger.warning(err)
 
-        # Deduplicate by URL and by (title, company) to catch cross-source duplicates
+        return self._deduplicate(all_jobs)
+
+    def company_scan(self, query: str = "student", location: str = "Israel",
+                     max_per_company: int = 20, progress_callback=None) -> List[JobListing]:
+        """Scan for jobs at specific companies from companies.json using JobSpy.
+
+        Loops through each company name combined with query and runs a targeted JobSpy search.
+        """
+        companies = _load_company_names()
+        if not companies:
+            logger.error("No companies loaded from companies.json")
+            return []
+
+        jobspy = JobSpyScraper()
+        all_jobs = []
+
+        for i, company_name in enumerate(companies, 1):
+            if progress_callback:
+                progress_callback(company_name, i, len(companies))
+            search_term = f"{company_name} {query}" if query else company_name
+            try:
+                jobs = jobspy.search(
+                    query=search_term,
+                    location=location,
+                    max_results=max_per_company,
+                )
+                all_jobs.extend(jobs)
+                logger.info("Company scan: %s → %d jobs", company_name, len(jobs))
+            except Exception as e:
+                logger.warning("Company scan failed for %s: %s", company_name, e)
+
+        return self._deduplicate(all_jobs)
+
+    @staticmethod
+    def _deduplicate(jobs: List[JobListing]) -> List[JobListing]:
+        """Deduplicate by URL and by (title, company) to catch cross-source duplicates."""
         seen_urls: set = set()
         seen_title_company: set = set()
         unique = []
-        for job in all_jobs:
+        for job in jobs:
             title_company_key = (job.title.lower().strip(), job.company.lower().strip())
             if job.url in seen_urls or title_company_key in seen_title_company:
                 continue
             seen_urls.add(job.url)
             seen_title_company.add(title_company_key)
             unique.append(job)
-
         return unique
+
+
+def _load_company_names() -> List[str]:
+    """Load company names from data/jobs/companies.json."""
+    import json
+    from job_hunter.config import Config
+
+    companies_file = Config.DATA_DIR / "jobs" / "companies.json"
+    try:
+        with open(companies_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return [c["name"] for c in data.get("companies", []) if c.get("name")]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        logger.error("Failed to load companies.json: %s", e)
+        return []
 
 
 # ---------------------------------------------------------------------------

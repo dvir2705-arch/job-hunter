@@ -835,18 +835,33 @@ def jobs_search(query, location, max_results, source):
 @click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
 @click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
 @click.option("--all", "show_all", is_flag=True, default=False, help="Show all jobs including irrelevant ones (disables profile filter).")
+@click.option("--companies", is_flag=True, default=False, help="Targeted scan: search JobSpy for each company in companies.json.")
 @require_profile
-def jobs_scan(query, location, max_per_company, new_only, show_all):
+def jobs_scan(query, location, max_per_company, new_only, show_all, companies):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
     from job_hunter.jobs.history import JobHistory
     from job_hunter.jobs.relevance_filter import filter_relevant_jobs
 
     scanner = JobScanner()
-    console.print(f"Scanning all companies for: [bold]{query}[/bold] in {location}...\n")
 
-    with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
-        listings = scanner.scan(query=query, location=location, max_per_company=max_per_company)
+    if companies:
+        console.print(f"Company-targeted scan via JobSpy in {location}...\n")
+
+        def _progress(name, current, total):
+            console.print(f"  [{current}/{total}] Searching: {name}...", style="dim")
+
+        listings = scanner.company_scan(
+            query=query,
+            location=location,
+            max_per_company=max_per_company,
+            progress_callback=_progress,
+        )
+    else:
+        console.print(f"Scanning all companies for: [bold]{query}[/bold] in {location}...\n")
+
+        with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
+            listings = scanner.scan(query=query, location=location, max_per_company=max_per_company)
 
     if not listings:
         console.print("[yellow]No jobs found across all sources.[/yellow]")
