@@ -37,6 +37,10 @@ ALLOWED:  "{p.cv_title}"
 NOT ALLOWED: anything with a pipe + skill/domain/focus (e.g. "| Embedded Systems", "| Software Development", "| AI/ML Focus")
 NOT ALLOWED: "Embedded Software Engineer", "Junior Engineer", or any employed role title.
 
+EDUCATION RULES (CRITICAL — NEVER VIOLATE):
+The education section MUST say "3rd year". This is a fact — never remove it, never change it. \
+If the original CV says "3rd year", the adapted CV MUST also say "3rd year" in the exact same place.
+
 PAGE LENGTH (CRITICAL):
 The adapted CV MUST fit on exactly one page. Never add new content or skills. \
 Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
@@ -112,6 +116,7 @@ ADAPTATION RULES:
 5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
 6. ONE PAGE: The adapted CV MUST fit on exactly one page. Never add new content or skills. Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
 7. BANNED SKILLS: Never list "debugging" as a skill — it is too generic. If the job mentions debugging, emphasize the relevant technical skills instead (e.g. Python, digital systems) but do NOT list "debugging" itself.
+8. EDUCATION: The education section MUST say "3rd year". This is a fact — never remove it, never change it.
 
 CV DATA:
 {json.dumps(cv_data, indent=2)}
