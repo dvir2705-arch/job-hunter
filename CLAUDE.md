@@ -100,7 +100,7 @@
 ### Priority 5 — New features
 - [ ] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
 - [ ] Retry logic in scrapers (exponential backoff on 429/503)
-- [ ] Unify `RELEVANT_KEYWORDS` between `relevance_filter.py` and `discovery.py`
+- [x] Unify `RELEVANT_KEYWORDS` between `relevance_filter.py` and `discovery.py`
 - [ ] Cover letter critique loop (Claude scores and suggests improvements after generation)
 - [ ] Job analytics: applications per week, response rate trend
 - [ ] Hebrew cover letter option for Israeli companies

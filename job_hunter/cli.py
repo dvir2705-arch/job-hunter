@@ -65,18 +65,6 @@ def require_profile(f):
     return wrapper
 
 
-DEFAULT_DOMAINS = [
-    "software", "developer", "python", "backend", "frontend", "full stack",
-    "devops", "cloud", "api", "automation", "algorithm",
-    "embedded", "firmware", "rtos", "microcontroller", "arm",
-    "chip", "asic", "fpga", "rtl", "verilog", "vhdl", "verification",
-    "digital design", "analog", "hardware", "semiconductor", "vlsi",
-    "ai", "ml", "machine learning", "deep learning", "data science",
-    "dsp", "signal", "rf", "communication", "wireless",
-    "electrical", "electronic", "ee",
-]
-
-
 @cli.command()
 @click.option("--from-cv", type=click.Path(exists=True), default=None,
               help="Path to existing CV JSON to pre-fill profile fields.")
@@ -115,20 +103,43 @@ def init(from_cv):
     email = click.prompt("Email", default=prefill.get("email", ""))
     phone = click.prompt("Phone number", default=prefill.get("phone", ""))
     university = click.prompt("University", default=prefill.get("university", ""))
-    degree = click.prompt("Degree (e.g. B.Sc. Electrical Engineering)",
+    degree = click.prompt("Degree (e.g. B.Sc. Mechanical Engineering)",
                           default=prefill.get("degree", ""))
-    domains_input = click.prompt(
-        "Target domains (comma-separated, or press Enter for defaults)",
+    specialization = click.prompt(
+        "Specialization (e.g. Thermodynamics, Corporate Law, Signals)",
         default="",
     )
+    cv_title = click.prompt(
+        "CV title (appears at top of your CV)",
+        default=degree if degree else "",
+    )
+    target_input = click.prompt(
+        "Target positions (comma-separated, e.g. software, mechanical design, legal intern)",
+        default="",
+    )
+    target_positions = [t.strip() for t in target_input.split(",") if t.strip()]
 
-    if domains_input.strip():
-        domains = [d.strip() for d in domains_input.split(",") if d.strip()]
+    skills_input = click.prompt(
+        "Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
+        default=", ".join(prefill.get("skills", [])),
+    )
+    skills = [s.strip() for s in skills_input.split(",") if s.strip()]
+
+    skills_not_input = click.prompt(
+        "Skills you do NOT have but may appear in jobs (comma-separated, or Enter to skip)",
+        default="",
+    )
+    skills_not = [s.strip() for s in skills_not_input.split(",") if s.strip()]
+
+    domains_input = click.prompt(
+        "Domain keywords for job matching (comma-separated, e.g. software, python, mechanical)",
+        default="",
+    )
+    if not domains_input.strip():
+        console.print("[yellow]No domain keywords entered — job matching will be less accurate.[/yellow]")
+        domains = []
     else:
-        domains = DEFAULT_DOMAINS
-        console.print(f"[dim]Using {len(domains)} default domain keywords.[/dim]")
-
-    skills = prefill.get("skills", [])
+        domains = [d.strip() for d in domains_input.split(",") if d.strip()]
 
     profile = UserProfile(
         name=name,
@@ -136,9 +147,12 @@ def init(from_cv):
         phone=phone,
         university=university,
         degree=degree,
+        specialization=specialization,
+        cv_title=cv_title,
+        target_positions=target_positions,
         domains=domains,
         skills=skills,
-        cv_title=degree if degree else "",
+        skills_not=skills_not,
     )
 
     saved = profile.save(profile_path)

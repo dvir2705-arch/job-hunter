@@ -35,22 +35,19 @@ My CV is attached. I'm available for [internship/position] and happy to discuss 
 
 RULES FOR FILLING THE TEMPLATE:
 
-[FOCUS AREA] — adapt based on job type:
-- RF/Communications/DSP role → "specializing in Signals and Communications"
-- Software/Python role → "with hands-on experience in Python development"
-- Chip Design/Verification role → "specializing in digital systems and signal processing"
-- AI/ML role → "with experience in Python and machine learning fundamentals"
-- General/unclear → "specializing in Signals and Communications"
+[FOCUS AREA] — pick the best focus phrase for this job:
+- The candidate\'s specialization is: "{p.specialization or p.degree}"
+- The candidate\'s skills are: {", ".join(p.skills) if p.skills else "see CV"}
+- Choose the ONE skill or specialization area most relevant to THIS job
+- Format as: "specializing in [X]" or "with hands-on experience in [X]"
+- If no clear match, default to: "specializing in {p.specialization or p.degree}"
 
 [ONE SENTENCE connecting background to role] — mention ONE relevant experience:
-- If the role mentions signal processing → mention signal processing coursework
-- If the role mentions Python → mention Python project experience
-- If the role mentions digital design → mention Digital Systems coursework
-- Do NOT list multiple things. Pick ONE that fits best.
+- Match from the candidate\'s skills ({", ".join(p.skills) if p.skills else "see CV"}) to what the job needs
+- Pick the SINGLE best match. Do NOT list multiple things.
 
-[ONE ADDITIONAL SKILL] — must be DIFFERENT from what you just said. Examples:
-- If sentence 1 mentions Python → sentence 2 can mention MATLAB or math background
-- If sentence 1 mentions signal processing → sentence 2 can mention Python
+[ONE ADDITIONAL SKILL] — must be DIFFERENT from what you just said:
+- Pick from the candidate\'s remaining skills
 - NEVER repeat the same skill or technology in both sentences
 - Keep sentence 2 short: "I also have [something different]."
 
@@ -60,7 +57,7 @@ HARD RULES:
 - Do NOT list grades (they are in the CV)
 - Do NOT add flattery about the company
 - Do NOT say "passionate", "genuinely", "solid", "excited", "caught my attention"
-- Do NOT claim skills the candidate doesn\'t have (no Linux, no C++, no FPGA)
+- Do NOT claim skills the candidate doesn\'t have ({", ".join(f"no {s}" for s in p.skills_not) if p.skills_not else "check CV for actual skills"})
 - Do NOT write "grade sheet attached" or "grades attached" — only CV is attached
 - Do NOT say coursework "aligns directly with" or "maps directly to" a role
 - Coursework gives FOUNDATION and BACKGROUND, not job-task expertise
@@ -159,7 +156,7 @@ class CoverLetterGenerator:
         try:
             edu = cv.get("education", [])
             if not edu:
-                return "third"
+                return ""
             year_field = edu[0].get("year", "")
             start_year = int(year_field.split("-")[0].strip())
             current_year = datetime.now().year
@@ -169,7 +166,7 @@ class CoverLetterGenerator:
             year_num = current_year - start_year + 1
             return ordinals.get(year_num, f"{year_num}th")
         except (ValueError, IndexError, AttributeError):
-            return "third"
+            return ""
 
     def _build_prompt(
         self,
@@ -209,7 +206,7 @@ class CoverLetterGenerator:
 - Name: {personal_info['name']}
 - Email: {personal_info['email']}
 - Phone: {personal_info['phone']}
-- Academic year: **{academic_year} year** (use this exactly — do not guess)
+- Academic year: **{academic_year + " year" if academic_year else "omit year from letter"}** (use this exactly — do not guess)
 
 ## Instructions:
 - Language: {lang_instruction}

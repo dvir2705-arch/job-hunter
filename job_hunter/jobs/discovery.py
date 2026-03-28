@@ -10,17 +10,19 @@ from .scraper import JobListing
 DISCOVERED_FILE = Path("data/jobs/discovered_companies.json")
 COMPANIES_FILE = Path("data/jobs/companies.json")
 
-RELEVANT_KEYWORDS = [
-    "chip", "asic", "fpga", "verification", "rtl", "digital design",
-    "analog", "rf", "signal", "embedded", "firmware", "hardware",
-    "ai", "ml", "deep learning", "neural", "inference",
-    "semiconductor", "silicon", "processor", "architecture",
-    "python", "software", "algorithm", "dsp",
-]
+def _get_relevant_keywords() -> list:
+    """Load domain keywords from user profile, with fallback."""
+    try:
+        from job_hunter.profile import get_profile
+        return get_profile().domains
+    except (FileNotFoundError, ValueError, ImportError):
+        return []
 
+
+# Generic irrelevant keywords — operational roles no job-seeker targets
 IRRELEVANT_KEYWORDS = [
     "marketing", "sales", "hr", "recruiter", "finance", "accounting",
-    "legal", "admin", "customer success", "support",
+    "admin", "customer success", "support",
 ]
 
 
@@ -60,7 +62,7 @@ class CompanyDiscovery:
 
     def _calculate_relevance(self, job_titles: List[str]) -> str:
         text = " ".join(job_titles).lower()
-        relevant_hits = sum(1 for kw in RELEVANT_KEYWORDS if kw in text)
+        relevant_hits = sum(1 for kw in _get_relevant_keywords() if kw in text)
         irrelevant_hits = sum(1 for kw in IRRELEVANT_KEYWORDS if kw in text)
 
         if relevant_hits >= 2:

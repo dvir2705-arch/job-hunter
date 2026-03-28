@@ -14,8 +14,17 @@ def _get_relevant_keywords() -> List[str]:
     """Load domain keywords from user profile."""
     return get_profile().domains
 
-IRRELEVANT_KEYWORDS = [
-    # Completely different fields
+# Operational/facilities roles — irrelevant for any job-seeker using this tool
+ALWAYS_IRRELEVANT = [
+    "catering", "leasing", "facilities", "food", "kitchen",
+    "receptionist", "warehouse", "driver", "delivery", "cafeteria",
+    "maintenance", "cleaning", "security guard", "personal assistant",
+    "night operator", "night shift", "assembly team",
+    "intralogistics", "operator student",
+]
+
+# Professional fields — only irrelevant if NOT in the user's domain keywords
+PROFESSIONAL_FIELDS = [
     "legal", "lawyer", "attorney", "law",
     "mechanical", "mechanic",
     "civil", "construction", "building",
@@ -31,21 +40,36 @@ IRRELEVANT_KEYWORDS = [
     "office manager", "administrative", "secretary",
     "manual testing", "qa manual",
     "support engineer", "technical writer",
-    # Facilities / operations
-    "catering", "leasing", "facilities", "food", "kitchen",
-    "receptionist", "warehouse", "driver", "delivery", "cafeteria",
-    "maintenance", "cleaning", "security guard", "personal assistant",
-    "night operator", "night shift",
     "technical support", "manual qa",
     "documentation student", "composites manufacturing",
-    "network operations center", "assembly team",
-    "solution designer", "intralogistics", "operator student",
+    "network operations center",
+    "solution designer",
     "quality engineering", "quality assurance",
 ]
 
-IRRELEVANT_COMPANIES = [
+
+def _get_irrelevant_keywords() -> List[str]:
+    """Build irrelevant keywords, excluding fields that overlap with the user's domains."""
+    try:
+        domains = {d.lower() for d in get_profile().domains}
+    except (FileNotFoundError, ValueError):
+        domains = set()
+
+    field_irrelevant = [kw for kw in PROFESSIONAL_FIELDS if kw not in domains]
+    return ALWAYS_IRRELEVANT + field_irrelevant
+
+_IRRELEVANT_COMPANIES_ALL = [
     "teva", "pharmaceutical", "pharma", "law firm", "bank", "insurance",
 ]
+
+
+def _get_irrelevant_companies() -> List[str]:
+    """Build irrelevant company keywords, excluding those in user's domains."""
+    try:
+        domains = {d.lower() for d in get_profile().domains}
+    except (FileNotFoundError, ValueError):
+        domains = set()
+    return [kw for kw in _IRRELEVANT_COMPANIES_ALL if kw not in domains]
 
 SENIORITY_KEYWORDS = [
     "senior", "manager", "director", "principal", "vp", "vice president",
@@ -65,7 +89,7 @@ You are a job-fit evaluator. Score how well a job fits this candidate:
 **Candidate profile:**
 - {p.cv_title}, {p.university}
 - Skills: {skills_str}
-- Looking for: student/internship positions in {targets_str}
+- Looking for: positions in {targets_str}
 - NOT experienced in: {skills_not_str}
 
 **Scoring guide:**
@@ -133,7 +157,7 @@ def filter_relevant_jobs(
         company_lower = job.company.lower()
 
         # Company blacklist
-        if any(kw in company_lower for kw in IRRELEVANT_COMPANIES):
+        if any(kw in company_lower for kw in _get_irrelevant_companies()):
             rejected.append(job)
             continue
 
@@ -143,7 +167,7 @@ def filter_relevant_jobs(
             continue
 
         # Irrelevant keyword in title — reject even if "student" is present
-        if any(kw in title_lower for kw in IRRELEVANT_KEYWORDS):
+        if any(kw in title_lower for kw in _get_irrelevant_keywords()):
             rejected.append(job)
             continue
 

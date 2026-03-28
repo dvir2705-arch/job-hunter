@@ -291,29 +291,29 @@ def _flatten_skills(skills_section) -> list:
 
 def _generate_tips(base_cv: dict, adapted_cv: dict, job_title: str, company: str) -> list:
     """Return a short list of interview prep tips based on the diff."""
+    from job_hunter.profile import get_profile
+
     tips = []
     job_lower = job_title.lower()
     adapted_summary = adapted_cv.get("summary", "").lower()
 
-    keyword_tips = {
-        "embedded": "Review embedded systems concepts: RTOS, memory-mapped I/O, interrupt handling.",
-        "firmware": "Be ready to discuss bare-metal vs. RTOS trade-offs and debugging techniques.",
-        "chip design": "Brush up on digital design flow: RTL → synthesis → P&R. Know your VHDL/Verilog basics.",
-        "verification": "Review UVM/SystemVerilog fundamentals and constrained-random verification methodology.",
-        "signal": "Refresh DSP: FFT, filtering, sampling theorem — likely to come up in a signals role.",
-        "algorithm": "Practice coding interview problems: arrays, dynamic programming, graph traversal.",
-        "software": "Prepare for system design questions; be ready to walk through your Python projects.",
-        "ml": "Know the basics of your ML stack; be ready to explain model evaluation and trade-offs.",
-        "python": "Walk through your job-hunter project in detail — it's your strongest Python example.",
-    }
-    for kw, tip in keyword_tips.items():
-        if kw in job_lower or kw in adapted_summary:
-            tips.append(tip)
+    try:
+        p = get_profile()
+        # Generate tips from profile: if a target position keyword appears in the job,
+        # suggest reviewing related skills
+        for target in p.target_positions:
+            if target.lower() in job_lower or target.lower() in adapted_summary:
+                matching_skills = [s for s in p.skills if s.lower() != target.lower()]
+                if matching_skills:
+                    tips.append(
+                        f"Review your {target} knowledge — be ready to discuss "
+                        f"your experience with {matching_skills[0]}."
+                    )
+    except (FileNotFoundError, ValueError):
+        pass
 
-    tips += [
-        f"Research {company}'s recent products and tech stack before the interview.",
-        "Be ready to explain the job-hunter automation project end-to-end — it shows initiative.",
-        "Prepare 1–2 examples from your military service that demonstrate pressure / teamwork.",
-    ]
+    tips.append(f"Research {company}'s recent products and tech stack before the interview.")
+    tips.append("Prepare 1-2 examples of projects or coursework you can walk through end-to-end.")
+    tips.append("Have a concise answer ready for 'Why this role?' tied to your background.")
 
     return tips[:6]
