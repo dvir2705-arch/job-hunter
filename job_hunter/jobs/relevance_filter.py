@@ -6,8 +6,9 @@ from typing import List, Optional, Tuple
 import anthropic
 
 from job_hunter.config import Config
+from job_hunter.logger import get_logger
 from job_hunter.profile import get_profile
-from .scraper import JobListing
+from .scraper import JobListing, fetch_job_description
 
 
 def _get_relevant_keywords() -> List[str]:
@@ -36,6 +37,9 @@ PROFESSIONAL_FIELDS = [
     "customer success", "customer support",
     "graphic design", "ui designer", "ux designer",
     "content writer", "copywriter", "social media",
+    "writer", "writing", "editor", "editorial",
+    "translator", "translation", "proofreader", "journalist",
+    "public relations",
     "supply chain", "logistics", "procurement",
     "office manager", "administrative", "secretary",
     "manual testing", "qa manual",
@@ -45,6 +49,11 @@ PROFESSIONAL_FIELDS = [
     "network operations center",
     "solution designer",
     "quality engineering", "quality assurance",
+    "event", "hospitality", "retail", "fashion",
+    "interior design", "agriculture", "veterinary",
+    "nursing", "pharmacy", "dental",
+    "physiotherapy", "occupational therapy",
+    "teaching", "teacher", "tutor",
 ]
 
 
@@ -104,10 +113,13 @@ Return ONLY valid JSON:
 """
 
 
+HAIKU_MODEL = "claude-haiku-4-5-20251001"
+
+
 def score_job_fit(
     title: str, company: str, description: str,
 ) -> Optional[Tuple[int, str]]:
-    """Ask Claude to score how well a job fits the user profile.
+    """Ask Claude Haiku to score how well a job fits the user profile.
 
     Returns (score, reason) or None on failure.
     """
@@ -115,7 +127,7 @@ def score_job_fit(
         Config.validate()
         client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model=Config.CLAUDE_MODEL,
+            model=HAIKU_MODEL,
             max_tokens=150,
             system=_build_fit_score_prompt(),
             messages=[{
@@ -139,12 +151,11 @@ def score_job_fit(
 
 def filter_relevant_jobs(
     jobs: List[JobListing],
-    deep_check: bool = True,
 ) -> Tuple[List[JobListing], List[JobListing]]:
     """Filter jobs in two layers.
 
     Layer 1: Fast title-based filtering.
-    Layer 2: If deep_check=True, fetch description for uncertain jobs.
+    Layer 2: Always AI-score uncertain jobs (Haiku) for accurate filtering.
 
     Returns (accepted, rejected).
     """
@@ -176,16 +187,14 @@ def filter_relevant_jobs(
             accepted.append(job)
             continue
 
-        # Has "student"/"intern" but no clear signal — needs description check
+        # Has "student"/"intern" but no clear signal — needs AI check
         if "student" in title_lower or "intern" in title_lower:
             uncertain.append(job)
         else:
             rejected.append(job)
 
-    # Layer 2: AI fit-score check for uncertain jobs
-    if deep_check and uncertain:
-        from job_hunter.jobs.scraper import fetch_job_description
-        from job_hunter.logger import get_logger
+    # Layer 2: Always AI-score uncertain jobs using Haiku
+    if uncertain:
         logger = get_logger("relevance_filter")
 
         deep_accepted = 0
@@ -196,6 +205,10 @@ def filter_relevant_jobs(
             try:
                 description = fetch_job_description(job)
                 if not description:
+                    logger.warning(
+                        "No description for %s at %s — accepting (benefit of doubt)",
+                        job.title, job.company,
+                    )
                     accepted.append(job)
                     deep_accepted += 1
                     continue
@@ -203,7 +216,10 @@ def filter_relevant_jobs(
                 result = score_job_fit(job.title, job.company, description)
 
                 if result is None:
-                    # Scoring failed — benefit of doubt
+                    logger.warning(
+                        "AI scoring failed for %s at %s — accepting (benefit of doubt)",
+                        job.title, job.company,
+                    )
                     accepted.append(job)
                     deep_accepted += 1
                     continue
@@ -225,18 +241,17 @@ def filter_relevant_jobs(
                     deep_rejected += 1
 
             except Exception as e:
-                logger.warning("Could not deep-check %s: %s", job.title, e)
+                logger.warning(
+                    "Deep-check error for %s at %s: %s — accepting (benefit of doubt)",
+                    job.title, job.company, e,
+                )
                 accepted.append(job)
                 deep_accepted += 1
 
         if deep_accepted + deep_rejected > 0:
             print(
-                f"Deep-checked {deep_accepted + deep_rejected} uncertain jobs "
+                f"AI-checked {deep_accepted + deep_rejected} uncertain jobs "
                 f"({deep_accepted} accepted, {deep_rejected} rejected)"
             )
-
-    elif uncertain:
-        # deep_check disabled — give benefit of doubt
-        accepted.extend(uncertain)
 
     return accepted, rejected

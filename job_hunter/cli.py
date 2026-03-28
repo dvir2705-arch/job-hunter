@@ -835,9 +835,8 @@ def jobs_search(query, location, max_results, source):
 @click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
 @click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
 @click.option("--all", "show_all", is_flag=True, default=False, help="Show all jobs including irrelevant ones (disables profile filter).")
-@click.option("--deep", is_flag=True, default=False, help="Analyze uncertain job descriptions with AI to improve filtering (costs tokens).")
 @require_profile
-def jobs_scan(query, location, max_per_company, new_only, show_all, deep):
+def jobs_scan(query, location, max_per_company, new_only, show_all):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
     from job_hunter.jobs.history import JobHistory
@@ -855,7 +854,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, deep):
 
     # Apply relevance filter unless --all is passed
     if not show_all:
-        listings, removed = filter_relevant_jobs(listings, deep_check=deep)
+        listings, removed = filter_relevant_jobs(listings)
         if removed:
             console.print(f"[dim]Filtered out {len(removed)} irrelevant jobs "
                           f"(use --all to see everything)[/dim]")
