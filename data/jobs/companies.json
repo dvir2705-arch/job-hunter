@@ -26,7 +26,8 @@
         "communications",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "NVIDIA",
@@ -51,7 +52,8 @@
         "machine learning",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Apple",
@@ -76,7 +78,8 @@
         "AI",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Qualcomm",
@@ -104,7 +107,8 @@
         "PHY",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Mobileye",
@@ -130,7 +134,8 @@
         "deep learning",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Marvell",
@@ -155,7 +160,8 @@
         "signal processing",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Broadcom",
@@ -179,7 +185,8 @@
         "signal processing",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Amazon Annapurna",
@@ -204,7 +211,8 @@
         "inference",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Sony Semiconductor",
@@ -227,7 +235,8 @@
         "RF",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Hailo",
@@ -253,7 +262,8 @@
         "inference",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Applied Materials",
@@ -278,7 +288,8 @@
         "algorithms",
         "imaging",
         "student"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Analog Devices",
@@ -302,7 +313,8 @@
         "RF",
         "intern",
         "student"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Tower Semiconductor",
@@ -325,7 +337,8 @@
         "mixed signal",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Elbit Systems",
@@ -352,7 +365,8 @@
         "communications",
         "student",
         "intern"
-      ]
+      ],
+      "priority": true
     },
     {
       "name": "Sandisk",
@@ -374,7 +388,8 @@
         "chip design",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Samsung Semiconductor Israel",
@@ -397,7 +412,8 @@
         "computer vision",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "IBM Research Israel",
@@ -420,7 +436,8 @@
         "research",
         "intern",
         "student"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Arbe Robotics",
@@ -444,7 +461,8 @@
         "signal processing",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Vayyar",
@@ -468,7 +486,8 @@
         "DSP",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Valens Semiconductor",
@@ -491,7 +510,8 @@
         "communications",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Cisco Israel",
@@ -516,7 +536,8 @@
         "signal processing",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "General Motors Israel",
@@ -539,7 +560,8 @@
         "signal processing",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "NextSilicon",
@@ -562,7 +584,8 @@
         "HPC",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Ceragon Networks",
@@ -585,7 +608,8 @@
         "FPGA",
         "student",
         "intern"
-      ]
+      ],
+      "priority": false
     },
     {
       "name": "Wix",
@@ -603,7 +627,8 @@
         "intern",
         "junior"
       ],
-      "notes": "Large Israeli web development platform. careers.wix.com is a JS-rendered Wix site — no public API found. SmartRecruiters/Ashby/Greenhouse all 404. Needs browser-based scraper."
+      "notes": "Large Israeli web development platform. careers.wix.com is a JS-rendered Wix site — no public API found. SmartRecruiters/Ashby/Greenhouse all 404. Needs browser-based scraper.",
+      "priority": true
     },
     {
       "name": "Base44",
@@ -621,7 +646,8 @@
         "student",
         "intern"
       ],
-      "notes": "Startup acquired by Wix 2023. May hire through Wix careers."
+      "notes": "Startup acquired by Wix 2023. May hire through Wix careers.",
+      "priority": true
     },
     {
       "name": "Microsoft",
@@ -645,7 +671,8 @@
         "student",
         "intern"
       ],
-      "notes": "gcsservices 502 on direct scraping. Use JobSpy/LinkedIn."
+      "notes": "gcsservices 502 on direct scraping. Use JobSpy/LinkedIn.",
+      "priority": true
     },
     {
       "name": "Google",
@@ -668,7 +695,8 @@
         "student",
         "intern"
       ],
-      "notes": "JS-rendered portal. Use JobSpy/LinkedIn."
+      "notes": "JS-rendered portal. Use JobSpy/LinkedIn.",
+      "priority": true
     },
     {
       "name": "Meta",
@@ -690,7 +718,8 @@
         "student",
         "intern"
       ],
-      "notes": "Use JobSpy/LinkedIn for discovery."
+      "notes": "Use JobSpy/LinkedIn for discovery.",
+      "priority": true
     },
     {
       "name": "Imagen",
@@ -707,7 +736,8 @@
         "student",
         "intern"
       ],
-      "notes": "AI photography company"
+      "notes": "AI photography company",
+      "priority": false
     }
   ],
   "job_boards": [

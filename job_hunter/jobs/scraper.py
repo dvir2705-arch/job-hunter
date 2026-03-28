@@ -374,12 +374,14 @@ class JobScanner:
         return self._deduplicate(all_jobs)
 
     def company_scan(self, query: str = "student", location: str = "Israel",
-                     max_per_company: int = 20, progress_callback=None) -> List[JobListing]:
+                     max_per_company: int = 20, only_priority: bool = True,
+                     progress_callback=None) -> List[JobListing]:
         """Scan for jobs at specific companies from companies.json using JobSpy.
 
         Loops through each company name combined with query and runs a targeted JobSpy search.
+        When only_priority is True, only companies with priority=true are searched.
         """
-        companies = _load_company_names()
+        companies = _load_company_names(only_priority=only_priority)
         if not companies:
             logger.error("No companies loaded from companies.json")
             return []
@@ -420,8 +422,11 @@ class JobScanner:
         return unique
 
 
-def _load_company_names() -> List[str]:
-    """Load company names from data/jobs/companies.json."""
+def _load_company_names(only_priority: bool = True) -> List[str]:
+    """Load company names from data/jobs/companies.json.
+
+    When only_priority is True, returns only companies with priority=true.
+    """
     import json
     from job_hunter.config import Config
 
@@ -429,7 +434,10 @@ def _load_company_names() -> List[str]:
     try:
         with open(companies_file, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return [c["name"] for c in data.get("companies", []) if c.get("name")]
+        companies = data.get("companies", [])
+        if only_priority:
+            companies = [c for c in companies if c.get("priority", False)]
+        return [c["name"] for c in companies if c.get("name")]
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         logger.error("Failed to load companies.json: %s", e)
         return []
