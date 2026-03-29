@@ -1012,6 +1012,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
     from job_hunter.jobs.relevance_filter import filter_relevant_jobs
 
     scanner = JobScanner()
+    seniority_reject = None  # None = use default list in relevance_filter
 
     if query:
         # --- Legacy path: manual --query override ----------------------------
@@ -1043,6 +1044,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
 
         profile = get_profile()
         config = build_search_config(profile)
+        seniority_reject = config.seniority_reject
 
         # Override location if --location flag was passed
         if location:
@@ -1119,7 +1121,7 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
 
     # Apply relevance filter unless --all is passed
     if not show_all:
-        listings, removed = filter_relevant_jobs(listings)
+        listings, removed = filter_relevant_jobs(listings, seniority_reject=seniority_reject)
         if removed:
             console.print(f"[dim]Filtered out {len(removed)} irrelevant jobs "
                           f"(use --all to see everything)[/dim]")

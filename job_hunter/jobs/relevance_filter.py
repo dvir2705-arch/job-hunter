@@ -80,7 +80,7 @@ def _get_irrelevant_companies() -> List[str]:
         domains = set()
     return [kw for kw in _IRRELEVANT_COMPANIES_ALL if kw not in domains]
 
-SENIORITY_KEYWORDS = [
+DEFAULT_SENIORITY_KEYWORDS = [
     "senior", "manager", "director", "principal", "vp", "vice president",
     "head of", "chief",
 ]
@@ -167,14 +167,23 @@ def score_job_fit(
 
 def filter_relevant_jobs(
     jobs: List[JobListing],
+    seniority_reject: Optional[List[str]] = None,
 ) -> Tuple[List[JobListing], List[JobListing]]:
     """Filter jobs in two layers.
 
     Layer 1: Fast title-based filtering.
     Layer 2: Always AI-score uncertain jobs (Haiku) for accurate filtering.
 
+    Args:
+        jobs: List of job listings to filter.
+        seniority_reject: Seniority keywords to reject. If None, uses the
+            default full list (rejects senior, manager, director, etc.).
+            Pass a reduced list for experienced users.
+
     Returns (accepted, rejected).
     """
+    active_seniority = seniority_reject if seniority_reject is not None else DEFAULT_SENIORITY_KEYWORDS
+
     accepted = []
     rejected = []
     uncertain = []
@@ -188,8 +197,8 @@ def filter_relevant_jobs(
             rejected.append(job)
             continue
 
-        # Seniority mismatch — reject roles clearly above student level
-        if any(kw in title_lower for kw in SENIORITY_KEYWORDS):
+        # Seniority mismatch — reject roles above the user's level
+        if any(kw in title_lower for kw in active_seniority):
             rejected.append(job)
             continue
 
