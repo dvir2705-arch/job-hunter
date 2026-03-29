@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @page { margin: 20mm 22mm; size: A4; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      line-height: 1.55;
+      padding: 20px;
+      max-width: 700px;
+      margin: auto;
+      direction: {{ "rtl" if lang == "he" else "ltr" }};
+    }
+    .sender { margin-bottom: 24px; font-size: 10pt; color: #444; }
+    .sender .name { font-size: 13pt; font-weight: 700; color: #1a1a2e; }
+    .date { font-size: 10pt; color: #888; margin-bottom: 24px; }
+    .recipient { margin-bottom: 20px; font-size: 10pt; color: #444; }
+    .body p { margin-bottom: 12px; text-align: justify; }
+    .closing { margin-top: 24px; }
+    .closing .sign { margin-top: 8px; font-weight: 600; }
+    @media print {
+      body { margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sender">
+    <div class="name">{{ sender_name }}</div>
+    <div>{{ sender_email }}{% if sender_phone %} | {{ sender_phone }}{% endif %}</div>
+    {% if sender_linkedin %}<div>{{ sender_linkedin }}</div>{% endif %}
+  </div>
+
+  <div class="date">{{ date }}</div>
+
+  {% if recruiter_name %}
+  <div class="recipient">{{ recruiter_name }}<br>{{ company }}</div>
+  {% else %}
+  <div class="recipient">{{ company }}</div>
+  {% endif %}
+
+  <div class="body">
+    {% for paragraph in paragraphs %}
+    <p>{{ paragraph }}</p>
+    {% endfor %}
+  </div>
+
+  <div class="closing">
+    <div>{{ "בברכה," if lang == "he" else "Sincerely," }}</div>
+    <div class="sign">{{ sender_name }}</div>
+  </div>
+
+</body>
+</html>

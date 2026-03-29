@@ -1595,29 +1595,54 @@ def _generate_cover_letter_for_job(job) -> None:
     # 6. Display
     console.print(Panel(letter, title=f"[green]Cover Letter — {job.company}[/green]", border_style="green"))
 
-    # 7. Save / copy options
-    console.print("\n  [bold][1][/bold] Save to file")
-    console.print("  [bold][2][/bold] Copy to clipboard")
-    console.print("  [bold][3][/bold] Both")
-    console.print("  [bold][4][/bold] Done")
+    # 7. Auto-save TXT + PDF
+    slug = re.sub(r"[^\w]+", "_", f"{job.company}_{job.title}").lower()[:40]
+    txt_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.txt"
+    pdf_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.pdf"
 
-    post = click.prompt("Choose", default="4", show_default=False)
+    txt_path.parent.mkdir(parents=True, exist_ok=True)
+    txt_path.write_text(letter, encoding="utf-8")
+    console.print(f"[green]Saved TXT: {txt_path}[/green]")
 
-    if post in ("1", "3"):
-        from pathlib import Path
-        from job_hunter.config import Config
-        import re
-        slug = re.sub(r"[^\w]+", "_", f"{job.company}_{job.title}").lower()[:40]
-        out_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.txt"
-        out_path.write_text(letter, encoding="utf-8")
-        console.print(f"[green]Saved to {out_path}[/green]")
+    try:
+        from job_hunter.cv.renderer import CVRenderer
+        from job_hunter.profile import get_profile
+        profile = get_profile()
+        renderer = CVRenderer()
+        with console.status("Rendering cover letter PDF..."):
+            renderer.render_cover_letter_pdf(
+                letter_text=letter,
+                output_path=pdf_path,
+                sender_name=profile.name,
+                sender_email=profile.email,
+                sender_phone=profile.phone,
+                sender_linkedin=profile.linkedin,
+                company=job.company,
+                recruiter_name=recruiter_name,
+                lang=lang_choice,
+            )
+        console.print(f"[green]Saved PDF: {pdf_path}[/green]")
+    except Exception as e:
+        console.print(f"[yellow]PDF generation failed: {e}[/yellow]")
 
-    if post in ("2", "3"):
+    # 8. Extra options
+    console.print("\n  [bold][1][/bold] Copy to clipboard")
+    console.print("  [bold][2][/bold] Open PDF")
+    console.print("  [bold][3][/bold] Done")
+
+    post = click.prompt("Choose", default="3", show_default=False)
+
+    if post == "1":
         try:
             pyperclip.copy(letter)
             console.print("[green]Copied to clipboard.[/green]")
         except Exception:
             console.print("[yellow]Could not copy to clipboard (pyperclip may not be installed).[/yellow]")
+    elif post == "2":
+        if pdf_path.exists():
+            click.launch(str(pdf_path.absolute()))
+        else:
+            console.print("[yellow]PDF not available.[/yellow]")
 
 
 if __name__ == "__main__":

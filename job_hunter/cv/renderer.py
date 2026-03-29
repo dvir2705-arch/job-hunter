@@ -59,6 +59,52 @@ class CVRenderer:
 
         return output_path
 
+    def render_cover_letter_pdf(self, letter_text: str, output_path: Path,
+                                sender_name: str, sender_email: str,
+                                sender_phone: str = "", sender_linkedin: str = "",
+                                company: str = "", recruiter_name: str = None,
+                                lang: str = "en") -> Path:
+        """Render a cover letter to PDF using Chrome headless."""
+        from datetime import date
+
+        paragraphs = [p.strip() for p in letter_text.strip().split("\n\n") if p.strip()]
+
+        template = self.env.get_template("cover_letter/cover_letter.html")
+        html_content = template.render(
+            sender_name=sender_name,
+            sender_email=sender_email,
+            sender_phone=sender_phone,
+            sender_linkedin=sender_linkedin,
+            company=company,
+            recruiter_name=recruiter_name,
+            paragraphs=paragraphs,
+            date=date.today().strftime("%B %d, %Y") if lang != "he" else date.today().strftime("%d/%m/%Y"),
+            lang=lang,
+        )
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html_content)
+            temp_html = f.name
+
+        try:
+            subprocess.run([
+                _find_chrome(),
+                '--headless=new',
+                '--disable-gpu',
+                '--no-sandbox',
+                '--print-to-pdf-no-header',
+                '--no-pdf-header-footer',
+                f'--print-to-pdf={output_path.absolute()}',
+                temp_html,
+            ], check=True, capture_output=True)
+        finally:
+            os.unlink(temp_html)
+
+        return output_path
+
     def render_html_file(self, cv_data: dict, output_path: Path, template_name: str = "cv/modern.html") -> Path:
         html_content = self.render_html(cv_data, template_name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
