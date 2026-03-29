@@ -1,17 +1,19 @@
 # Session State
 
-## Last Session (2026-03-29)
-**Completed:** Updated CLAUDE.md with full session progress and forward plan. Commit: 889a775.
+## Last Session (2026-03-30)
+**Completed:** Search Strategy Redesign — full build order steps 1-6. Commits: c8bdc02, e26e28d, a7f0887.
 
-1. Added "Done on 2026-03-29" section documenting all work: relevance filter improvements, company-targeted search, Unicode fix, CV template CSS optimization, CV content rules, base_cv.json updates.
-2. Added "Approved Plan — Profile System Redesign" section with design decisions, session breakdown (A-E), and pending items.
-3. Added new CV rules (3rd year, one-page, debugging banned, inline skills).
-4. Added two new Past Mistakes entries (debugging as skill, auto-accepting uncertain jobs).
+1. `search_strategy.py`: SearchConfig dataclass, Haiku query generation with fallback, cached queries in profile, enabled_scrapers derived from company watchlist, configurable max_workers (default 3).
+2. `scan_cache.py`: per-source JSON cache with configurable TTL (90 min default), atomic writes, corruption recovery.
+3. `scraper.py`: parallel_scan() with ThreadPoolExecutor, 0.5s stagger, cache integration, per-source error handling, progress callbacks. Existing scan()/company_scan() preserved.
+4. `cli.py`: jobs scan default path uses build_search_config + parallel_scan with progressive output. --query bypasses to legacy path. --fresh clears cache. --no-companies/--companies-all still work. Added jobs refresh-queries command.
+5. `relevance_filter.py`: seniority_reject configurable from SearchConfig (student: full list, experienced: reduced). Backward compatible default.
+6. 77 new tests across 4 test files, all passing.
 
 ## Current Status
 Priority 1-4: all done
 Session A (profile redesign + docx parser): done
-CLAUDE.md fully updated with forward plan: done
+Search Strategy Redesign (steps 1-6): done
 
 Remaining from profile plan:
 - Session B: Profile CLI commands (show/edit/validate)
