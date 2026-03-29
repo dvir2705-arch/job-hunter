@@ -46,7 +46,7 @@ class TestUserProfileSave:
     def test_save_roundtrip(self, tmp_data_dir):
         original = UserProfile(
             name="Dvir", email="d@g.com", phone="053",
-            university="BGU", degree="B.Sc. EE",
+            education={"university": "BGU", "degree": "B.Sc. EE"},
             domains=["software", "dsp"], skills=["Python"],
         )
         path = original.save(tmp_data_dir / "user_profile.json")
@@ -54,6 +54,7 @@ class TestUserProfileSave:
         assert loaded.name == original.name
         assert loaded.domains == original.domains
         assert loaded.skills == original.skills
+        assert loaded.university == "BGU"
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +86,7 @@ class TestInitCommand:
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "Alice"
         assert data["email"] == "alice@example.com"
-        assert data["specialization"] == "AI"
+        assert data["education"]["specialization"] == "AI"
         assert data["target_positions"] == ["software", "ml"]
         assert data["domains"] == ["ml", "python", "software"]
 
@@ -143,7 +144,7 @@ class TestCVPreFill:
         assert result.exit_code == 0
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"
-        assert data["university"] == "Stanford"
+        assert data["education"]["university"] == "Stanford"
         assert "Python" in data["skills"]
 
 

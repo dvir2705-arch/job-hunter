@@ -1,7 +1,7 @@
 """User profile management — centralizes personal data for all modules."""
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import List
 
@@ -10,29 +10,71 @@ from job_hunter.config import Config
 
 @dataclass
 class UserProfile:
-    """Candidate profile loaded from data/user_profile.json."""
+    """Role-agnostic candidate profile loaded from data/user_profile.json.
 
+    Required: name, email, phone, skills, target_positions, domains.
+    Everything else is optional — the system adapts based on what's filled.
+    """
+
+    # Required
     name: str
     email: str
     phone: str
+    skills: List[str] = field(default_factory=list)
+    target_positions: List[str] = field(default_factory=list)
+    domains: List[str] = field(default_factory=list)
+
+    # Optional contact
     linkedin: str = ""
     github: str = ""
     location: str = ""
-    university: str = ""
-    degree: str = ""
-    specialization: str = ""
-    cv_title: str = ""
-    skills: List[str] = field(default_factory=list)
+
+    # Optional sections
+    education: dict = field(default_factory=dict)
+    work_experience: List[dict] = field(default_factory=list)
+    projects: List[dict] = field(default_factory=list)
+    military: List[dict] = field(default_factory=list)
+    volunteering: List[dict] = field(default_factory=list)
+    languages: List[str] = field(default_factory=list)
     skills_not: List[str] = field(default_factory=list)
-    target_positions: List[str] = field(default_factory=list)
-    domains: List[str] = field(default_factory=list)
+
+    # Rules
+    hard_rules: dict = field(default_factory=dict)
+
+    # --- Helper properties ---------------------------------------------------
+
+    @property
+    def is_student(self) -> bool:
+        """True if education.year is set (current student)."""
+        return bool(self.education.get("year"))
+
+    @property
+    def cv_title(self) -> str:
+        return self.hard_rules.get("cv_title", "")
+
+    @property
+    def university(self) -> str:
+        return self.education.get("university", "")
+
+    @property
+    def degree(self) -> str:
+        return self.education.get("degree", "")
+
+    @property
+    def specialization(self) -> str:
+        return self.education.get("specialization", "")
+
+    @property
+    def year(self) -> str:
+        return self.education.get("year", "")
+
+    # --- Persistence ----------------------------------------------------------
 
     @classmethod
     def load(cls, path: Path = None) -> "UserProfile":
         """Load profile from JSON file.
 
-        Args:
-            path: Optional override; defaults to data/user_profile.json.
+        Handles migration from old flat format (pre-v2) automatically.
 
         Raises:
             FileNotFoundError: If profile file doesn't exist.
@@ -48,13 +90,30 @@ class UserProfile:
             if not data.get(required):
                 raise ValueError(f"Missing required profile field: {required}")
 
+        # --- Migrate old flat format → nested --------------------------------
+        if "university" in data and "education" not in data:
+            data["education"] = {}
+            for key in ("university", "degree", "specialization"):
+                if key in data:
+                    data["education"][key] = data.pop(key)
+
+        if "cv_title" in data and "hard_rules" not in data:
+            data["hard_rules"] = {"cv_title": data.pop("cv_title")}
+        elif "cv_title" in data and "hard_rules" in data:
+            # cv_title at top level is legacy — move into hard_rules if missing
+            if "cv_title" not in data["hard_rules"]:
+                data["hard_rules"]["cv_title"] = data.pop("cv_title")
+            else:
+                data.pop("cv_title")
+
+        # Drop any remaining old flat keys that moved into nested dicts
+        for old_key in ("university", "degree", "specialization"):
+            data.pop(old_key, None)
+
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     def save(self, path: Path = None) -> Path:
         """Save profile to JSON file.
-
-        Args:
-            path: Optional override; defaults to data/user_profile.json.
 
         Returns:
             The path the profile was saved to.
@@ -62,7 +121,6 @@ class UserProfile:
         if path is None:
             path = Config.DATA_DIR / "user_profile.json"
 
-        from dataclasses import asdict
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             json.dump(asdict(self), f, indent=2, ensure_ascii=False)
@@ -71,6 +129,42 @@ class UserProfile:
     def signature_block(self) -> str:
         """Return formatted name + contact for email/letter sign-off."""
         return f"{self.name}\n{self.email} | {self.phone}"
+
+    # --- Validation -----------------------------------------------------------
+
+    def validate(self) -> List[str]:
+        """Return a list of issues (empty = valid).
+
+        Issues are strings prefixed with [ERROR] or [WARN].
+        """
+        issues = []
+
+        # Required
+        for f in ("name", "email", "phone"):
+            if not getattr(self, f):
+                issues.append(f"[ERROR] Missing required field: {f}")
+
+        # Recommended
+        if not self.skills:
+            issues.append("[WARN] No skills listed — CV adaptation will be generic")
+        if not self.domains:
+            issues.append("[WARN] No domain keywords — job matching will be inaccurate")
+        if not self.cv_title:
+            issues.append("[WARN] No cv_title in hard_rules — CV title won't be enforced")
+        if not self.target_positions:
+            issues.append("[WARN] No target positions — job filtering will be broad")
+
+        # Consistency
+        if self.skills and self.skills_not:
+            overlap = set(s.lower() for s in self.skills) & set(s.lower() for s in self.skills_not)
+            if overlap:
+                issues.append(f"[WARN] Skills overlap with skills_not: {', '.join(overlap)}")
+
+        # Substance
+        if not self.education and not self.work_experience:
+            issues.append("[WARN] No education and no work experience — profile lacks substance")
+
+        return issues
 
 
 # Module-level cached instance

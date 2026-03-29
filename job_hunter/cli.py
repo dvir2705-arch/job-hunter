@@ -141,14 +141,24 @@ def init(from_cv):
     else:
         domains = [d.strip() for d in domains_input.split(",") if d.strip()]
 
+    education = {}
+    if university or degree or specialization:
+        education = {
+            "university": university,
+            "degree": degree,
+            "specialization": specialization,
+        }
+
+    hard_rules = {}
+    if cv_title:
+        hard_rules["cv_title"] = cv_title
+
     profile = UserProfile(
         name=name,
         email=email,
         phone=phone,
-        university=university,
-        degree=degree,
-        specialization=specialization,
-        cv_title=cv_title,
+        education=education,
+        hard_rules=hard_rules,
         target_positions=target_positions,
         domains=domains,
         skills=skills,
@@ -170,12 +180,94 @@ def cv():
 
 
 @cv.command("init")
-def cv_init():
-    """Initialize a default base CV."""
+@click.option("--from-file", "from_file", type=click.Path(exists=True), default=None,
+              help="Path to existing CV file (.docx or .json) to import.")
+def cv_init(from_file):
+    """Initialize a base CV — from scratch or by importing a docx/json file."""
+    import shutil
+
     manager = CVManager()
-    path = manager.init_base()
-    console.print(f"[green]Base CV created at {path}[/green]")
-    console.print("Edit it with: [bold]job-hunter cv edit[/bold]")
+
+    if not from_file:
+        path = manager.init_base()
+        console.print(f"[green]Base CV created at {path}[/green]")
+        console.print("Edit it with: [bold]job-hunter cv edit[/bold]")
+        return
+
+    from_path = Path(from_file)
+    suffix = from_path.suffix.lower()
+
+    if suffix == ".docx":
+        # Step 1: Parse docx and detect sections
+        from job_hunter.cv.docx_parser import parse_docx, extract_section_text
+
+        console.print(f"Parsing [bold]{from_path.name}[/bold]...")
+        doc, section_map = parse_docx(from_path)
+
+        # Step 2: Show detected sections
+        console.print("\n[bold]Detected sections in your CV:[/bold]")
+        idx = 1
+        if section_map.header:
+            header_text = extract_section_text(doc, section_map.header)
+            preview = header_text[:80].replace("\n", " ")
+            console.print(f"  {idx}. [cyan][header][/cyan] — {preview}")
+            idx += 1
+        if section_map.contact:
+            contact_text = extract_section_text(doc, section_map.contact)
+            preview = contact_text[:80].replace("\n", " | ")
+            console.print(f"  {idx}. [cyan][contact][/cyan] — {preview}")
+            idx += 1
+        for s in section_map.sections:
+            text = extract_section_text(doc, s)
+            line_count = len(text.splitlines())
+            console.print(
+                f"  {idx}. [cyan][{s.semantic_type}][/cyan] \"{s.name}\" "
+                f"— {line_count} lines"
+            )
+            idx += 1
+
+        if section_map.unmapped_paras:
+            console.print(
+                f"  [yellow]{len(section_map.unmapped_paras)} unmapped paragraphs[/yellow]"
+            )
+
+        # Step 3: User confirms
+        if not click.confirm("\nSections look correct?", default=True):
+            console.print("[yellow]Aborted.[/yellow] Fix your docx headings and try again.")
+            return
+
+        # Step 4: Send to Claude for JSON structuring
+        console.print("\nStructuring CV with Claude...")
+        from job_hunter.cv.parser import parse_cv_file
+        structured = parse_cv_file(from_path)
+        if structured is None:
+            console.print("[red]Failed to structure CV. Check API key and try again.[/red]")
+            return
+
+        # Step 5: Save structured JSON as base_cv.json
+        cv_path = manager.save_base(structured)
+        console.print(f"[green]Base CV saved to {cv_path}[/green]")
+
+        # Step 6: Copy original docx as template for Track 2
+        template_path = Config.CV_DIR / "base_cv.docx"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(from_path), str(template_path))
+        console.print(f"[green]Original docx saved as template: {template_path}[/green]")
+
+    elif suffix == ".json":
+        from job_hunter.cv.parser import parse_cv_file
+        structured = parse_cv_file(from_path)
+        if structured is None:
+            console.print("[red]Failed to parse CV JSON.[/red]")
+            return
+        cv_path = manager.save_base(structured)
+        console.print(f"[green]Base CV saved to {cv_path}[/green]")
+
+    else:
+        console.print(f"[red]Unsupported file format: {suffix}. Use .docx or .json[/red]")
+        return
+
+    console.print("Next: [bold]job-hunter cv adapt[/bold] to adapt for a job.")
 
 
 @cv.command("show")

@@ -17,6 +17,52 @@ logger = get_logger(__name__)
 def _build_system_prompt() -> str:
     """Build the cover letter system prompt from user profile."""
     p = get_profile()
+
+    # --- Adaptive opening line based on profile type -------------------------
+    if p.is_student:
+        opening = f"I'm a [YEAR]-year {p.cv_title} at {p.university}, [FOCUS AREA]."
+    elif p.education:
+        # Graduate — has education but no current year
+        opening = f"I hold a {p.degree} from {p.university}, [FOCUS AREA]."
+    elif p.work_experience:
+        # Professional — no education, has work experience
+        top_skills = ", ".join(p.skills[:3]) if p.skills else "various technologies"
+        opening = f"I'm a {p.cv_title} with experience in {top_skills}, [FOCUS AREA]."
+    else:
+        opening = f"I'm a {p.cv_title}, [FOCUS AREA]."
+
+    # --- Focus area instructions ---------------------------------------------
+    spec = p.specialization or p.degree
+    skills_csv = ", ".join(p.skills) if p.skills else "see CV"
+    focus_rules = f"""[FOCUS AREA] — pick the best focus phrase for this job:
+- The candidate\'s background: "{spec or skills_csv}"
+- The candidate\'s skills are: {skills_csv}
+- Choose the ONE skill or area most relevant to THIS job
+- Format as: "specializing in [X]" or "with hands-on experience in [X]"
+- If no clear match, default to: "specializing in {spec or skills_csv}"
+"""
+
+    # --- Banned words from hard_rules ----------------------------------------
+    banned_words = p.hard_rules.get("banned_words", [])
+    banned_words_rule = ""
+    if banned_words:
+        banned_words_rule = f'- Do NOT say {", ".join(f\'"{w}\' for w in banned_words)}'
+
+    # --- No-mention topics from hard_rules -----------------------------------
+    no_mention = p.hard_rules.get("no_mention_in_cover_letter", [])
+    no_mention_rule = ""
+    if no_mention:
+        topics = ", ".join(no_mention)
+        no_mention_rule = f"""- NEVER reference {topics} or hint at them with phrases like:
+  "high-pressure environments", "leadership roles in demanding settings",
+  "proven ability under pressure"
+  These details are in the CV. The cover letter must not mention them at all."""
+
+    # --- Skills the candidate does NOT have ----------------------------------
+    skills_not_rule = ""
+    if p.skills_not:
+        skills_not_rule = f'- Do NOT claim skills the candidate doesn\'t have ({", ".join(f"no {s}" for s in p.skills_not)})'
+
     return f'''You fill in a cover letter template. Follow the structure exactly.
 
 TEMPLATE (follow this exactly):
@@ -24,26 +70,20 @@ TEMPLATE (follow this exactly):
 ---
 Dear [Company] Hiring Team,
 
-I'm a [YEAR]-year {p.cv_title} at {p.university}, [FOCUS AREA]. I'm reaching out about the [EXACT JOB TITLE] position [in LOCATION if known].
+{opening} I'm reaching out about the [EXACT JOB TITLE] position [in LOCATION if known].
 
 [ONE SENTENCE connecting your relevant background to what the role requires]. I also have [ONE OTHER RELEVANT SKILL OR EXPERIENCE].
 
-My CV is attached. I'm available for [internship/position] and happy to discuss further.
+My CV is attached. I'm available and happy to discuss further.
 
 {p.signature_block()}
 ---
 
 RULES FOR FILLING THE TEMPLATE:
 
-[FOCUS AREA] — pick the best focus phrase for this job:
-- The candidate\'s specialization is: "{p.specialization or p.degree}"
-- The candidate\'s skills are: {", ".join(p.skills) if p.skills else "see CV"}
-- Choose the ONE skill or specialization area most relevant to THIS job
-- Format as: "specializing in [X]" or "with hands-on experience in [X]"
-- If no clear match, default to: "specializing in {p.specialization or p.degree}"
-
+{focus_rules}
 [ONE SENTENCE connecting background to role] — mention ONE relevant experience:
-- Match from the candidate\'s skills ({", ".join(p.skills) if p.skills else "see CV"}) to what the job needs
+- Match from the candidate\'s skills ({skills_csv}) to what the job needs
 - Pick the SINGLE best match. Do NOT list multiple things.
 
 [ONE ADDITIONAL SKILL] — must be DIFFERENT from what you just said:
@@ -56,23 +96,19 @@ HARD RULES:
 - Do NOT add extra paragraphs
 - Do NOT list grades (they are in the CV)
 - Do NOT add flattery about the company
-- Do NOT say "passionate", "genuinely", "solid", "excited", "caught my attention"
-- Do NOT claim skills the candidate doesn\'t have ({", ".join(f"no {s}" for s in p.skills_not) if p.skills_not else "check CV for actual skills"})
+{banned_words_rule}
+{skills_not_rule}
 - Do NOT write "grade sheet attached" or "grades attached" — only CV is attached
 - Do NOT say coursework "aligns directly with" or "maps directly to" a role
 - Coursework gives FOUNDATION and BACKGROUND, not job-task expertise
 - Use honest phrasing: "gave me a foundation relevant to..." or "covers fundamentals useful for..."
 - Do NOT use jargon from the job description that the candidate hasn\'t actually studied
-- Only mention specific technical terms (e.g. PHY-layer, beamforming) if they were part of the candidate\'s courses
-- When unsure, use general terms: "signal processing" not "PHY-layer optimization"
+- Only mention specific technical terms if they were part of the candidate\'s actual experience
+- When unsure, use general terms
 - Do NOT change the template structure — only fill in the brackets
 - If recruiter_name is provided, use "Dear [Name] from the [Company] team," instead
 - NEVER use the word "strong" in any form ("strong background", "strong skills", "strong foundation", etc.)
-- NEVER reference military service, army, combat, or hint at it with phrases like:
-  "high-pressure environments", "leadership roles in demanding settings",
-  "cross-functional collaboration developed through military", "proven ability under pressure"
-  Military details are in the CV. The cover letter must not mention them at all.
-- NEVER mention the job-hunter project, Claude API, job search automation, or any tool the candidate built for finding jobs — even if the CV contains it, ignore it completely
+{no_mention_rule}
 - NEVER use vague filler phrases. Every sentence must say something specific.
   BAD (ban these): "gave me a foundation in building functional, real-world applications",
   "developed skills through team-based projects", "cross-functional collaboration skills",
@@ -151,7 +187,12 @@ class CoverLetterGenerator:
         return content
 
     def _get_academic_year(self, cv: dict) -> str:
-        """Compute current academic year (e.g. '3rd') from education start year."""
+        """Return academic year from profile (e.g. '3rd'), fallback to CV computation."""
+        profile_year = get_profile().year
+        if profile_year:
+            return profile_year
+
+        # Fallback: compute from CV education start year
         ordinals = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth"}
         try:
             edu = cv.get("education", [])
@@ -160,7 +201,6 @@ class CoverLetterGenerator:
             year_field = edu[0].get("year", "")
             start_year = int(year_field.split("-")[0].strip())
             current_year = datetime.now().year
-            # Academic year starts in October; before October we're still in the same year
             if datetime.now().month < 10:
                 current_year -= 1
             year_num = current_year - start_year + 1

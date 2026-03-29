@@ -16,15 +16,12 @@ logger = get_logger(__name__)
 def _build_system_prompt() -> str:
     """Build the CV adapter system prompt from user profile."""
     p = get_profile()
-    return f"""\
-You are an expert CV writer and career coach. You will receive a candidate's CV in JSON format \
-and a job description. Your task is to adapt the CV to best match the job requirements while \
-keeping all information truthful. You may:
-- Reorder or emphasize relevant skills
-- Rewrite bullet points to use keywords from the job description
-- Adjust the summary to align with the role
-- Remove less relevant experience details
 
+    # --- Title rules (always present) ----------------------------------------
+    title_rules = ""
+    if p.cv_title:
+        uni_example = f'"{p.cv_title} | {p.university}"  (university is a fact)' if p.university else ""
+        title_rules = f"""
 TITLE RULES (CRITICAL — NEVER VIOLATE):
 1. The title MUST stay exactly as "{p.cv_title}" — this is the only accurate title.
 2. Do NOT append specializations: no "| Embedded Systems", "| Software Development", "| AI/ML", etc.
@@ -33,24 +30,57 @@ TITLE RULES (CRITICAL — NEVER VIOLATE):
 5. If you want to show a focus area, put it in the SUMMARY — never in the title.
 
 ALLOWED:  "{p.cv_title}"
-          "{p.cv_title} | BGU"  (university is a fact)
+          {uni_example}
 NOT ALLOWED: anything with a pipe + skill/domain/focus (e.g. "| Embedded Systems", "| Software Development", "| AI/ML Focus")
 NOT ALLOWED: "Embedded Software Engineer", "Junior Engineer", or any employed role title.
+"""
 
-EDUCATION RULES (CRITICAL — NEVER VIOLATE):
-The education section MUST say "3rd year". This is a fact — never remove it, never change it. \
-If the original CV says "3rd year", the adapted CV MUST also say "3rd year" in the exact same place.
+    # --- Must-include facts (from hard_rules) --------------------------------
+    must_include = p.hard_rules.get("must_include", [])
+    must_include_rules = ""
+    if must_include:
+        fact_lines = "\n".join(
+            f'- The CV MUST say "{fact}". This is a fact — never remove or change it.'
+            for fact in must_include
+        )
+        must_include_rules = f"""
+MUST-INCLUDE FACTS (CRITICAL — NEVER VIOLATE):
+{fact_lines}
+"""
 
+    # --- Education rules (only if education section exists) -------------------
+    education_rules = ""
+    if p.education:
+        education_rules = """
+EDUCATION RULES:
+If the original CV contains education details, preserve them exactly. \
+Do not alter degree names, years, or GPA values.
+"""
+
+    # --- Banned skills (from hard_rules) -------------------------------------
+    banned_skills = p.hard_rules.get("banned_skills", [])
+    banned_skills_rules = ""
+    if banned_skills:
+        skills_list = ", ".join(f'"{s}"' for s in banned_skills)
+        banned_skills_rules = f"""
+BANNED SKILLS (CRITICAL):
+Never list these as skills in the summary or skills section — they are too generic: {skills_list}. \
+If the job mentions them, emphasize relevant technical skills instead.
+"""
+
+    return f"""\
+You are an expert CV writer and career coach. You will receive a candidate's CV in JSON format \
+and a job description. Your task is to adapt the CV to best match the job requirements while \
+keeping all information truthful. You may:
+- Reorder or emphasize relevant skills
+- Rewrite bullet points to use keywords from the job description
+- Adjust the summary to align with the role
+- Remove less relevant experience details
+{title_rules}{must_include_rules}{education_rules}\
 PAGE LENGTH (CRITICAL):
 The adapted CV MUST fit on exactly one page. Never add new content or skills. \
 Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
-
-BANNED SKILLS (CRITICAL):
-Never list "debugging" as a skill in the summary or skills section — it is too generic \
-(same category as "saving files"). If the job mentions debugging, emphasize the relevant \
-technical skills instead (e.g. Python, digital systems, signal processing) but do NOT list \
-"debugging" itself.
-
+{banned_skills_rules}\
 Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
 "remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
 "strong mathematical background" or let the grades speak for themselves. The CV should be \
@@ -96,7 +126,23 @@ class CVAdapter:
 
     def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements") -> dict:
         """Adapt CV using structured job requirements instead of raw description."""
-        cv_title = get_profile().cv_title
+        p = get_profile()
+
+        # Build dynamic rules from hard_rules
+        title_rule = f'4. TITLE: Keep exactly as "{p.cv_title}" — never change this.' if p.cv_title else ""
+
+        banned = p.hard_rules.get("banned_skills", [])
+        banned_rule = ""
+        if banned:
+            banned_list = ", ".join(f'"{s}"' for s in banned)
+            banned_rule = f"7. BANNED SKILLS: Never list these as skills — they are too generic: {banned_list}. Emphasize relevant technical skills instead."
+
+        must_include = p.hard_rules.get("must_include", [])
+        must_include_rule = ""
+        if must_include:
+            facts = "; ".join(f'"{f}"' for f in must_include)
+            must_include_rule = f"8. MUST-INCLUDE FACTS: The CV MUST preserve these exactly: {facts}. Never remove or change them."
+
         prompt = f"""Adapt this CV for the following role.
 
 ROLE: {requirements.title} at {requirements.company}
@@ -112,11 +158,11 @@ ADAPTATION RULES:
 1. SKILLS ORDERING: If the candidate HAS a required skill, move it to the top of the skills section. Do NOT add skills the candidate doesn't have.
 2. SUMMARY: Adjust the summary to emphasize the relevant domain ({requirements.domain}). Same person, same facts, different emphasis.
 3. PROJECTS: Highlight aspects of projects that are relevant to {requirements.domain}. Don't change what the project does, just what's emphasized.
-4. TITLE: Keep exactly as "{cv_title}" — never change this.
+{title_rule}
 5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
 6. ONE PAGE: The adapted CV MUST fit on exactly one page. Never add new content or skills. Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
-7. BANNED SKILLS: Never list "debugging" as a skill — it is too generic. If the job mentions debugging, emphasize the relevant technical skills instead (e.g. Python, digital systems) but do NOT list "debugging" itself.
-8. EDUCATION: The education section MUST say "3rd year". This is a fact — never remove it, never change it.
+{banned_rule}
+{must_include_rule}
 
 CV DATA:
 {json.dumps(cv_data, indent=2)}

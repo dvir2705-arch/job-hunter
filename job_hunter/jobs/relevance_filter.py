@@ -90,23 +90,39 @@ def _build_fit_score_prompt() -> str:
     """Build the fit-score system prompt from user profile."""
     p = get_profile()
     skills_str = ", ".join(p.skills)
-    skills_not_str = ", ".join(p.skills_not)
+    skills_not_str = ", ".join(p.skills_not) if p.skills_not else "N/A"
     targets_str = ", ".join(p.target_positions)
+
+    # Adaptive identity line
+    if p.is_student:
+        identity = f"{p.cv_title}, {p.year}-year student at {p.university}"
+        level_desc = "student/entry-level"
+    elif p.education:
+        identity = f"{p.cv_title}, {p.degree} from {p.university}"
+        level_desc = "entry to mid-level"
+    elif p.work_experience:
+        latest = p.work_experience[0]
+        identity = f"{p.cv_title}, previously {latest.get('title', '')} at {latest.get('company', '')}"
+        level_desc = "experienced"
+    else:
+        identity = p.cv_title or "job seeker"
+        level_desc = "entry-level"
+
     return f"""\
 You are a job-fit evaluator. Score how well a job fits this candidate:
 
 **Candidate profile:**
-- {p.cv_title}, {p.university}
+- {identity}
 - Skills: {skills_str}
 - Looking for: positions in {targets_str}
 - NOT experienced in: {skills_not_str}
 
 **Scoring guide:**
-- 80-100: Strong fit — domain matches ({targets_str}), student-level, uses candidate's skills
-- 60-79: Decent fit — related field, some skill overlap, reasonable for a student to apply
+- 80-100: Strong fit — domain matches ({targets_str}), {level_desc} appropriate, uses candidate's skills
+- 60-79: Decent fit — related field, some skill overlap, reasonable for this candidate
 - 40-59: Weak fit — tangential field or requires significant skills the candidate lacks
 - 20-39: Poor fit — different field, heavy experience requirements, or unrelated skills
-- 0-19: No fit — completely unrelated field or clearly senior role
+- 0-19: No fit — completely unrelated field or clearly mismatched seniority
 
 Return ONLY valid JSON:
 {{"score": <0-100>, "reason": "<one sentence explaining the score>"}}
