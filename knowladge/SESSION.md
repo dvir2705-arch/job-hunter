@@ -1,18 +1,17 @@
 # Session State
 
 ## Last Session (2026-03-29)
-**Completed:** Profile system redesign + docx CV parser (Session A of profile plan). Commit: d551fbb.
+**Completed:** Updated CLAUDE.md with full session progress and forward plan. Commit: 889a775.
 
-1. **Profile redesign:** Replaced flat `UserProfile` with role-agnostic system — nested `education` dict, `hard_rules` dict (`cv_title`, `must_include`, `banned_skills`, `banned_words`), helper properties (`is_student`, `cv_title`, `university`). Backward-compat migration in `load()`.
-2. **Module updates:** `adapter.py`, `generator.py`, `relevance_filter.py` now read from `hard_rules` — zero hardcoded personal data. Adaptive cover letter opening (student/graduate/professional).
-3. **Docx parser:** New `docx_parser.py` with 3-signal section detection (style, formatting, content). Tested on actual CV — all 6 sections detected correctly.
-4. **CV import CLI:** `cv init --from-file resume.docx` parses docx, shows detected sections, user confirms, Claude structures to JSON, saves JSON + original docx as template.
-5. **Data migration:** `user_profile.json` migrated to nested format with education, hard_rules, military, languages, projects.
+1. Added "Done on 2026-03-29" section documenting all work: relevance filter improvements, company-targeted search, Unicode fix, CV template CSS optimization, CV content rules, base_cv.json updates.
+2. Added "Approved Plan — Profile System Redesign" section with design decisions, session breakdown (A-E), and pending items.
+3. Added new CV rules (3rd year, one-page, debugging banned, inline skills).
+4. Added two new Past Mistakes entries (debugging as skill, auto-accepting uncertain jobs).
 
 ## Current Status
-Priority 1-4: all done ✓
-Profile system redesign (Session A): done ✓
-Docx section detection (Step 7A): done ✓
+Priority 1-4: all done
+Session A (profile redesign + docx parser): done
+CLAUDE.md fully updated with forward plan: done
 
 Remaining from profile plan:
 - Session B: Profile CLI commands (show/edit/validate)
