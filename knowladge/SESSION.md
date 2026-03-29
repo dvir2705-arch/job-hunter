@@ -1,7 +1,7 @@
 # Session State
 
-## Last Session (2026-03-28)
-**Completed:** CV template & adapt pipeline improvements. (1) Updated base_cv.json education to "3rd year". (2) Added one-page hard rule to CV adapter system prompt (both methods). (3) Optimized modern.html CSS for one-page fit: @page margins, tighter spacing, inline skills. (4) Fixed Chrome headless to use `--headless=new` so @page rules work. (5) Upgraded `cv adapt` CLI command: added `--url` and `--desc` flags, integrated JobAnalyzer (smart path), auto PDF render + diff generation. Removed old `--job-desc`/`--pdf`/`--cover-letter` flags.
+## Last Session (2026-03-29)
+**Completed:** Auto-save cover letter as PDF after generation. (1) Created `templates/cover_letter/cover_letter.html` — clean letter template with sender info, date, paragraphs, closing; supports Hebrew RTL. (2) Added `render_cover_letter_pdf()` to `CVRenderer` — splits letter into paragraphs, renders HTML, converts to PDF via Chrome headless. (3) Updated `_generate_cover_letter_for_job()` in CLI to auto-save both TXT and PDF immediately after generation; simplified post-gen menu to copy/open PDF/done. Commit: 5a32f7a.
 
 ## Current Status
 Priority 1 bugs: all done ✓
@@ -16,7 +16,7 @@ Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Priority 5 — new features (start with cross-platform browser/clipboard: replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
+**Goal:** Priority 5 — new features (cross-platform browser/clipboard: replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session End Checklist
