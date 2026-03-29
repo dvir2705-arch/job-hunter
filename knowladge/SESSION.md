@@ -1,7 +1,7 @@
 # Session State
 
 ## Last Session (2026-03-29)
-**Completed:** Auto-save cover letter as PDF after generation. (1) Created `templates/cover_letter/cover_letter.html` — clean letter template with sender info, date, paragraphs, closing; supports Hebrew RTL. (2) Added `render_cover_letter_pdf()` to `CVRenderer` — splits letter into paragraphs, renders HTML, converts to PDF via Chrome headless. (3) Updated `_generate_cover_letter_for_job()` in CLI to auto-save both TXT and PDF immediately after generation; simplified post-gen menu to copy/open PDF/done. Commit: 5a32f7a.
+**Completed:** Cover letter auto-PDF + output folder reorganization. (1) Created `templates/cover_letter/cover_letter.html` — clean letter template with sender info, date, paragraphs, closing; supports Hebrew RTL. (2) Added `render_cover_letter_pdf()` to `CVRenderer`. (3) Updated `_generate_cover_letter_for_job()` to auto-save TXT + PDF immediately after generation. (4) Reorganized output into `output/adapted_cv/` and `output/cover_letters/` subdirectories — updated all save paths, auto-detect in tracker, and .gitignore. Commits: 5a32f7a, 9abd137.
 
 ## Current Status
 Priority 1 bugs: all done ✓
