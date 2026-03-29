@@ -996,15 +996,16 @@ def jobs_search(query, location, max_results, source):
 
 
 @jobs.command("scan")
-@click.option("--query", "-q", default="student", show_default=True, help="Search query.")
-@click.option("--location", "-l", default="Israel", show_default=True, help="Location filter.")
-@click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per company.")
+@click.option("--query", "-q", default=None, help="Manual override query (bypasses profile-generated queries).")
+@click.option("--location", "-l", default=None, help="Location filter (default: from profile).")
+@click.option("--max", "-n", "max_per_company", default=20, show_default=True, help="Max results per source.")
 @click.option("--new-only", is_flag=True, default=False, help="Show only jobs seen for the first time in the last 24 hours.")
 @click.option("--all", "show_all", is_flag=True, default=False, help="Show all jobs including irrelevant ones (disables profile filter).")
 @click.option("--no-companies", is_flag=True, default=False, help="Skip company-targeted JobSpy search (faster scan).")
 @click.option("--companies-all", is_flag=True, default=False, help="Search ALL companies in companies.json instead of priority only.")
+@click.option("--fresh", is_flag=True, default=False, help="Ignore cache and rescan everything.")
 @require_profile
-def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies, companies_all):
+def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies, companies_all, fresh):
     """Scan all supported company career pages and show interactive menu."""
     from job_hunter.jobs.scraper import JobScanner
     from job_hunter.jobs.history import JobHistory
@@ -1012,28 +1013,105 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
 
     scanner = JobScanner()
 
-    # Regular scan (Intel, NVIDIA, Marvell, Amazon, LinkedIn, JobSpy)
-    console.print(f"Scanning regular sources for: [bold]{query}[/bold] in {location}...\n")
-    with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
-        listings = scanner.scan(query=query, location=location, max_per_company=max_per_company)
+    if query:
+        # --- Legacy path: manual --query override ----------------------------
+        effective_location = location or "Israel"
+        console.print(f"Scanning for: [bold]{query}[/bold] in {effective_location}...\n")
+        with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
+            listings = scanner.scan(query=query, location=effective_location, max_per_company=max_per_company)
 
-    # Company-targeted scan (default: priority companies, --companies-all: all 30)
-    if not no_companies:
-        only_priority = not companies_all
-        label = "priority" if only_priority else "all"
-        console.print(f"\nCompany-targeted scan ({label} companies) via JobSpy...\n")
+        if not no_companies:
+            only_priority = not companies_all
+            label = "priority" if only_priority else "all"
+            console.print(f"\nCompany-targeted scan ({label} companies) via JobSpy...\n")
 
-        def _progress(name, current, total):
-            console.print(f"  [{current}/{total}] Searching: {name}...", style="dim")
+            def _progress(name, current, total):
+                console.print(f"  [{current}/{total}] Searching: {name}...", style="dim")
 
-        company_listings = scanner.company_scan(
-            query=query,
-            location=location,
-            max_per_company=max_per_company,
-            only_priority=only_priority,
-            progress_callback=_progress,
+            company_listings = scanner.company_scan(
+                query=query,
+                location=effective_location,
+                max_per_company=max_per_company,
+                only_priority=only_priority,
+                progress_callback=_progress,
+            )
+            listings = scanner._deduplicate(listings + company_listings)
+    else:
+        # --- New default path: profile-driven parallel scan ------------------
+        from job_hunter.jobs.search_strategy import build_search_config
+        from job_hunter.jobs.scan_cache import ScanCache
+
+        profile = get_profile()
+        config = build_search_config(profile)
+
+        # Override location if --location flag was passed
+        if location:
+            config.location = location
+
+        # First-run: if queries were just generated, let the user know
+        cached_queries = profile.search_config.get("queries") if profile.search_config else None
+        if not cached_queries:
+            console.print("[dim]Generating search queries from your profile...[/dim]")
+            # build_search_config already triggered generation, config.queries is populated
+
+        # Show what we're scanning
+        query_list = ", ".join(f'"{q}"' for q in config.queries)
+        company_count = len(config.priority_companies if not companies_all else config.companies)
+        company_label = ""
+        if not no_companies:
+            label = "priority" if not companies_all else "all"
+            company_label = f" + {company_count} {label} companies"
+        console.print(
+            f"Scanning {len(config.queries)} queries{company_label} "
+            f"in {config.location}...\n"
         )
-        listings = scanner._deduplicate(listings + company_listings)
+        console.print(f"[dim]Queries: {query_list}[/dim]\n")
+
+        cache = ScanCache()
+        if fresh:
+            cache.clear()
+            console.print("[dim]Cache cleared — rescanning everything[/dim]\n")
+
+        # Apply --no-companies / --companies-all overrides
+        include_companies = not no_companies
+        only_priority = not companies_all
+
+        # Progress callback — prints each source as it completes
+        def _parallel_progress(source_key, jobs_found, new_count, cached_age):
+            # Parse source key for display: "scraper:IntelScraper:query" → "Intel: query"
+            # "company:Google" → "Google (company)"
+            parts = source_key.split(":", 2)
+            if parts[0] == "scraper" and len(parts) >= 3:
+                scraper_name = parts[1].replace("Scraper", "")
+                display = f"{scraper_name}: \"{parts[2]}\""
+            elif parts[0] == "company" and len(parts) >= 2:
+                display = f"{parts[1]} (company)"
+            else:
+                display = source_key
+
+            if cached_age is not None:
+                status = f"[dim](cached {cached_age} min ago)[/dim]"
+            else:
+                status = ""
+
+            if jobs_found == 0:
+                console.print(f"  [dim]  {display}: 0 jobs {status}[/dim]")
+            else:
+                console.print(
+                    f"  [green]>[/green] {display}: "
+                    f"{jobs_found} job{'s' if jobs_found != 1 else ''} "
+                    f"{status}"
+                )
+
+        listings = scanner.parallel_scan(
+            config=config,
+            cache=cache,
+            max_per_source=max_per_company,
+            progress_callback=_parallel_progress,
+            include_companies=include_companies,
+            only_priority=only_priority,
+        )
+        console.print(f"\n[bold]Total: {len(listings)} jobs found[/bold]")
 
     if not listings:
         console.print("[yellow]No jobs found across all sources.[/yellow]")
@@ -1093,6 +1171,40 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
         # Re-print table so user can pick another
         console.print()
         _print_jobs_table(jobs_with_flags)
+
+
+@jobs.command("refresh-queries")
+@require_profile
+def jobs_refresh_queries():
+    """Regenerate search queries from your profile using AI."""
+    from job_hunter.jobs.search_strategy import refresh_queries, _get_cached_queries
+
+    profile = get_profile()
+
+    # Show old queries
+    old_queries = _get_cached_queries(profile)
+    if old_queries:
+        console.print("[bold]Current queries:[/bold]")
+        for q in old_queries:
+            console.print(f"  [dim]{q}[/dim]")
+        console.print()
+
+    console.print("[dim]Generating new queries from your profile...[/dim]")
+    new_queries = refresh_queries(profile)
+
+    console.print("\n[bold]New queries:[/bold]")
+    for q in new_queries:
+        console.print(f"  [green]{q}[/green]")
+
+    if old_queries:
+        added = set(new_queries) - set(old_queries)
+        removed = set(old_queries) - set(new_queries)
+        if added:
+            console.print(f"\n[green]+ Added:[/green] {', '.join(added)}")
+        if removed:
+            console.print(f"[red]- Removed:[/red] {', '.join(removed)}")
+
+    console.print("\n[dim]Saved to profile. Next scan will use these queries.[/dim]")
 
 
 @jobs.command("discover")
