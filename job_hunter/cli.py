@@ -280,7 +280,7 @@ def cv_adapt(url, desc, job_title, company, label, **_kwargs):
     json_path = manager.save_version(adapted, label)
 
     renderer = CVRenderer()
-    pdf_path = Config.OUTPUT_DIR / f"{json_path.stem}.pdf"
+    pdf_path = Config.CV_OUTPUT_DIR / f"{json_path.stem}.pdf"
     with console.status("Rendering PDF..."):
         renderer.render_pdf(adapted, pdf_path)
 
@@ -319,7 +319,7 @@ def cv_render(version, output, template):
     renderer = CVRenderer()
 
     name = data.get("name", "cv").replace(" ", "_").lower()
-    out_path = Path(output) if output else Config.OUTPUT_DIR / f"{name}_cv.pdf"
+    out_path = Path(output) if output else Config.CV_OUTPUT_DIR / f"{name}_cv.pdf"
 
     renderer.render_pdf(data, out_path, template)
     console.print(f"[green]PDF saved to {out_path}[/green]")
@@ -1199,15 +1199,15 @@ def _track_application(job, recruiter) -> None:
     from job_hunter.applications.tracker import ApplicationTracker
 
     # --- Auto-detect CV ---
-    output_dir = Path("output")
     company_clean = job.company.lower().replace(" ", "_")
-    cv_files = list(output_dir.glob(f"cv_{company_clean}*.pdf")) if output_dir.exists() else []
+    cv_dir = Config.CV_OUTPUT_DIR
+    cv_files = list(cv_dir.glob(f"cv_{company_clean}*.pdf")) if cv_dir.exists() else []
     if not cv_files:
-        cv_files = [f for f in output_dir.glob("cv_*.pdf") if company_clean in f.name.lower()] if output_dir.exists() else []
+        cv_files = [f for f in cv_dir.glob("cv_*.pdf") if company_clean in f.name.lower()] if cv_dir.exists() else []
     cv_file = str(max(cv_files, key=lambda p: p.stat().st_mtime)) if cv_files else ""
 
     # --- Auto-detect cover letter ---
-    cl_dir = output_dir / "cover_letters"
+    cl_dir = Config.COVER_LETTER_DIR
     cl_files = list(cl_dir.glob(f"cover_letter_{company_clean}*.txt")) if cl_dir.exists() else []
     if not cl_files:
         cl_files = [f for f in cl_dir.glob("cover_letter_*.txt") if company_clean in f.name.lower()] if cl_dir.exists() else []
@@ -1455,7 +1455,7 @@ def _adapt_cv_for_job(job) -> None:
 
     # 5. Render PDF
     renderer = CVRenderer()
-    pdf_path = Config.OUTPUT_DIR / f"{json_path.stem}.pdf"
+    pdf_path = Config.CV_OUTPUT_DIR / f"{json_path.stem}.pdf"
     with console.status("Rendering PDF..."):
         renderer.render_pdf(adapted, pdf_path)
 
@@ -1520,7 +1520,7 @@ def _generate_cover_letter_for_job(job) -> None:
     # 0. Check for existing cover letter
     company_clean = re.sub(r"[^\w]+", "_", job.company).lower()[:20]
     existing_letters = sorted(
-        Config.OUTPUT_DIR.glob(f"cover_letter_*{company_clean}*.txt"),
+        Config.COVER_LETTER_DIR.glob(f"cover_letter_*{company_clean}*.txt"),
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
@@ -1597,8 +1597,8 @@ def _generate_cover_letter_for_job(job) -> None:
 
     # 7. Auto-save TXT + PDF
     slug = re.sub(r"[^\w]+", "_", f"{job.company}_{job.title}").lower()[:40]
-    txt_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.txt"
-    pdf_path = Config.OUTPUT_DIR / f"cover_letter_{slug}.pdf"
+    txt_path = Config.COVER_LETTER_DIR / f"cover_letter_{slug}.txt"
+    pdf_path = Config.COVER_LETTER_DIR / f"cover_letter_{slug}.pdf"
 
     txt_path.parent.mkdir(parents=True, exist_ok=True)
     txt_path.write_text(letter, encoding="utf-8")

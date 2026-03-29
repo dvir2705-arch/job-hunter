@@ -11,6 +11,8 @@ class Config:
     OUTPUT_DIR: Path = Path(os.getenv("OUTPUT_DIR", "./output"))
     CV_DIR: Path = DATA_DIR / "cv"
     APPLICATIONS_FILE: Path = DATA_DIR / "applications" / "applications.json"
+    CV_OUTPUT_DIR: Path = OUTPUT_DIR / "adapted_cv"
+    COVER_LETTER_DIR: Path = OUTPUT_DIR / "cover_letters"
     TEMPLATES_DIR: Path = Path("./templates")
     CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
     HUNTER_API_KEY: str = os.getenv("HUNTER_API_KEY", "")
@@ -25,4 +27,6 @@ class Config:
         cls.DATA_DIR.mkdir(parents=True, exist_ok=True)
         cls.CV_DIR.mkdir(parents=True, exist_ok=True)
         cls.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        cls.CV_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        cls.COVER_LETTER_DIR.mkdir(parents=True, exist_ok=True)
         cls.APPLICATIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
