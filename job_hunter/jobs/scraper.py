@@ -1,7 +1,9 @@
+import time
 import requests
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Callable, List, Optional, Tuple
 
 from job_hunter.logger import get_logger
 
@@ -356,6 +358,16 @@ class JobScanner:
         # WixScraper excluded: careers.wix.com is JS-rendered, no public API found
     ]
 
+    # Registry for lookup by name — used by parallel_scan to select scrapers.
+    SCRAPER_REGISTRY = {
+        "IntelScraper": IntelScraper(),
+        "NVIDIAScraper": NVIDIAScraper(),
+        "MarvellScraper": MarvellScraper(),
+        "AmazonScraper": AmazonScraper(),
+        "LinkedInScraper": LinkedInScraper(),
+        "JobSpyScraper": JobSpyScraper(),
+    }
+
     def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
         all_jobs = []
         errors = []
@@ -420,6 +432,112 @@ class JobScanner:
             seen_title_company.add(title_company_key)
             unique.append(job)
         return unique
+
+    # ------------------------------------------------------------------
+    # Parallel scan — profile-driven, cached, concurrent
+    # ------------------------------------------------------------------
+
+    def parallel_scan(
+        self,
+        config: "SearchConfig",
+        cache: "ScanCache",
+        ttl_minutes: int = 90,
+        max_per_source: int = 20,
+        progress_callback: Optional[Callable] = None,
+        include_companies: bool = True,
+        only_priority: bool = True,
+    ) -> List[JobListing]:
+        """Run keyword + company searches in parallel with caching.
+
+        Args:
+            config: SearchConfig with queries, enabled_scrapers, companies, etc.
+            cache: ScanCache instance for checking/storing results.
+            ttl_minutes: Cache freshness threshold in minutes.
+            max_per_source: Max results per individual scraper/query/company call.
+            progress_callback: Called per-source as results arrive.
+                Signature: (source_name, jobs_found, new_count, cached_age_or_none)
+                cached_age_or_none is int (minutes) if served from cache, else None.
+            include_companies: If False, skip company-targeted searches.
+            only_priority: If True, only search priority companies.
+
+        Returns:
+            Deduplicated list of all JobListing results.
+        """
+        tasks = []  # list of (source_key, callable) pairs
+
+        # --- Scraper tasks: each enabled scraper × each query ----------------
+        for scraper_name in config.enabled_scrapers:
+            scraper = self.SCRAPER_REGISTRY.get(scraper_name)
+            if scraper is None:
+                logger.warning("Unknown scraper: %s — skipping", scraper_name)
+                continue
+            for query in config.queries:
+                source_key = f"scraper:{scraper_name}:{query}"
+                tasks.append((
+                    source_key,
+                    lambda s=scraper, q=query: s.search(
+                        q, config.location, max_results=max_per_source,
+                    ),
+                ))
+
+        # --- Company tasks: each company via JobSpy --------------------------
+        if include_companies:
+            companies = config.priority_companies if only_priority else config.companies
+            jobspy = JobSpyScraper()
+            for company_name in companies:
+                source_key = f"company:{company_name}"
+                # Combine first query with company name for targeted search
+                base_query = config.queries[0] if config.queries else ""
+                search_term = f"{company_name} {base_query}".strip()
+                tasks.append((
+                    source_key,
+                    lambda q=search_term: jobspy.search(
+                        q, config.location, max_results=max_per_source,
+                    ),
+                ))
+
+        # --- Execute with cache check + parallel dispatch --------------------
+        all_jobs: List[JobListing] = []
+        stagger_delay = 0.5  # seconds between submissions
+
+        with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
+            futures = {}
+
+            for source_key, task_fn in tasks:
+                # Check cache first
+                cached_result = cache.get(source_key, ttl_minutes=ttl_minutes)
+                if cached_result is not None:
+                    cached_jobs, age = cached_result
+                    all_jobs.extend(cached_jobs)
+                    if progress_callback:
+                        progress_callback(source_key, len(cached_jobs), 0, age)
+                    continue
+
+                # Submit to thread pool with stagger
+                future = pool.submit(self._run_source, source_key, task_fn)
+                futures[future] = source_key
+                time.sleep(stagger_delay)
+
+            # Collect results as they complete
+            for future in as_completed(futures):
+                source_key = futures[future]
+                try:
+                    jobs = future.result()
+                    cache.put(source_key, jobs)
+                    all_jobs.extend(jobs)
+                    if progress_callback:
+                        progress_callback(source_key, len(jobs), len(jobs), None)
+                except Exception as e:
+                    logger.error("Source %s failed: %s", source_key, e)
+                    if progress_callback:
+                        progress_callback(source_key, 0, 0, None)
+
+        return self._deduplicate(all_jobs)
+
+    @staticmethod
+    def _run_source(source_key: str, task_fn: Callable) -> List[JobListing]:
+        """Execute a single source task. Exceptions propagate to the caller."""
+        return task_fn()
 
 
 def _load_company_names(only_priority: bool = True) -> List[str]:

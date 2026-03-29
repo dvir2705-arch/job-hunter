@@ -147,6 +147,77 @@
 
 ---
 
+## Approved Plan — Search Strategy Redesign
+
+### Goal
+Make job search profile-driven instead of hardcoded. Any user (CS student, data scientist, etc.) gets relevant queries, companies, and filters derived from their profile.
+
+### Design Decisions
+- **Haiku-generated queries** (not rule-based string concat) — query phrasing matters for JobSpy results; Haiku generates better terms. Cached in `profile.search_config.queries`, regenerated with `jobs refresh-queries`.
+- **`enabled_scrapers` in SearchConfig** — derived from company watchlist. A web dev user shouldn't wait for Intel Workday.
+- **Parallel execution** via `ThreadPoolExecutor` (not asyncio) — keyword queries, company searches, and company+keyword all run concurrently.
+- **`max_workers` configurable** (default 3) — conservative to avoid JobSpy rate limits.
+- **Result caching** — per-source JSON cache with 90-minute TTL, `--fresh` to bypass.
+- **Progressive CLI output** — results print as each source completes, not after all finish.
+- **Backward compatible** — `--query` manual override, `--no-companies`, `--companies-all` flags all still work.
+
+### New/Modified Files
+
+| File | Status | Responsibility |
+|------|--------|----------------|
+| `job_hunter/jobs/search_strategy.py` | **New** | `SearchConfig` dataclass, `build_search_config(profile)`, Haiku query generation, `refresh_queries()` |
+| `job_hunter/jobs/scan_cache.py` | **New** | Per-source cache: save/load/freshness check, `scan_cache.json` |
+| `job_hunter/jobs/scraper.py` | Modified | `JobScanner` accepts `List[str]` queries + `enabled_scrapers`, parallel execution via ThreadPoolExecutor, progress callbacks |
+| `job_hunter/cli.py` | Modified | `jobs scan` wired to SearchConfig, progressive output, `jobs refresh-queries` command, location defaults to profile |
+| `job_hunter/jobs/relevance_filter.py` | Modified | `filter_relevant_jobs()` accepts optional `seniority_reject` param from config |
+| `job_hunter/profile.py` | Modified | Handle `search_config` field (optional, no crash if missing) |
+
+### Profile Schema Addition
+```json
+"search_config": {
+    "queries": ["chip design student", "software intern Python", ...],
+    "generated_at": "2026-03-29T14:00:00"
+}
+```
+Optional field. If missing, `build_search_config` auto-generates on first scan.
+
+### Data Flow
+```
+UserProfile
+    ↓
+build_search_config()          ← reads profile + companies.json
+    ↓
+SearchConfig
+    ├── queries ──────────→ JobScanner.scan() (parallel, all queries)
+    ├── companies ─────────→ JobScanner.company_scan() (parallel)
+    ├── enabled_scrapers ──→ controls which Workday/API scrapers run
+    ├── location ──────────→ passed to all scrapers
+    └── seniority_reject ──→ relevance_filter
+    ↓
+ScanCache (per-source, 90min TTL)
+    ↓
+[JobListing, ...]
+    ↓
+filter_relevant_jobs()         ← already profile-driven
+    ↓
+accepted / rejected
+```
+
+### Build Order
+1. `search_strategy.py` — SearchConfig + build + Haiku generation + tests
+2. `scan_cache.py` — cache logic
+3. `scraper.py` — parallel execution, accept List[str] queries, callbacks
+4. `cli.py` — progressive output, wire SearchConfig, `refresh-queries`, reconcile flags
+5. `relevance_filter.py` — accept seniority from config
+6. Integration tests
+
+### Performance Target
+| Before | After |
+|--------|-------|
+| ~5 min sequential | ~60-90s first run, ~15-30s with warm cache |
+
+---
+
 ## CV Rules
 - Title is always "Electrical Engineering Student" — never changes
 - Never claim skills Dvir doesn't have (no Linux, no C++, no FPGA)
