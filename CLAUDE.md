@@ -105,6 +105,14 @@
 - [ ] Job analytics: applications per week, response rate trend
 - [ ] Hebrew cover letter option for Israeli companies
 
+### Done on 2026-03-29 (not in original roadmap)
+- [x] Relevance filter: expanded irrelevant keywords + uncertain jobs always deep-checked via Haiku + accept on API failure
+- [x] Company-targeted search: 30 companies in `companies.json`, 12 priority, default scan includes priority companies, `--no-companies` and `--companies-all` flags
+- [x] Unicode fix in `cli.py` for Windows cp1255
+- [x] CV template CSS optimization for one-page fit (spacing/margins, `--headless=new`, skills as inline text)
+- [x] CV content rules: "3rd year" hard rule, "debugging" banned, one-page hard rule in adapter prompts
+- [x] `base_cv.json` updated: "3rd year" in education, Job Hunter project in problem/solution/result format
+
 ### Known hardcoded personal data (to fix in Priority 3)
 | File | What's hardcoded |
 |------|-----------------|
@@ -117,11 +125,37 @@
 
 ---
 
+## Approved Plan — Profile System Redesign
+
+### Design
+- Role-agnostic profile: required fields (name/email/phone/skills/domains), everything else optional
+- Adaptive behavior based on what's filled (student vs graduate vs professional)
+- `hard_rules`: cv_title, must_include, banned_skills, banned_words, no_mention_in_cover_letter
+- Two CV tracks: Track 1 = fixed HTML template (default), Track 2 = edit user's original docx preserving formatting
+
+### Session Breakdown
+- **Session A addendum (next):** Step 7A — docx section detection + parsing + `cv init --from-file` (no editing)
+- **Session B:** `profile show` / `profile edit` / `profile edit --field` / `profile validate` CLI commands
+- **Session C:** Profile import from file + free-text input
+- **Session D:** Profile system tests
+- **Session E:** Step 7B — docx-native adaptation (only after 7A verified)
+
+### Still Pending (not in current plan)
+- Programmatic CV page-count safety net (render → check → retry)
+- Quick CV adapt via URL without scanning
+- Interview prep module
+
+---
+
 ## CV Rules
 - Title is always "Electrical Engineering Student" — never changes
 - Never claim skills Dvir doesn't have (no Linux, no C++, no FPGA)
 - "strong" allowed only near math grades (100, 99, 97)
 - Grades not repeated in cover letter — they're in the CV
+- Education must say "3rd year" — never "second year"
+- CV must fit one page — adapter prompts enforce this as a hard rule
+- "debugging" is banned as a skill (too generic)
+- Skills listed as inline text, not bullet lists, to save space
 
 ## Cover Letter Rules
 - 80-120 words, 3 paragraphs, strict template
@@ -137,3 +171,5 @@
 - Cover letter claimed "comfortable with Linux" → never claim skills Dvir doesn't have
 - CV title changed to "Embedded Systems" → title is fixed: "Electrical Engineering Student"
 - Wrote "second year" instead of "third year" → Dvir is in third year (2026)
+- Listed "debugging" as a skill → too generic, never include it
+- Auto-accepted uncertain jobs without checking → uncertain jobs must always be deep-checked via Haiku
