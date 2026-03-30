@@ -1356,14 +1356,26 @@ def _job_action_menu(job) -> None:
         action = click.prompt("\nChoose", default="7", show_default=False)
 
         if action == "1":
+            from rich.panel import Panel
+            from job_hunter.jobs.scraper import fetch_job_description
+
             panel_text = (
                 f"[bold]Title:[/bold]    {job.title}\n"
                 f"[bold]Company:[/bold]  {job.company}\n"
                 f"[bold]Location:[/bold] {job.location}\n"
                 f"[bold]URL:[/bold]      {job.url}"
             )
-            from rich.panel import Panel
             console.print(Panel(panel_text, title="Job Details", border_style="cyan"))
+
+            console.print("[dim]Fetching description...[/dim]")
+            desc = fetch_job_description(job)
+            if desc:
+                # Trim to reasonable length for display
+                if len(desc) > 2000:
+                    desc = desc[:2000] + "\n..."
+                console.print(Panel(desc, title="Description", border_style="dim"))
+            else:
+                console.print("[yellow]Could not fetch description. Open in browser to view.[/yellow]")
 
         elif action == "2":
             _adapt_cv_for_job(job)

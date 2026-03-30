@@ -114,43 +114,41 @@ def test_reject_teaching_assistant():
 # Uncertain jobs — AI deep-check with mocked API
 # ---------------------------------------------------------------------------
 
-def test_uncertain_job_accepted_by_ai():
-    """Job with 'intern' but no keyword signal → AI scores high → accepted."""
+def test_uncertain_job_accepted_by_batch_haiku():
+    """Job with 'intern' but no keyword signal → batch Haiku accepts → accepted."""
     job = make_job("Operations Intern")
-    with patch("job_hunter.jobs.relevance_filter.fetch_job_description", return_value="Some description"), \
-         patch("job_hunter.jobs.relevance_filter.score_job_fit", return_value=(70, "related field")):
+    with patch("job_hunter.jobs.relevance_filter._haiku_batch_call", return_value={"1": "accept"}):
         accepted, rejected = filter_relevant_jobs([job])
     assert len(accepted) == 1
     assert len(rejected) == 0
 
 
-def test_uncertain_job_rejected_by_ai():
-    """Job with 'intern' but no keyword signal → AI scores low → rejected."""
+def test_uncertain_job_rejected_by_batch_haiku():
+    """Job with 'intern' but no keyword signal → batch Haiku rejects → rejected."""
     job = make_job("Operations Intern")
-    with patch("job_hunter.jobs.relevance_filter.fetch_job_description", return_value="Some description"), \
-         patch("job_hunter.jobs.relevance_filter.score_job_fit", return_value=(20, "unrelated field")):
+    with patch("job_hunter.jobs.relevance_filter._haiku_batch_call", return_value={"1": "reject"}):
         accepted, rejected = filter_relevant_jobs([job])
     assert len(accepted) == 0
     assert len(rejected) == 1
 
 
-def test_uncertain_job_accepted_on_api_failure():
-    """AI scoring fails → benefit of doubt → accepted with warning."""
+def test_uncertain_job_accepted_on_haiku_failure():
+    """Batch Haiku fails → benefit of doubt → accepted."""
     job = make_job("Operations Intern")
-    with patch("job_hunter.jobs.relevance_filter.fetch_job_description", return_value="Some description"), \
-         patch("job_hunter.jobs.relevance_filter.score_job_fit", return_value=None):
+    with patch("job_hunter.jobs.relevance_filter._haiku_batch_call", return_value=None):
         accepted, rejected = filter_relevant_jobs([job])
     assert len(accepted) == 1
     assert len(rejected) == 0
 
 
-def test_uncertain_job_accepted_on_no_description():
-    """No description fetched → benefit of doubt → accepted with warning."""
-    job = make_job("Operations Intern")
-    with patch("job_hunter.jobs.relevance_filter.fetch_job_description", return_value=None):
-        accepted, rejected = filter_relevant_jobs([job])
-    assert len(accepted) == 1
-    assert len(rejected) == 0
+def test_uncertain_multiple_jobs_batch():
+    """Multiple uncertain jobs sent in one batch Haiku call."""
+    jobs = [make_job("Operations Intern"), make_job("General Student"), make_job("Project Intern")]
+    with patch("job_hunter.jobs.relevance_filter._haiku_batch_call",
+               return_value={"1": "accept", "2": "reject", "3": "accept"}):
+        accepted, rejected = filter_relevant_jobs(jobs)
+    assert len(accepted) == 2
+    assert len(rejected) == 1
 
 
 # ---------------------------------------------------------------------------

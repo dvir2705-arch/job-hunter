@@ -1,7 +1,6 @@
 """Filter jobs based on user profile relevance."""
 
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple
 
 import anthropic
@@ -9,12 +8,71 @@ import anthropic
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
 from job_hunter.profile import get_profile
-from .scraper import JobListing, fetch_job_description
+from .scraper import JobListing
+
+
+# Maps profile terms → common job title synonyms (generic, not user-specific)
+# When a profile contains a key, all its synonyms are added to the accept list.
+TITLE_SYNONYMS = {
+    "software": ["sw", "swe", "r&d"],
+    "hardware": ["hw", "board design"],
+    "embedded": ["firmware", "rt embedded"],
+    "chip design": ["vlsi", "rtl", "asic", "verification", "hardware",
+                    "post si", "post-silicon"],
+    "machine learning": ["ml", "deep learning", "ai"],
+    "data science": ["data scientist"],
+    "data engineer": ["data engineering"],
+    "data": ["data engineer", "data engineering"],
+    "rf": ["radio frequency", "rfic", "phy", "wireless"],
+    "dsp": ["signal processing", "algorithm", "algorithms", "phy"],
+    "verification": ["dv", "formal verification"],
+    "algorithm": ["algorithms"],
+    "fpga": [],
+    "devops": ["sre", "site reliability"],
+    "frontend": ["front-end", "react", "angular"],
+    "backend": ["back-end"],
+    "fullstack": ["full-stack", "full stack"],
+    "cyber": ["cybersecurity", "security"],
+    "cloud": ["aws", "azure", "gcp"],
+    "mobile": ["android", "ios"],
+    "electrical": ["emc", "firmware", "hardware", "hw", "embedded",
+                   "power", "laser", "camera"],
+}
 
 
 def _get_relevant_keywords() -> List[str]:
-    """Load domain keywords from user profile."""
-    return get_profile().domains
+    """Build accept keywords from profile: domains + target_positions + skills + synonyms."""
+    try:
+        p = get_profile()
+    except (FileNotFoundError, ValueError):
+        return []
+
+    keywords = set()
+
+    # Add domains (existing behavior)
+    for d in p.domains:
+        keywords.add(d.lower())
+
+    # Add target_positions — split multi-word entries into individual words too
+    for pos in p.target_positions:
+        pos_lower = pos.lower()
+        keywords.add(pos_lower)
+        for word in pos_lower.split():
+            if len(word) > 2:  # skip "of", "in", etc.
+                keywords.add(word)
+
+    # Add skills
+    for skill in p.skills:
+        keywords.add(skill.lower())
+
+    # Expand with synonyms
+    expanded = set()
+    for kw in keywords:
+        if kw in TITLE_SYNONYMS:
+            expanded.update(TITLE_SYNONYMS[kw])
+    keywords.update(expanded)
+
+    return list(keywords)
 
 # Operational/facilities roles — irrelevant for any job-seeker using this tool
 ALWAYS_IRRELEVANT = [
@@ -219,70 +277,136 @@ def filter_relevant_jobs(
         else:
             rejected.append(job)
 
-    # Layer 2: AI-score uncertain jobs using Haiku (parallel)
+    # Layer 2: Batch Haiku filter for uncertain jobs (title-only, no description fetch)
     if uncertain:
         logger = get_logger("relevance_filter")
+        batch_accepted, batch_rejected = _batch_haiku_filter(uncertain)
+        accepted.extend(batch_accepted)
+        rejected.extend(batch_rejected)
 
-        deep_accepted = 0
-        deep_rejected = 0
-        FIT_THRESHOLD = 55
-        MAX_WORKERS = 8
-
-        def _check_one(job: JobListing) -> Tuple[JobListing, str, Optional[int], str]:
-            """Fetch description + score. Returns (job, decision, score, reason).
-
-            decision is "accept", "reject", or "accept_fallback".
-            """
-            try:
-                description = fetch_job_description(job)
-                if not description:
-                    return (job, "accept_fallback", None, "no description")
-
-                result = score_job_fit(job.title, job.company, description)
-                if result is None:
-                    return (job, "accept_fallback", None, "AI scoring failed")
-
-                score, reason = result
-                if score >= FIT_THRESHOLD:
-                    return (job, "accept", score, reason)
-                else:
-                    return (job, "reject", score, reason)
-
-            except Exception as e:
-                return (job, "accept_fallback", None, str(e))
-
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-            futures = {pool.submit(_check_one, job): job for job in uncertain}
-
-            for future in as_completed(futures):
-                job, decision, score, reason = future.result()
-
-                if decision == "accept":
-                    logger.info(
-                        "Fit score %d (accepted): %s at %s — %s",
-                        score, job.title, job.company, reason,
-                    )
-                    accepted.append(job)
-                    deep_accepted += 1
-                elif decision == "reject":
-                    logger.info(
-                        "Fit score %d (rejected): %s at %s — %s",
-                        score, job.title, job.company, reason,
-                    )
-                    rejected.append(job)
-                    deep_rejected += 1
-                else:
-                    logger.warning(
-                        "Deep-check fallback for %s at %s: %s — accepting (benefit of doubt)",
-                        job.title, job.company, reason,
-                    )
-                    accepted.append(job)
-                    deep_accepted += 1
-
-        if deep_accepted + deep_rejected > 0:
+        if batch_accepted or batch_rejected:
             print(
-                f"AI-checked {deep_accepted + deep_rejected} uncertain jobs "
-                f"({deep_accepted} accepted, {deep_rejected} rejected)"
+                f"AI-checked {len(batch_accepted) + len(batch_rejected)} uncertain jobs "
+                f"({len(batch_accepted)} accepted, {len(batch_rejected)} rejected)"
             )
 
     return accepted, rejected
+
+
+# ---------------------------------------------------------------------------
+# Batch Haiku filter — single API call for all uncertain titles
+# ---------------------------------------------------------------------------
+
+BATCH_SIZE = 15  # Max jobs per Haiku call to keep response quality high
+
+
+def _batch_haiku_filter(
+    jobs: List[JobListing],
+) -> Tuple[List[JobListing], List[JobListing]]:
+    """Filter uncertain jobs via batch Haiku call (title + company only).
+
+    Sends all uncertain titles in one prompt, asks for accept/reject per job.
+    Falls back to accepting all on any failure (benefit of doubt).
+    Splits into batches of BATCH_SIZE if needed.
+    """
+    logger = get_logger("relevance_filter")
+
+    if not jobs:
+        return [], []
+
+    accepted = []
+    rejected = []
+
+    # Split into batches
+    batches = [jobs[i:i + BATCH_SIZE] for i in range(0, len(jobs), BATCH_SIZE)]
+
+    for batch in batches:
+        decisions = _haiku_batch_call(batch)
+        if decisions is None:
+            # Haiku failed — accept all (benefit of doubt)
+            logger.warning("Batch Haiku filter failed — accepting all %d uncertain jobs", len(batch))
+            accepted.extend(batch)
+            continue
+
+        for i, job in enumerate(batch):
+            decision = decisions.get(str(i + 1), "accept").lower().strip()
+            if decision == "reject":
+                logger.info("Batch rejected: %s at %s", job.title, job.company)
+                rejected.append(job)
+            else:
+                logger.info("Batch accepted: %s at %s", job.title, job.company)
+                accepted.append(job)
+
+    return accepted, rejected
+
+
+def _haiku_batch_call(jobs: List[JobListing]) -> Optional[dict]:
+    """Send a single Haiku call to classify a batch of job titles.
+
+    Returns dict like {"1": "accept", "2": "reject", ...} or None on failure.
+    """
+    try:
+        p = get_profile()
+    except (FileNotFoundError, ValueError):
+        return None
+
+    targets = ", ".join(p.target_positions) if p.target_positions else "general"
+    skills = ", ".join(p.skills) if p.skills else "not specified"
+    domains = ", ".join(p.domains) if p.domains else "not specified"
+
+    # Build identity
+    if p.is_student:
+        level = f"student ({p.year} year, {p.degree} at {p.university})"
+    elif p.education:
+        level = f"graduate ({p.degree} from {p.university})"
+    elif p.work_experience:
+        level = "experienced professional"
+    else:
+        level = "entry-level"
+
+    job_lines = []
+    for i, job in enumerate(jobs, 1):
+        loc = job.location.split(",")[0].strip() if job.location else ""
+        job_lines.append(f'{i}. "{job.title}" at {job.company}, {loc}')
+
+    prompt = f"""\
+You are a job relevance filter for a job seeker.
+
+Profile:
+- Looking for: {targets}
+- Skills: {skills}
+- Domains: {domains}
+- Level: {level}
+
+For each job below, respond ACCEPT or REJECT.
+ACCEPT if the role is potentially relevant to this candidate's field or skills.
+REJECT only if the role is clearly in an unrelated field.
+When uncertain, lean toward ACCEPT — don't miss opportunities.
+
+{chr(10).join(job_lines)}
+
+Return ONLY a JSON object: {{"1": "accept", "2": "reject", ...}}"""
+
+    try:
+        Config.validate()
+        client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model=HAIKU_MODEL,
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+    except Exception:
+        return None
+
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+    try:
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            return data
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    return None
