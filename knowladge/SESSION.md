@@ -1,14 +1,11 @@
 # Session State
 
 ## Last Session (2026-03-30)
-**Completed:** Search Strategy Redesign — full build order steps 1-6. Commits: c8bdc02, e26e28d, a7f0887.
+**Completed:** Performance optimization + filter optimization (Changes B+D). Commits: e55b680, 8130d09.
 
-1. `search_strategy.py`: SearchConfig dataclass, Haiku query generation with fallback, cached queries in profile, enabled_scrapers derived from company watchlist, configurable max_workers (default 3).
-2. `scan_cache.py`: per-source JSON cache with configurable TTL (90 min default), atomic writes, corruption recovery.
-3. `scraper.py`: parallel_scan() with ThreadPoolExecutor, 0.5s stagger, cache integration, per-source error handling, progress callbacks. Existing scan()/company_scan() preserved.
-4. `cli.py`: jobs scan default path uses build_search_config + parallel_scan with progressive output. --query bypasses to legacy path. --fresh clears cache. --no-companies/--companies-all still work. Added jobs refresh-queries command.
-5. `relevance_filter.py`: seniority_reject configurable from SearchConfig (student: full list, experienced: reduced). Backward compatible default.
-6. 77 new tests across 4 test files, all passing.
+1. **Perf fixes (e55b680):** Removed stagger delay, added 429 retry with backoff, bumped max_workers to 5, zero_streak cache logic (24h TTL after 3 empty results), fixed company search query.
+2. **Filter optimization (8130d09):** Replaced 42 individual Haiku+description calls with 1-2 batch title-only calls. Expanded keyword accept list from profile (target_positions + skills + TITLE_SYNONYMS). On-demand description fetch in job menu. Filter time: 172s → 6s, uncertain: 42 → ~15. Tests updated for batch Haiku flow.
+3. 141 tests passing (3 pre-existing failures: RF Engineer, ML Researcher, `-j` flag).
 
 ## Current Status
 Priority 1-4: all done
