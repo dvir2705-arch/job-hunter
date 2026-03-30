@@ -7,6 +7,8 @@ from typing import List
 
 from job_hunter.config import Config
 
+VALID_EXPERIENCE_LEVELS = ("", "none", "1-3", "3-7", "7+")
+
 
 @dataclass
 class UserProfile:
@@ -37,6 +39,10 @@ class UserProfile:
     volunteering: List[dict] = field(default_factory=list)
     languages: List[str] = field(default_factory=list)
     skills_not: List[str] = field(default_factory=list)
+
+    # Experience & job search
+    experience_level: str = ""  # "none", "1-3", "3-7", "7+"
+    watchlist: List[str] = field(default_factory=list)  # company names to watch
 
     # Rules
     hard_rules: dict = field(default_factory=dict)
@@ -113,6 +119,16 @@ class UserProfile:
         for old_key in ("university", "degree", "specialization"):
             data.pop(old_key, None)
 
+        # --- Migrate: derive experience_level if missing ----------------------
+        if not data.get("experience_level"):
+            edu = data.get("education", {})
+            if edu.get("year"):
+                data["experience_level"] = "none"  # current student
+            elif data.get("work_experience"):
+                data["experience_level"] = "1-3"  # has work exp, default conservatively
+            else:
+                data["experience_level"] = "none"
+
         return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
     def save(self, path: Path = None) -> Path:
@@ -156,6 +172,13 @@ class UserProfile:
             issues.append("[WARN] No cv_title in hard_rules — CV title won't be enforced")
         if not self.target_positions:
             issues.append("[WARN] No target positions — job filtering will be broad")
+
+        # Experience level
+        if self.experience_level and self.experience_level not in VALID_EXPERIENCE_LEVELS:
+            issues.append(
+                f"[ERROR] Invalid experience_level '{self.experience_level}' "
+                f"— must be one of: {', '.join(v for v in VALID_EXPERIENCE_LEVELS if v)}"
+            )
 
         # Consistency
         if self.skills and self.skills_not:

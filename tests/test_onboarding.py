@@ -173,3 +173,80 @@ class TestRequireProfileGuard:
         result = runner.invoke(cli, ["jobs", "discover"])
         assert result.exit_code != 0
         assert "Profile not found" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: experience_level + watchlist
+# ---------------------------------------------------------------------------
+
+class TestExperienceLevelField:
+    def test_save_and_load_experience_level(self, tmp_data_dir):
+        p = UserProfile(name="A", email="a@b.com", phone="1", experience_level="3-7")
+        path = p.save(tmp_data_dir / "user_profile.json")
+        loaded = UserProfile.load(path)
+        assert loaded.experience_level == "3-7"
+
+    def test_save_and_load_watchlist(self, tmp_data_dir):
+        p = UserProfile(
+            name="A", email="a@b.com", phone="1",
+            watchlist=["Intel", "Google"],
+        )
+        path = p.save(tmp_data_dir / "user_profile.json")
+        loaded = UserProfile.load(path)
+        assert loaded.watchlist == ["Intel", "Google"]
+
+    def test_validate_invalid_experience_level(self):
+        p = UserProfile(name="A", email="a@b.com", phone="1", experience_level="20+")
+        issues = p.validate()
+        assert any("experience_level" in i for i in issues)
+
+    def test_validate_valid_experience_levels(self):
+        for level in ("", "none", "1-3", "3-7", "7+"):
+            p = UserProfile(name="A", email="a@b.com", phone="1", experience_level=level)
+            issues = p.validate()
+            assert not any("experience_level" in i for i in issues)
+
+    def test_migration_student_gets_none(self, tmp_data_dir):
+        """Profile with education.year but no experience_level → migrates to 'none'."""
+        data = {
+            "name": "A", "email": "a@b.com", "phone": "1",
+            "education": {"university": "BGU", "year": "3rd"},
+        }
+        path = tmp_data_dir / "user_profile.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = UserProfile.load(path)
+        assert loaded.experience_level == "none"
+
+    def test_migration_experienced_gets_1_3(self, tmp_data_dir):
+        """Profile with work_experience but no experience_level → migrates to '1-3'."""
+        data = {
+            "name": "A", "email": "a@b.com", "phone": "1",
+            "work_experience": [{"title": "SWE", "company": "X"}],
+        }
+        path = tmp_data_dir / "user_profile.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = UserProfile.load(path)
+        assert loaded.experience_level == "1-3"
+
+    def test_migration_no_exp_no_edu_gets_none(self, tmp_data_dir):
+        """Profile with nothing → migrates to 'none'."""
+        data = {"name": "A", "email": "a@b.com", "phone": "1"}
+        path = tmp_data_dir / "user_profile.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = UserProfile.load(path)
+        assert loaded.experience_level == "none"
+
+    def test_existing_experience_level_not_overwritten(self, tmp_data_dir):
+        """Profile with explicit experience_level keeps it."""
+        data = {
+            "name": "A", "email": "a@b.com", "phone": "1",
+            "experience_level": "7+",
+        }
+        path = tmp_data_dir / "user_profile.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        loaded = UserProfile.load(path)
+        assert loaded.experience_level == "7+"
+
+    def test_default_watchlist_empty(self):
+        p = UserProfile(name="A", email="a@b.com", phone="1")
+        assert p.watchlist == []

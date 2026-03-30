@@ -47,6 +47,32 @@ HAIKU_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_MAX_WORKERS = 5
 
 
+def _level_from_profile(profile: UserProfile) -> tuple:
+    """Derive (level_keywords, seniority_reject) from experience_level.
+
+    Falls back to is_student / work_experience if experience_level is empty.
+    """
+    exp = profile.experience_level
+
+    if exp == "none" or (not exp and (profile.is_student or not profile.work_experience)):
+        # Student or no experience
+        if profile.is_student:
+            return ["student", "intern"], list(SENIORITY_REJECT_FULL)
+        return ["junior", "entry level"], list(SENIORITY_REJECT_FULL)
+
+    if exp == "1-3" or (not exp and profile.work_experience):
+        return ["junior"], list(SENIORITY_REJECT_FULL)
+
+    if exp == "3-7":
+        return [], list(SENIORITY_REJECT_EXPERIENCED)
+
+    if exp == "7+":
+        return [], []
+
+    # Fallback
+    return ["junior", "entry level"], list(SENIORITY_REJECT_FULL)
+
+
 @dataclass
 class SearchConfig:
     """Everything the scanner needs to run a profile-tailored search."""
@@ -83,18 +109,10 @@ def build_search_config(profile: Optional[UserProfile] = None) -> SearchConfig:
     location = profile.location or "Israel"
 
     # --- Level / seniority -------------------------------------------------
-    if profile.is_student:
-        level_keywords = ["student", "intern"]
-        seniority_reject = list(SENIORITY_REJECT_FULL)
-    elif not profile.work_experience:
-        level_keywords = ["junior", "entry level"]
-        seniority_reject = list(SENIORITY_REJECT_FULL)
-    else:
-        level_keywords = []
-        seniority_reject = list(SENIORITY_REJECT_EXPERIENCED)
+    level_keywords, seniority_reject = _level_from_profile(profile)
 
     # --- Companies ---------------------------------------------------------
-    companies, priority_companies = _load_companies()
+    companies, priority_companies = _load_companies(profile)
 
     # --- Enabled scrapers --------------------------------------------------
     enabled = list(ALWAYS_ENABLED_SCRAPERS)
@@ -158,16 +176,19 @@ def generate_queries(
     if profile is None:
         profile = get_profile()
 
-    # Determine level descriptor
-    if profile.is_student:
-        level = "student"
-        level_word = "student"
-    elif not profile.work_experience:
-        level = "junior / entry-level"
-        level_word = "junior"
+    # Determine level descriptor from experience_level
+    exp = profile.experience_level
+    if exp == "none" or (not exp and not profile.work_experience):
+        if profile.is_student:
+            level, level_word = "student", "student"
+        else:
+            level, level_word = "junior / entry-level", "junior"
+    elif exp == "1-3":
+        level, level_word = "junior", "junior"
+    elif exp in ("3-7", "7+"):
+        level, level_word = "experienced", ""
     else:
-        level = "experienced"
-        level_word = ""
+        level, level_word = "junior / entry-level", "junior"
 
     prompt = _QUERY_GENERATION_PROMPT.format(
         count=count,
@@ -221,9 +242,10 @@ def refresh_queries(profile: Optional[UserProfile] = None) -> List[str]:
 
 def _fallback_queries(profile: UserProfile) -> List[str]:
     """Build simple queries from target_positions + level keyword."""
-    if profile.is_student:
-        suffix = "student"
-    elif not profile.work_experience:
+    exp = profile.experience_level
+    if exp == "none" or (not exp and not profile.work_experience):
+        suffix = "student" if profile.is_student else "junior"
+    elif exp == "1-3":
         suffix = "junior"
     else:
         suffix = ""
@@ -273,11 +295,24 @@ def _save_cached_queries(profile: UserProfile, queries: List[str]) -> None:
 # Company list loader
 # ---------------------------------------------------------------------------
 
-def _load_companies() -> tuple:
-    """Load (all_companies, priority_companies) from companies.json.
+def _load_companies(profile: Optional[UserProfile] = None) -> tuple:
+    """Load (all_companies, priority_companies).
 
-    Returns ([], []) if the file doesn't exist or is malformed.
+    If the profile has a non-empty watchlist, use it as the company list
+    (all watchlist companies are treated as priority).
+    Otherwise, fall back to companies.json registry.
     """
+    if profile is None:
+        try:
+            profile = get_profile()
+        except (FileNotFoundError, ValueError):
+            profile = None
+
+    # Watchlist takes precedence
+    if profile and profile.watchlist:
+        return list(profile.watchlist), list(profile.watchlist)
+
+    # Fallback: companies.json registry
     companies_file = Config.DATA_DIR / "jobs" / "companies.json"
     try:
         with open(companies_file, "r", encoding="utf-8") as f:

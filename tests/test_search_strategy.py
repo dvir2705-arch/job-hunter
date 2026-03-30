@@ -42,6 +42,7 @@ def _experienced_profile(**overrides) -> UserProfile:
         target_positions=["fullstack", "backend"],
         domains=["software", "web", "cloud"],
         location="Tel Aviv",
+        experience_level="3-7",
         work_experience=[{"title": "Software Engineer", "company": "Startup"}],
         search_config={},
     )
@@ -222,3 +223,98 @@ class TestMaxWorkers:
         ))
         assert config.max_workers == DEFAULT_MAX_WORKERS
         assert config.max_workers == 5
+
+
+# ---------------------------------------------------------------------------
+# Experience level
+# ---------------------------------------------------------------------------
+
+class TestExperienceLevel:
+    def test_none_student_gets_student_keywords(self):
+        config = build_search_config(_student_profile(
+            experience_level="none",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == ["student", "intern"]
+        assert config.seniority_reject == list(SENIORITY_REJECT_FULL)
+
+    def test_none_non_student_gets_junior_keywords(self):
+        config = build_search_config(_junior_profile(
+            experience_level="none",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == ["junior", "entry level"]
+        assert config.seniority_reject == list(SENIORITY_REJECT_FULL)
+
+    def test_1_3_gets_junior(self):
+        config = build_search_config(_experienced_profile(
+            experience_level="1-3",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == ["junior"]
+        assert config.seniority_reject == list(SENIORITY_REJECT_FULL)
+
+    def test_3_7_gets_experienced(self):
+        config = build_search_config(_experienced_profile(
+            experience_level="3-7",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == []
+        assert config.seniority_reject == list(SENIORITY_REJECT_EXPERIENCED)
+
+    def test_7_plus_gets_no_restrictions(self):
+        config = build_search_config(_experienced_profile(
+            experience_level="7+",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == []
+        assert config.seniority_reject == []
+
+    def test_empty_experience_falls_back_to_is_student(self):
+        """Empty experience_level with education.year → student behavior."""
+        config = build_search_config(_student_profile(
+            experience_level="",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == ["student", "intern"]
+
+    def test_empty_experience_with_work_exp_falls_back(self):
+        """Empty experience_level with work_experience → 1-3 behavior."""
+        config = build_search_config(_experienced_profile(
+            experience_level="",
+            search_config={"queries": ["test"]},
+        ))
+        assert config.level_keywords == ["junior"]
+
+
+# ---------------------------------------------------------------------------
+# Watchlist-driven companies
+# ---------------------------------------------------------------------------
+
+class TestWatchlist:
+    def test_watchlist_overrides_companies_json(self):
+        p = _student_profile(
+            watchlist=["CompanyA", "CompanyB"],
+            search_config={"queries": ["test"]},
+        )
+        config = build_search_config(p)
+        assert config.companies == ["CompanyA", "CompanyB"]
+        assert config.priority_companies == ["CompanyA", "CompanyB"]
+
+    def test_empty_watchlist_falls_back_to_companies_json(self):
+        p = _student_profile(
+            watchlist=[],
+            search_config={"queries": ["test"]},
+        )
+        config = build_search_config(p)
+        # Should load from companies.json (non-empty if file exists)
+        assert isinstance(config.companies, list)
+
+    def test_watchlist_enables_matching_scrapers(self):
+        p = _student_profile(
+            watchlist=["Intel", "SomeOtherCo"],
+            search_config={"queries": ["test"]},
+        )
+        config = build_search_config(p)
+        assert "IntelScraper" in config.enabled_scrapers
+        assert "LinkedInScraper" in config.enabled_scrapers
