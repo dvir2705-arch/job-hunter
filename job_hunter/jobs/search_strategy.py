@@ -116,10 +116,14 @@ def build_search_config(profile: Optional[UserProfile] = None) -> SearchConfig:
 
     # --- Enabled scrapers --------------------------------------------------
     enabled = list(ALWAYS_ENABLED_SCRAPERS)
-    company_names_lower = {c.lower() for c in companies}
-    for company_name, scraper_name in COMPANY_SCRAPER_MAP.items():
-        if company_name.lower() in company_names_lower:
-            enabled.append(scraper_name)
+    registry = _load_company_registry()
+    for company_name in companies:
+        entry = registry.get(company_name.lower(), {})
+        scraper = entry.get("scraper", "")
+        # Only enable scrapers that exist in COMPANY_SCRAPER_MAP values
+        # (filters out "blocked_422", "not_tested", etc.)
+        if scraper in COMPANY_SCRAPER_MAP.values():
+            enabled.append(scraper)
     # Deduplicate while preserving order
     seen = set()
     enabled_deduped = []
@@ -295,12 +299,32 @@ def _save_cached_queries(profile: UserProfile, queries: List[str]) -> None:
 # Company list loader
 # ---------------------------------------------------------------------------
 
+def _load_company_registry() -> dict:
+    """Load companies.json as a lookup dict keyed by lowercase company name.
+
+    Returns {name_lower: {full entry dict}} or {} on failure.
+    """
+    companies_file = Config.DATA_DIR / "jobs" / "companies.json"
+    try:
+        with open(companies_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return {
+            c["name"].lower(): c
+            for c in data.get("companies", [])
+            if c.get("name")
+        }
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        logger.warning("Could not load companies.json: %s", e)
+        return {}
+
+
 def _load_companies(profile: Optional[UserProfile] = None) -> tuple:
     """Load (all_companies, priority_companies).
 
-    If the profile has a non-empty watchlist, use it as the company list
-    (all watchlist companies are treated as priority).
-    Otherwise, fall back to companies.json registry.
+    - Non-empty watchlist → use it (all are priority). Cross-refs with
+      companies.json for scraper metadata; unknown companies still included.
+    - Empty watchlist → ([], []) — no company scans.
+    - No profile → fall back to companies.json registry.
     """
     if profile is None:
         try:
@@ -308,19 +332,15 @@ def _load_companies(profile: Optional[UserProfile] = None) -> tuple:
         except (FileNotFoundError, ValueError):
             profile = None
 
-    # Watchlist takes precedence
-    if profile and profile.watchlist:
-        return list(profile.watchlist), list(profile.watchlist)
-
-    # Fallback: companies.json registry
-    companies_file = Config.DATA_DIR / "jobs" / "companies.json"
-    try:
-        with open(companies_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        entries = data.get("companies", [])
-        all_names = [c["name"] for c in entries if c.get("name")]
-        priority = [c["name"] for c in entries if c.get("name") and c.get("priority")]
-        return all_names, priority
-    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        logger.warning("Could not load companies.json: %s", e)
+    if profile is not None:
+        # Watchlist drives company scanning
+        if profile.watchlist:
+            return list(profile.watchlist), list(profile.watchlist)
+        # Empty watchlist = no company scans
         return [], []
+
+    # No profile at all — fall back to companies.json
+    registry = _load_company_registry()
+    all_names = [entry["name"] for entry in registry.values()]
+    priority = [entry["name"] for entry in registry.values() if entry.get("priority")]
+    return all_names, priority

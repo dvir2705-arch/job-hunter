@@ -178,15 +178,17 @@ class TestEnabledScrapers:
         assert "LinkedInScraper" in config.enabled_scrapers
         assert "JobSpyScraper" in config.enabled_scrapers
 
-    def test_intel_enabled_when_in_company_list(self):
-        """Intel is in companies.json so IntelScraper should be enabled."""
+    def test_intel_enabled_when_in_watchlist(self):
+        """Intel in watchlist + companies.json registry → IntelScraper enabled."""
         config = build_search_config(_student_profile(
+            watchlist=["Intel"],
             search_config={"queries": ["test"]},
         ))
         assert "IntelScraper" in config.enabled_scrapers
 
     def test_no_duplicate_scrapers(self):
         config = build_search_config(_student_profile(
+            watchlist=["Intel", "NVIDIA"],
             search_config={"queries": ["test"]},
         ))
         assert len(config.enabled_scrapers) == len(set(config.enabled_scrapers))
@@ -301,14 +303,15 @@ class TestWatchlist:
         assert config.companies == ["CompanyA", "CompanyB"]
         assert config.priority_companies == ["CompanyA", "CompanyB"]
 
-    def test_empty_watchlist_falls_back_to_companies_json(self):
+    def test_empty_watchlist_means_no_company_scans(self):
+        """Empty watchlist → no companies, no company scan tasks."""
         p = _student_profile(
             watchlist=[],
             search_config={"queries": ["test"]},
         )
         config = build_search_config(p)
-        # Should load from companies.json (non-empty if file exists)
-        assert isinstance(config.companies, list)
+        assert config.companies == []
+        assert config.priority_companies == []
 
     def test_watchlist_enables_matching_scrapers(self):
         p = _student_profile(
@@ -318,3 +321,49 @@ class TestWatchlist:
         config = build_search_config(p)
         assert "IntelScraper" in config.enabled_scrapers
         assert "LinkedInScraper" in config.enabled_scrapers
+
+    def test_watchlist_cross_refs_registry(self):
+        """Watchlist with 3 companies: 2 in companies.json, 1 unknown.
+        All 3 returned as companies. Known ones get scrapers enabled."""
+        p = _student_profile(
+            watchlist=["Intel", "NVIDIA", "UnknownStartup"],
+            search_config={"queries": ["test"]},
+        )
+        config = build_search_config(p)
+        # All 3 in companies list
+        assert config.companies == ["Intel", "NVIDIA", "UnknownStartup"]
+        assert config.priority_companies == ["Intel", "NVIDIA", "UnknownStartup"]
+        # Known scrapers enabled from registry
+        assert "IntelScraper" in config.enabled_scrapers
+        assert "NVIDIAScraper" in config.enabled_scrapers
+        # Unknown company doesn't add a scraper (searched via JobSpy)
+        scraper_names = [s for s in config.enabled_scrapers
+                         if s not in ("LinkedInScraper", "JobSpyScraper")]
+        assert "UnknownStartupScraper" not in scraper_names
+
+    def test_empty_watchlist_no_company_tasks_in_parallel_scan(self):
+        """Integration: empty watchlist → parallel_scan gets no company tasks."""
+        from job_hunter.jobs.scraper import JobScanner
+        from job_hunter.jobs.scan_cache import ScanCache
+        from unittest.mock import MagicMock
+        import tempfile, pathlib
+
+        scanner = JobScanner()
+        scanner.SCRAPER_REGISTRY = {}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = ScanCache(path=pathlib.Path(tmp) / "cache.json")
+            config = SearchConfig(
+                queries=["test"],
+                companies=[],
+                priority_companies=[],
+                enabled_scrapers=[],
+            )
+            with patch.object(scanner, "_run_source", return_value=[]) as mock_run:
+                scanner.parallel_scan(config, cache, include_companies=True)
+                # No company tasks should have been submitted
+                company_keys = [
+                    call.args[0] for call in mock_run.call_args_list
+                    if call.args[0].startswith("company:")
+                ]
+                assert company_keys == []
