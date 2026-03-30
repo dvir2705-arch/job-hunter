@@ -13,7 +13,7 @@ Session A (profile redesign + docx parser): done
 Search Strategy Redesign (steps 1-6): done
 
 Phase 2 — New User Onboarding (approved plan in CLAUDE.md):
-- Step 1: Schema + migration (experience_level, watchlist) — next
+- Step 1: Schema + migration (experience_level, watchlist) — DONE (e2ff213)
 - Step 2: Watchlist-driven company loading
 - Step 3: `jobs init` wizard (minimal)
 - Step 4: Company suggestions via Haiku
@@ -26,7 +26,7 @@ Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Phase 2 Step 1 — Add `experience_level` + `watchlist` to UserProfile, update `search_strategy.py` to use `experience_level`, migrate Dvir's profile (copy priority companies to watchlist), tests.
+**Goal:** Phase 2 Step 2 — Watchlist-driven company loading (empty watchlist = no company scan).
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session End Checklist
