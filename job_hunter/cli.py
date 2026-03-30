@@ -1155,12 +1155,14 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
     # Interactive selection loop
     while True:
         console.print()
-        choice = click.prompt(
-            "Enter job number to explore (or [bold]q[/bold] to quit)",
-            default="q",
-            show_default=False,
-        )
-        if choice.strip().lower() == "q":
+        try:
+            choice = click.prompt(
+                "Enter job number to explore (or q to quit)",
+                type=str,
+            )
+        except (click.Abort, EOFError):
+            break
+        if not choice.strip() or choice.strip().lower() == "q":
             break
 
         if not choice.strip().isdigit() or not (1 <= int(choice) <= len(displayed_listings)):

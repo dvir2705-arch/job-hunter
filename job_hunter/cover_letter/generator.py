@@ -46,7 +46,8 @@ def _build_system_prompt() -> str:
     banned_words = p.hard_rules.get("banned_words", [])
     banned_words_rule = ""
     if banned_words:
-        banned_words_rule = f'- Do NOT say {", ".join(f\'"{w}\' for w in banned_words)}'
+        quoted = ", ".join(f'"{w}"' for w in banned_words)
+        banned_words_rule = f"- Do NOT say {quoted}"
 
     # --- No-mention topics from hard_rules -----------------------------------
     no_mention = p.hard_rules.get("no_mention_in_cover_letter", [])

@@ -125,96 +125,58 @@
 
 ---
 
-## Approved Plan — Profile System Redesign
+## Approved Plan — Phase 2: New User Onboarding
 
-### Design
-- Role-agnostic profile: required fields (name/email/phone/skills/domains), everything else optional
-- Adaptive behavior based on what's filled (student vs graduate vs professional)
-- `hard_rules`: cv_title, must_include, banned_skills, banned_words, no_mention_in_cover_letter
-- Two CV tracks: Track 1 = fixed HTML template (default), Track 2 = edit user's original docx preserving formatting
+### Decisions (don't revisit)
+1. Empty watchlist = no company scan. New users add companies during init or manually later.
+2. Drop `domains` from init. Relevance filter derives keywords from `target_positions + skills` when `domains` is empty.
+3. Profile path override only: `--profile-path <file>` flag for testing. No directory restructure.
+4. Dvir's migration: copy priority companies from companies.json into profile's `watchlist` field automatically.
+5. `experience_level` replaces `is_student` as primary. Values: "none", "1-3", "3-7", "7+". `is_student` property still exists (checks education.year) but is secondary.
 
-### Session Breakdown
-- **Session A addendum (next):** Step 7A — docx section detection + parsing + `cv init --from-file` (no editing)
-- **Session B:** `profile show` / `profile edit` / `profile edit --field` / `profile validate` CLI commands
-- **Session C:** Profile import from file + free-text input
-- **Session D:** Profile system tests
-- **Session E:** Step 7B — docx-native adaptation (only after 7A verified)
+### New Schema Fields
+```python
+experience_level: str = ""        # "none", "1-3", "3-7", "7+"
+watchlist: List[str] = field(default_factory=list)  # company names to watch
+```
+
+### Init Flow (7 required + 1 conditional)
+```
+jobs init
+1. Name? >
+2. Email? >
+3. Phone? >
+4. Target roles? (comma-separated) >
+5. Key skills? (comma-separated) >
+6. Experience level? (none / 1-3 / 3-7 / 7+)
+7. Location? >
+→ If "none": Are you studying? → If yes: What and where?
+→ Auto: generate queries via Haiku → show → confirm
+→ Auto: suggest companies via Haiku → show → confirm/edit
+→ Save profile. Offer first scan.
+```
+
+### Build Order
+1. **Schema + migration** — Add `experience_level` + `watchlist` to UserProfile. Update `search_strategy.py` to use `experience_level`. Migration for existing profiles. Tests.
+2. **Watchlist-driven company loading** — `_load_companies()` reads `profile.watchlist`, cross-refs companies.json registry for scraper metadata. Empty watchlist = no company scan. Tests.
+3. **`jobs init` wizard (minimal)** — Rich prompts, 7 questions + conditional, create profile, generate queries via Haiku, show to user. NO company suggestions yet. Tests.
+4. **Company suggestions via Haiku** — `suggest_companies(profile) -> List[str]`. Plug into init wizard. Save to `profile.watchlist`. Tests.
+5. **Relevance filter update** — When `domains` is empty, derive filter keywords from `target_positions + skills`. Tests.
+6. **Profile CLI** — `jobs profile show/edit/validate`, `--profile-path` flag on all commands.
+7. **Company CLI** — `jobs companies list/add/remove/suggest`.
+8. **Integration tests** — 3 test profiles (CS student, backend dev, data scientist). Verify Dvir's profile still works.
 
 ### Still Pending (not in current plan)
 - Programmatic CV page-count safety net (render → check → retry)
 - Quick CV adapt via URL without scanning
 - Interview prep module
+- Profile import from file + free-text input
+- Docx-native CV adaptation
 
 ---
 
-## Approved Plan — Search Strategy Redesign
-
-### Goal
-Make job search profile-driven instead of hardcoded. Any user (CS student, data scientist, etc.) gets relevant queries, companies, and filters derived from their profile.
-
-### Design Decisions
-- **Haiku-generated queries** (not rule-based string concat) — query phrasing matters for JobSpy results; Haiku generates better terms. Cached in `profile.search_config.queries`, regenerated with `jobs refresh-queries`.
-- **`enabled_scrapers` in SearchConfig** — derived from company watchlist. A web dev user shouldn't wait for Intel Workday.
-- **Parallel execution** via `ThreadPoolExecutor` (not asyncio) — keyword queries, company searches, and company+keyword all run concurrently.
-- **`max_workers` configurable** (default 3) — conservative to avoid JobSpy rate limits.
-- **Result caching** — per-source JSON cache with 90-minute TTL, `--fresh` to bypass.
-- **Progressive CLI output** — results print as each source completes, not after all finish.
-- **Backward compatible** — `--query` manual override, `--no-companies`, `--companies-all` flags all still work.
-
-### New/Modified Files
-
-| File | Status | Responsibility |
-|------|--------|----------------|
-| `job_hunter/jobs/search_strategy.py` | **New** | `SearchConfig` dataclass, `build_search_config(profile)`, Haiku query generation, `refresh_queries()` |
-| `job_hunter/jobs/scan_cache.py` | **New** | Per-source cache: save/load/freshness check, `scan_cache.json` |
-| `job_hunter/jobs/scraper.py` | Modified | `JobScanner` accepts `List[str]` queries + `enabled_scrapers`, parallel execution via ThreadPoolExecutor, progress callbacks |
-| `job_hunter/cli.py` | Modified | `jobs scan` wired to SearchConfig, progressive output, `jobs refresh-queries` command, location defaults to profile |
-| `job_hunter/jobs/relevance_filter.py` | Modified | `filter_relevant_jobs()` accepts optional `seniority_reject` param from config |
-| `job_hunter/profile.py` | Modified | Handle `search_config` field (optional, no crash if missing) |
-
-### Profile Schema Addition
-```json
-"search_config": {
-    "queries": ["chip design student", "software intern Python", ...],
-    "generated_at": "2026-03-29T14:00:00"
-}
-```
-Optional field. If missing, `build_search_config` auto-generates on first scan.
-
-### Data Flow
-```
-UserProfile
-    ↓
-build_search_config()          ← reads profile + companies.json
-    ↓
-SearchConfig
-    ├── queries ──────────→ JobScanner.scan() (parallel, all queries)
-    ├── companies ─────────→ JobScanner.company_scan() (parallel)
-    ├── enabled_scrapers ──→ controls which Workday/API scrapers run
-    ├── location ──────────→ passed to all scrapers
-    └── seniority_reject ──→ relevance_filter
-    ↓
-ScanCache (per-source, 90min TTL)
-    ↓
-[JobListing, ...]
-    ↓
-filter_relevant_jobs()         ← already profile-driven
-    ↓
-accepted / rejected
-```
-
-### Build Order
-1. `search_strategy.py` — SearchConfig + build + Haiku generation + tests
-2. `scan_cache.py` — cache logic
-3. `scraper.py` — parallel execution, accept List[str] queries, callbacks
-4. `cli.py` — progressive output, wire SearchConfig, `refresh-queries`, reconcile flags
-5. `relevance_filter.py` — accept seniority from config
-6. Integration tests
-
-### Performance Target
-| Before | After |
-|--------|-------|
-| ~5 min sequential | ~60-90s first run, ~15-30s with warm cache |
+## Completed Plan — Search Strategy Redesign (done 2026-03-30)
+Parallel profile-driven scanning with ThreadPoolExecutor, Haiku query generation, per-source cache (90min TTL), progressive CLI output. All backward compatible. 77 tests passing.
 
 ---
 

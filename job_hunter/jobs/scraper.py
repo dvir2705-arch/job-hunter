@@ -486,9 +486,10 @@ class JobScanner:
             jobspy = JobSpyScraper()
             for company_name in companies:
                 source_key = f"company:{company_name}"
-                # Combine first query with company name for targeted search
-                base_query = config.queries[0] if config.queries else ""
-                search_term = f"{company_name} {base_query}".strip()
+                # Use level keyword (e.g. "student") not a full query — keeps
+                # company search broad so it catches all role types.
+                level = config.level_keywords[0] if config.level_keywords else ""
+                search_term = f"{company_name} {level}".strip()
                 tasks.append((
                     source_key,
                     lambda q=search_term: jobspy.search(
@@ -498,7 +499,6 @@ class JobScanner:
 
         # --- Execute with cache check + parallel dispatch --------------------
         all_jobs: List[JobListing] = []
-        stagger_delay = 0.5  # seconds between submissions
 
         with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
             futures = {}
@@ -513,10 +513,8 @@ class JobScanner:
                         progress_callback(source_key, len(cached_jobs), 0, age)
                     continue
 
-                # Submit to thread pool with stagger
                 future = pool.submit(self._run_source, source_key, task_fn)
                 futures[future] = source_key
-                time.sleep(stagger_delay)
 
             # Collect results as they complete
             for future in as_completed(futures):
@@ -536,8 +534,24 @@ class JobScanner:
 
     @staticmethod
     def _run_source(source_key: str, task_fn: Callable) -> List[JobListing]:
-        """Execute a single source task. Exceptions propagate to the caller."""
-        return task_fn()
+        """Execute a single source task with retry on 429 (rate limit)."""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                return task_fn()
+            except Exception as e:
+                # Check if it's a 429 rate limit error
+                status = getattr(e, "status_code", None) or getattr(e, "code", None)
+                err_str = str(e)
+                is_rate_limit = status == 429 or "429" in err_str or "rate limit" in err_str.lower()
+
+                if is_rate_limit and attempt < max_retries - 1:
+                    wait = 2 ** attempt  # 1s, 2s
+                    logger.info("Rate limited on %s — retrying in %ds (attempt %d/%d)",
+                                source_key, wait, attempt + 1, max_retries)
+                    time.sleep(wait)
+                    continue
+                raise
 
 
 def _load_company_names(only_priority: bool = True) -> List[str]:

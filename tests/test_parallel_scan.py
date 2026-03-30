@@ -446,12 +446,12 @@ class TestProgressCallback:
 
 
 # ---------------------------------------------------------------------------
-# Stagger delay
+# No stagger — tasks submit immediately
 # ---------------------------------------------------------------------------
 
-class TestStagger:
-    def test_stagger_delay_present(self, scanner, cache):
-        """Verify submissions are staggered by at least 0.4s between them."""
+class TestNoStagger:
+    def test_no_stagger_delay(self, scanner, cache):
+        """Verify tasks are submitted immediately without stagger delay."""
         mock_a = _mock_scraper("A", _make_jobs("A", 1))
         mock_b = _mock_scraper("B", _make_jobs("B", 1))
         scanner.SCRAPER_REGISTRY = {
@@ -469,6 +469,5 @@ class TestStagger:
             config, cache, include_companies=False,
         )
         elapsed = time.monotonic() - start
-        # 2 tasks with 0.5s stagger → at least ~0.9s total
-        # Use 0.8s threshold to account for timing variance
-        assert elapsed >= 0.8, f"Expected >= 0.8s stagger, got {elapsed:.2f}s"
+        # No stagger — should complete in under 0.5s with mock scrapers
+        assert elapsed < 0.5, f"Expected < 0.5s (no stagger), got {elapsed:.2f}s"

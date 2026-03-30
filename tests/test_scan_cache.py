@@ -7,7 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from job_hunter.jobs.scan_cache import ScanCache, DEFAULT_TTL_MINUTES
+from job_hunter.jobs.scan_cache import (
+    ScanCache, DEFAULT_TTL_MINUTES, ZERO_STREAK_THRESHOLD, ZERO_STREAK_TTL_MINUTES,
+)
 from job_hunter.jobs.scraper import JobListing
 
 
@@ -170,6 +172,51 @@ class TestFreshness:
 
     def test_default_ttl_is_90(self):
         assert DEFAULT_TTL_MINUTES == 90
+
+    def test_zero_streak_extends_ttl(self, cache, cache_path):
+        """Source with zero_streak >= 3 uses 24h TTL instead of 90min."""
+        # Build up a zero streak of 3
+        for _ in range(ZERO_STREAK_THRESHOLD):
+            cache.put("scraper:MarvellScraper:student", [])
+        assert cache.zero_streak("scraper:MarvellScraper:student") == ZERO_STREAK_THRESHOLD
+
+        # Backdate to 2 hours ago — stale under 90min, fresh under 24h
+        _backdate_entry(cache_path, "scraper:MarvellScraper:student", 120)
+        fresh_cache = ScanCache(path=cache_path)
+        # Normal TTL would say stale, but zero_streak extends it
+        result = fresh_cache.get("scraper:MarvellScraper:student", ttl_minutes=90)
+        assert result is not None  # still fresh because of extended TTL
+
+    def test_zero_streak_resets_on_results(self, cache):
+        """Getting >0 results resets zero_streak back to 0."""
+        for _ in range(ZERO_STREAK_THRESHOLD):
+            cache.put("company:Intel", [])
+        assert cache.zero_streak("company:Intel") == ZERO_STREAK_THRESHOLD
+
+        cache.put("company:Intel", _make_jobs(2))
+        assert cache.zero_streak("company:Intel") == 0
+
+    def test_zero_streak_below_threshold_uses_normal_ttl(self, cache, cache_path):
+        """Source with streak < 3 still uses normal TTL."""
+        cache.put("company:Intel", [])
+        cache.put("company:Intel", [])
+        assert cache.zero_streak("company:Intel") == 2
+
+        _backdate_entry(cache_path, "company:Intel", 91)
+        stale_cache = ScanCache(path=cache_path)
+        assert stale_cache.get("company:Intel", ttl_minutes=90) is None
+
+    def test_zero_streak_increments(self, cache):
+        """Each empty put increments the streak."""
+        cache.put("query:test", [])
+        assert cache.zero_streak("query:test") == 1
+        cache.put("query:test", [])
+        assert cache.zero_streak("query:test") == 2
+        cache.put("query:test", [])
+        assert cache.zero_streak("query:test") == 3
+
+    def test_zero_streak_missing_source_is_zero(self, cache):
+        assert cache.zero_streak("company:Nonexistent") == 0
 
 
 # ---------------------------------------------------------------------------

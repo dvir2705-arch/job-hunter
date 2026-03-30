@@ -1,6 +1,7 @@
 """Filter jobs based on user profile relevance."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Optional, Tuple
 
 import anthropic
@@ -218,60 +219,65 @@ def filter_relevant_jobs(
         else:
             rejected.append(job)
 
-    # Layer 2: Always AI-score uncertain jobs using Haiku
+    # Layer 2: AI-score uncertain jobs using Haiku (parallel)
     if uncertain:
         logger = get_logger("relevance_filter")
 
         deep_accepted = 0
         deep_rejected = 0
         FIT_THRESHOLD = 55
+        MAX_WORKERS = 8
 
-        for job in uncertain:
+        def _check_one(job: JobListing) -> Tuple[JobListing, str, Optional[int], str]:
+            """Fetch description + score. Returns (job, decision, score, reason).
+
+            decision is "accept", "reject", or "accept_fallback".
+            """
             try:
                 description = fetch_job_description(job)
                 if not description:
-                    logger.warning(
-                        "No description for %s at %s — accepting (benefit of doubt)",
-                        job.title, job.company,
-                    )
-                    accepted.append(job)
-                    deep_accepted += 1
-                    continue
+                    return (job, "accept_fallback", None, "no description")
 
                 result = score_job_fit(job.title, job.company, description)
-
                 if result is None:
-                    logger.warning(
-                        "AI scoring failed for %s at %s — accepting (benefit of doubt)",
-                        job.title, job.company,
-                    )
-                    accepted.append(job)
-                    deep_accepted += 1
-                    continue
+                    return (job, "accept_fallback", None, "AI scoring failed")
 
                 score, reason = result
                 if score >= FIT_THRESHOLD:
+                    return (job, "accept", score, reason)
+                else:
+                    return (job, "reject", score, reason)
+
+            except Exception as e:
+                return (job, "accept_fallback", None, str(e))
+
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futures = {pool.submit(_check_one, job): job for job in uncertain}
+
+            for future in as_completed(futures):
+                job, decision, score, reason = future.result()
+
+                if decision == "accept":
                     logger.info(
                         "Fit score %d (accepted): %s at %s — %s",
                         score, job.title, job.company, reason,
                     )
                     accepted.append(job)
                     deep_accepted += 1
-                else:
+                elif decision == "reject":
                     logger.info(
                         "Fit score %d (rejected): %s at %s — %s",
                         score, job.title, job.company, reason,
                     )
                     rejected.append(job)
                     deep_rejected += 1
-
-            except Exception as e:
-                logger.warning(
-                    "Deep-check error for %s at %s: %s — accepting (benefit of doubt)",
-                    job.title, job.company, e,
-                )
-                accepted.append(job)
-                deep_accepted += 1
+                else:
+                    logger.warning(
+                        "Deep-check fallback for %s at %s: %s — accepting (benefit of doubt)",
+                        job.title, job.company, reason,
+                    )
+                    accepted.append(job)
+                    deep_accepted += 1
 
         if deep_accepted + deep_rejected > 0:
             print(

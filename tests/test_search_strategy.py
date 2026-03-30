@@ -221,4 +221,4 @@ class TestMaxWorkers:
             search_config={"queries": ["test"]},
         ))
         assert config.max_workers == DEFAULT_MAX_WORKERS
-        assert config.max_workers == 3
+        assert config.max_workers == 5

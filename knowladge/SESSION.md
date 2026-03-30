@@ -15,17 +15,21 @@ Priority 1-4: all done
 Session A (profile redesign + docx parser): done
 Search Strategy Redesign (steps 1-6): done
 
-Remaining from profile plan:
-- Session B: Profile CLI commands (show/edit/validate)
-- Session C: Profile import from file, free-text input
-- Session D: Profile system tests
-- Session E: Docx-native adaptation (Step 7B — after 7A verified)
+Phase 2 — New User Onboarding (approved plan in CLAUDE.md):
+- Step 1: Schema + migration (experience_level, watchlist) — next
+- Step 2: Watchlist-driven company loading
+- Step 3: `jobs init` wizard (minimal)
+- Step 4: Company suggestions via Haiku
+- Step 5: Relevance filter update (derive from target_positions + skills)
+- Step 6: Profile CLI (show/edit/validate, --profile-path)
+- Step 7: Company CLI (list/add/remove/suggest)
+- Step 8: Integration tests
 
 Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Session B — Profile CLI commands (`profile show`, `profile edit`, `profile edit --field`, `profile validate`)
+**Goal:** Phase 2 Step 1 — Add `experience_level` + `watchlist` to UserProfile, update `search_strategy.py` to use `experience_level`, migrate Dvir's profile (copy priority companies to watchlist), tests.
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session End Checklist

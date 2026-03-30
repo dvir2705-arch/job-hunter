@@ -3,6 +3,10 @@
 Stores job listings keyed by source (company, query, or scraper) with
 timestamps so repeated scans can skip sources that were recently checked.
 
+Tracks zero_streak per source: when a source returns 0 results for 3+
+consecutive scans, its TTL extends to 24 hours instead of 90 minutes.
+A single >0 result resets the streak back to normal TTL.
+
 Cache file: data/jobs/scan_cache.json
 Key format: "company:Intel", "query:chip design student", "scraper:IntelScraper"
 """
@@ -21,6 +25,8 @@ from .scraper import JobListing
 logger = get_logger(__name__)
 
 DEFAULT_TTL_MINUTES = 90
+ZERO_STREAK_THRESHOLD = 3
+ZERO_STREAK_TTL_MINUTES = 24 * 60  # 24 hours
 
 
 class ScanCache:
@@ -37,6 +43,7 @@ class ScanCache:
     def get(self, source: str, ttl_minutes: int = DEFAULT_TTL_MINUTES) -> Optional[Tuple[List[JobListing], int]]:
         """Return (jobs, age_minutes) if source is cached and fresh, else None.
 
+        Uses extended TTL (24h) for sources with zero_streak >= 3.
         Jobs are returned as deserialized JobListing objects.
         """
         data = self._load()
@@ -48,7 +55,8 @@ class ScanCache:
         if age is None:
             return None
 
-        if age > ttl_minutes:
+        effective_ttl = self._effective_ttl(entry, ttl_minutes)
+        if age > effective_ttl:
             return None
 
         raw_jobs = entry.get("jobs", [])
@@ -56,16 +64,29 @@ class ScanCache:
         return jobs, age
 
     def put(self, source: str, jobs: List[JobListing]) -> None:
-        """Save results for a source with the current timestamp."""
+        """Save results for a source with the current timestamp.
+
+        Updates zero_streak: incremented when jobs is empty, reset to 0
+        when jobs has results.
+        """
         data = self._load()
+        old_entry = data.get(source, {})
+        old_streak = old_entry.get("zero_streak", 0)
+
+        if len(jobs) == 0:
+            new_streak = old_streak + 1
+        else:
+            new_streak = 0
+
         data[source] = {
             "last_scan": datetime.now().isoformat(),
             "jobs": [self._serialize_job(j) for j in jobs],
+            "zero_streak": new_streak,
         }
         self._save(data)
 
     def is_fresh(self, source: str, ttl_minutes: int = DEFAULT_TTL_MINUTES) -> bool:
-        """True if source was scanned within TTL minutes."""
+        """True if source was scanned within its effective TTL."""
         data = self._load()
         entry = data.get(source)
         if not entry:
@@ -75,7 +96,16 @@ class ScanCache:
         if age is None:
             return False
 
-        return age <= ttl_minutes
+        effective_ttl = self._effective_ttl(entry, ttl_minutes)
+        return age <= effective_ttl
+
+    def zero_streak(self, source: str) -> int:
+        """Return the zero_streak count for a source (0 if not cached)."""
+        data = self._load()
+        entry = data.get(source)
+        if not entry:
+            return 0
+        return entry.get("zero_streak", 0)
 
     def age_minutes(self, source: str) -> Optional[int]:
         """Return age in minutes for a source, or None if not cached."""
@@ -190,6 +220,14 @@ class ScanCache:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _effective_ttl(entry: dict, base_ttl: int) -> int:
+        """Return the TTL to use: extended if zero_streak >= threshold."""
+        streak = entry.get("zero_streak", 0)
+        if streak >= ZERO_STREAK_THRESHOLD:
+            return ZERO_STREAK_TTL_MINUTES
+        return base_ttl
 
     @staticmethod
     def _age_minutes(entry: dict) -> Optional[int]:
