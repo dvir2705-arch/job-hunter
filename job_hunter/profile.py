@@ -216,18 +216,33 @@ class UserProfile:
 
 # Module-level cached instance
 _profile: UserProfile = None
+_profile_path_override: Path = None
+
+
+def set_profile_path(path: Path) -> None:
+    """Override the default profile path for this process."""
+    global _profile_path_override, _profile
+    _profile_path_override = path
+    _profile = None  # invalidate cache so next load uses new path
+
+
+def _resolve_path(path: Path = None) -> Path:
+    """Return the effective profile path."""
+    if path is not None:
+        return path
+    if _profile_path_override is not None:
+        return _profile_path_override
+    return Config.DATA_DIR / "user_profile.json"
 
 
 def profile_exists(path: Path = None) -> bool:
     """Check whether user_profile.json exists."""
-    if path is None:
-        path = Config.DATA_DIR / "user_profile.json"
-    return path.exists()
+    return _resolve_path(path).exists()
 
 
 def get_profile(path: Path = None) -> UserProfile:
     """Return cached UserProfile, loading on first call."""
     global _profile
     if _profile is None:
-        _profile = UserProfile.load(path)
+        _profile = UserProfile.load(_resolve_path(path))
     return _profile

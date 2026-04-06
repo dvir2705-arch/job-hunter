@@ -8,7 +8,7 @@ from rich.table import Table
 from job_hunter.applications.tracker import ApplicationTracker
 from job_hunter.config import Config
 from job_hunter.cv.manager import CVManager
-from job_hunter.profile import get_profile, profile_exists, UserProfile
+from job_hunter.profile import get_profile, profile_exists, set_profile_path, UserProfile
 
 console = Console()
 
@@ -43,9 +43,13 @@ def open_in_chrome(url: str) -> None:
 
 @click.group()
 @click.version_option(package_name="job-hunter")
-def cli():
+@click.option("--profile-path", type=click.Path(exists=True), default=None,
+              help="Path to a custom user_profile.json file.")
+def cli(profile_path):
     """Job Hunter — personal career bot powered by Claude AI."""
     Config.ensure_dirs()
+    if profile_path:
+        set_profile_path(Path(profile_path))
 
 
 def require_profile(f):
@@ -259,6 +263,169 @@ def profile_enrich():
 
     console.print(f"[green]Profile updated with {len(new_skills)} new skills.[/green]")
     console.print("[dim]Search queries will regenerate on next scan.[/dim]")
+
+
+@profile.command("show")
+@require_profile
+def profile_show():
+    """Display your current profile."""
+    from rich.panel import Panel
+    from rich.text import Text
+
+    prof = get_profile()
+
+    lines = []
+
+    # Contact
+    lines.append("[bold underline]Contact[/bold underline]")
+    lines.append(f"  Name:     {prof.name}")
+    lines.append(f"  Email:    {prof.email}")
+    lines.append(f"  Phone:    {prof.phone}")
+    if prof.linkedin:
+        lines.append(f"  LinkedIn: {prof.linkedin}")
+    if prof.github:
+        lines.append(f"  GitHub:   {prof.github}")
+    if prof.country or prof.cities:
+        loc_parts = []
+        if prof.cities:
+            loc_parts.append(", ".join(prof.cities))
+        if prof.country:
+            loc_parts.append(prof.country)
+        lines.append(f"  Location: {' — '.join(loc_parts)}")
+
+    # Education
+    if prof.education and any(prof.education.values()):
+        lines.append("")
+        lines.append("[bold underline]Education[/bold underline]")
+        if prof.degree:
+            lines.append(f"  Degree:  {prof.degree}")
+        if prof.specialization:
+            lines.append(f"  Major:   {prof.specialization}")
+        if prof.university:
+            lines.append(f"  School:  {prof.university}")
+        if prof.year:
+            lines.append(f"  Year:    {prof.year}")
+
+    # Experience level
+    if prof.experience_level:
+        lines.append("")
+        lines.append(f"[bold underline]Experience Level[/bold underline]")
+        lines.append(f"  {prof.experience_level} years")
+
+    # Skills
+    if prof.skills:
+        lines.append("")
+        lines.append("[bold underline]Skills[/bold underline]")
+        lines.append(f"  {', '.join(prof.skills)}")
+    if prof.skills_not:
+        lines.append(f"  [dim]Excluded: {', '.join(prof.skills_not)}[/dim]")
+
+    # Target positions & domains
+    if prof.target_positions:
+        lines.append("")
+        lines.append("[bold underline]Target Positions[/bold underline]")
+        lines.append(f"  {', '.join(prof.target_positions)}")
+    if prof.domains:
+        lines.append("")
+        lines.append("[bold underline]Domains[/bold underline]")
+        lines.append(f"  {', '.join(prof.domains)}")
+
+    # Watchlist
+    if prof.watchlist:
+        lines.append("")
+        lines.append("[bold underline]Watchlist[/bold underline]")
+        lines.append(f"  {', '.join(prof.watchlist)}")
+
+    # Hard rules
+    if prof.hard_rules:
+        lines.append("")
+        lines.append("[bold underline]Hard Rules[/bold underline]")
+        for k, v in prof.hard_rules.items():
+            lines.append(f"  {k}: {v}")
+
+    console.print(Panel("\n".join(lines), title="Your Profile", border_style="blue"))
+
+
+@profile.command("validate")
+@require_profile
+def profile_validate():
+    """Check your profile for errors and warnings."""
+    prof = get_profile()
+    issues = prof.validate()
+
+    if not issues:
+        console.print("[green]Profile is valid — no issues found.[/green]")
+        return
+
+    for issue in issues:
+        if issue.startswith("[ERROR]"):
+            console.print(f"[red]{issue}[/red]")
+        else:
+            console.print(f"[yellow]{issue}[/yellow]")
+
+    if any(i.startswith("[ERROR]") for i in issues):
+        sys.exit(1)
+
+
+@profile.command("edit")
+@require_profile
+def profile_edit():
+    """Interactively edit profile fields."""
+    import job_hunter.profile as _prof_mod
+
+    prof = get_profile()
+
+    EDITABLE = [
+        ("name", "Name", "str"),
+        ("email", "Email", "str"),
+        ("phone", "Phone", "str"),
+        ("target_positions", "Target positions", "list"),
+        ("skills", "Skills", "list"),
+        ("skills_not", "Excluded skills", "list"),
+        ("domains", "Domains", "list"),
+        ("experience_level", "Experience level (none/1-3/3-7/7+)", "str"),
+        ("watchlist", "Watchlist (companies)", "list"),
+        ("linkedin", "LinkedIn", "str"),
+        ("github", "GitHub", "str"),
+    ]
+
+    while True:
+        console.print("\n[bold]Which field to edit?[/bold]")
+        for i, (_, label, kind) in enumerate(EDITABLE, 1):
+            field_name = EDITABLE[i - 1][0]
+            current = getattr(prof, field_name)
+            if isinstance(current, list):
+                display = ", ".join(current) if current else "[dim]empty[/dim]"
+            else:
+                display = current or "[dim]empty[/dim]"
+            console.print(f"  {i}. {label}: {display}")
+        console.print(f"  0. Done")
+
+        choice = click.prompt("Choice", type=int, default=0)
+        if choice == 0:
+            break
+        if choice < 1 or choice > len(EDITABLE):
+            console.print("[red]Invalid choice.[/red]")
+            continue
+
+        field_name, label, kind = EDITABLE[choice - 1]
+        current = getattr(prof, field_name)
+
+        if kind == "list":
+            console.print(f"  Current: {', '.join(current) if current else '(empty)'}")
+            raw = click.prompt(f"  New {label} (comma-separated, empty to clear)", default="")
+            new_val = [s.strip() for s in raw.split(",") if s.strip()] if raw else []
+            setattr(prof, field_name, new_val)
+        else:
+            new_val = click.prompt(f"  New {label}", default=current or "")
+            setattr(prof, field_name, new_val)
+
+        prof.save()
+        _prof_mod._profile = None  # invalidate cache
+        prof = get_profile()
+        console.print(f"[green]Saved.[/green]")
+
+    console.print("[green]Done editing profile.[/green]")
 
 
 # ---------------------------------------------------------------------------
