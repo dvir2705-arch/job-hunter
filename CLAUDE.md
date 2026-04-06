@@ -15,9 +15,10 @@
 3. Wait for Dvir to confirm the goal before writing any code
 
 ### Session End
-1. Update `knowladge/SESSION.md`: last session summary, advance next task, add any blockers
-2. Check off completed items in the roadmap below
-3. Commit: `git add knowladge/SESSION.md CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
+1. Create `knowladge/sessions/session-NN_DATE_topic.md` with full session summary
+2. Update `knowladge/SESSION.md`: point to new session file, advance next task, bump session number
+3. Check off completed items in the roadmap below
+4. Commit: `git add knowladge/ CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
 
 ## About the Developer
 - Name: Dvir Salomon

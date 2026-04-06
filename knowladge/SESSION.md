@@ -1,11 +1,7 @@
 # Session State
 
-## Last Session (2026-03-30)
-**Completed:** Performance optimization + filter optimization (Changes B+D). Commits: e55b680, 8130d09.
-
-1. **Perf fixes (e55b680):** Removed stagger delay, added 429 retry with backoff, bumped max_workers to 5, zero_streak cache logic (24h TTL after 3 empty results), fixed company search query.
-2. **Filter optimization (8130d09):** Replaced 42 individual Haiku+description calls with 1-2 batch title-only calls. Expanded keyword accept list from profile (target_positions + skills + TITLE_SYNONYMS). On-demand description fetch in job menu. Filter time: 172s → 6s, uncertain: 42 → ~15. Tests updated for batch Haiku flow.
-3. 141 tests passing (3 pre-existing failures: RF Engineer, ML Researcher, `-j` flag).
+## Last Session: #16 (2026-03-30)
+See `knowladge/sessions/session-16_2026-03-30_phase2-step1-schema.md`
 
 ## Current Status
 Priority 1-4: all done
@@ -27,10 +23,9 @@ Priority 5 (remaining):
 
 ## Next Session
 **Goal:** Phase 2 Step 2 — Watchlist-driven company loading (empty watchlist = no company scan).
+**Session number:** 17
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
-## Session End Checklist
-- [x] Update "Last Session" section with what was done + commit hashes
-- [x] Advance "Next Session" goal to next priority item
-- [x] Check off completed items in CLAUDE.md roadmap
-- [x] Commit: `git add knowladge/SESSION.md CLAUDE.md && git commit -m "session: [what was done]" && git push origin master`
+## Session Log Convention
+Each session is saved as `knowladge/sessions/session-NN_DATE_topic.md`.
+At session end, create the file and update this SESSION.md.
