@@ -29,7 +29,7 @@ class UserProfile:
     # Optional contact
     linkedin: str = ""
     github: str = ""
-    location: str = ""
+    location: dict = field(default_factory=dict)  # {"country": "", "cities": [], "radius_km": 25}
 
     # Optional sections
     education: dict = field(default_factory=dict)
@@ -77,6 +77,18 @@ class UserProfile:
     def year(self) -> str:
         return self.education.get("year", "")
 
+    @property
+    def country(self) -> str:
+        return self.location.get("country", "")
+
+    @property
+    def cities(self) -> List[str]:
+        return self.location.get("cities", [])
+
+    @property
+    def radius_km(self) -> int:
+        return self.location.get("radius_km", 25)
+
     # --- Persistence ----------------------------------------------------------
 
     @classmethod
@@ -118,6 +130,15 @@ class UserProfile:
         # Drop any remaining old flat keys that moved into nested dicts
         for old_key in ("university", "degree", "specialization"):
             data.pop(old_key, None)
+
+        # --- Migrate: location string → structured dict ----------------------
+        loc = data.get("location", "")
+        if isinstance(loc, str):
+            data["location"] = {
+                "country": loc if loc else "",
+                "cities": [],
+                "radius_km": 25,
+            }
 
         # --- Migrate: derive experience_level if missing ----------------------
         if not data.get("experience_level"):

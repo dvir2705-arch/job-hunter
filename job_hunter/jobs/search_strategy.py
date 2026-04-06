@@ -106,7 +106,7 @@ def build_search_config(profile: Optional[UserProfile] = None) -> SearchConfig:
         queries = generate_queries(profile)
 
     # --- Location ----------------------------------------------------------
-    location = profile.location or "Israel"
+    location = profile.country or "Israel"
 
     # --- Level / seniority -------------------------------------------------
     level_keywords, seniority_reject = _level_from_profile(profile)
@@ -201,7 +201,7 @@ def generate_queries(
         target_positions=", ".join(profile.target_positions) if profile.target_positions else "general",
         level=level,
         level_word=level_word,
-        location=profile.location or "Israel",
+        location=profile.country or "Israel",
     )
 
     try:

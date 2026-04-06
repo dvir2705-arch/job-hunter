@@ -27,7 +27,7 @@ def _student_profile(**overrides) -> UserProfile:
         skills=["Python", "MATLAB"],
         target_positions=["software", "DSP", "chip design"],
         domains=["software", "electrical", "chip"],
-        location="Israel",
+        location={"country": "Israel", "cities": [], "radius_km": 25},
         education={"university": "BGU", "degree": "B.Sc. EE", "year": "3rd"},
         search_config={},
     )
@@ -41,7 +41,7 @@ def _experienced_profile(**overrides) -> UserProfile:
         skills=["Python", "React", "AWS"],
         target_positions=["fullstack", "backend"],
         domains=["software", "web", "cloud"],
-        location="Tel Aviv",
+        location={"country": "Israel", "cities": ["Tel Aviv"], "radius_km": 25},
         experience_level="3-7",
         work_experience=[{"title": "Software Engineer", "company": "Startup"}],
         search_config={},
@@ -199,16 +199,23 @@ class TestEnabledScrapers:
 # ---------------------------------------------------------------------------
 
 class TestLocation:
-    def test_uses_profile_location(self):
+    def test_uses_profile_country(self):
         config = build_search_config(_student_profile(
-            location="Haifa",
+            location={"country": "Germany", "cities": ["Berlin"], "radius_km": 50},
             search_config={"queries": ["test"]},
         ))
-        assert config.location == "Haifa"
+        assert config.location == "Germany"
 
     def test_defaults_to_israel(self):
         config = build_search_config(_student_profile(
-            location="",
+            location={"country": "", "cities": [], "radius_km": 25},
+            search_config={"queries": ["test"]},
+        ))
+        assert config.location == "Israel"
+
+    def test_empty_location_dict_defaults(self):
+        config = build_search_config(_student_profile(
+            location={},
             search_config={"queries": ["test"]},
         ))
         assert config.location == "Israel"
