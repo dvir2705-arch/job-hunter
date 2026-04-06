@@ -1245,6 +1245,174 @@ def recruiters_scan_all(limit, dry_run):
 
 
 # ---------------------------------------------------------------------------
+# Companies commands
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def companies():
+    """Manage your company watchlist."""
+
+
+@companies.command("list")
+@require_profile
+def companies_list():
+    """Show your current watchlist and registry info."""
+    import json as _json
+
+    profile = get_profile()
+
+    if not profile.watchlist:
+        console.print("[dim]Your watchlist is empty.[/dim]")
+        console.print("Run [bold]job-hunter companies suggest[/bold] to get recommendations,")
+        console.print("or [bold]job-hunter companies add <name>[/bold] to add manually.")
+        return
+
+    # Load registry for extra info
+    from job_hunter.jobs.search_strategy import _load_company_registry
+    registry = _load_company_registry()
+
+    table = Table(title=f"Watchlist ({len(profile.watchlist)} companies)")
+    table.add_column("Company", style="cyan")
+    table.add_column("Domains", style="dim")
+    table.add_column("Scraper", style="green")
+
+    for name in sorted(profile.watchlist):
+        entry = registry.get(name.lower(), {})
+        domains = ", ".join(entry.get("domain", []))
+        scraper = "✓ dedicated" if entry.get("scraper") else "general only"
+        table.add_row(name, domains or "—", scraper)
+
+    console.print(table)
+
+
+@companies.command("add")
+@click.argument("names", nargs=-1, required=True)
+@require_profile
+def companies_add(names):
+    """Add companies to your watchlist.
+
+    Examples:
+        job-hunter companies add Google
+        job-hunter companies add "Check Point" Microsoft
+    """
+    profile = get_profile()
+
+    added = []
+    already = []
+    existing_lower = {c.lower() for c in profile.watchlist}
+
+    for name in names:
+        if name.lower() in existing_lower:
+            already.append(name)
+        else:
+            profile.watchlist.append(name)
+            existing_lower.add(name.lower())
+            added.append(name)
+
+    if added:
+        profile.save()
+        console.print(f"[green]Added:[/green] {', '.join(added)}")
+    if already:
+        console.print(f"[dim]Already in watchlist:[/dim] {', '.join(already)}")
+
+    console.print(f"[dim]Watchlist now has {len(profile.watchlist)} companies.[/dim]")
+
+
+@companies.command("remove")
+@click.argument("names", nargs=-1, required=True)
+@require_profile
+def companies_remove(names):
+    """Remove companies from your watchlist.
+
+    Examples:
+        job-hunter companies remove Google
+        job-hunter companies remove "Check Point" Microsoft
+    """
+    profile = get_profile()
+
+    removed = []
+    not_found = []
+    names_lower = {n.lower() for n in names}
+
+    new_watchlist = []
+    for c in profile.watchlist:
+        if c.lower() in names_lower:
+            removed.append(c)
+        else:
+            new_watchlist.append(c)
+
+    if not removed:
+        console.print(f"[yellow]Not in watchlist:[/yellow] {', '.join(names)}")
+        return
+
+    profile.watchlist = new_watchlist
+    profile.save()
+    console.print(f"[green]Removed:[/green] {', '.join(removed)}")
+    console.print(f"[dim]Watchlist now has {len(profile.watchlist)} companies.[/dim]")
+
+
+@companies.command("suggest")
+@require_profile
+def companies_suggest():
+    """Get AI-powered company suggestions based on your profile."""
+    from job_hunter.jobs.search_strategy import suggest_companies
+
+    profile = get_profile()
+
+    console.print("[dim]Analyzing your profile for relevant companies...[/dim]")
+    suggestions = suggest_companies(profile)
+
+    has_suggestions = suggestions["registry"] or suggestions["additional"]
+    if not has_suggestions:
+        console.print("[yellow]No suggestions available.[/yellow] "
+                      "Try adding more skills or target positions to your profile.")
+        return
+
+    if suggestions["registry"]:
+        console.print("\n[bold]Companies with dedicated scrapers:[/bold]")
+        for name in suggestions["registry"]:
+            in_wl = name.lower() in {c.lower() for c in profile.watchlist}
+            marker = " [dim](already in watchlist)[/dim]" if in_wl else ""
+            console.print(f"  [green]✓[/green] {name}{marker}")
+
+    if suggestions["additional"]:
+        console.print("\n[bold]Also relevant (general search only):[/bold]")
+        for name in suggestions["additional"]:
+            in_wl = name.lower() in {c.lower() for c in profile.watchlist}
+            marker = " [dim](already in watchlist)[/dim]" if in_wl else ""
+            console.print(f"  [blue]+[/blue] {name}{marker}")
+
+    # Collect new suggestions not already in watchlist
+    existing_lower = {c.lower() for c in profile.watchlist}
+    new_names = [
+        n for n in suggestions["registry"] + suggestions["additional"]
+        if n.lower() not in existing_lower
+    ]
+
+    if not new_names:
+        console.print("\n[dim]All suggestions are already in your watchlist.[/dim]")
+        return
+
+    if click.confirm(f"\nAdd {len(new_names)} new companies to your watchlist?", default=True):
+        profile.watchlist.extend(new_names)
+
+        remove_input = click.prompt(
+            "Remove any? (comma-separated names, or Enter to keep all)",
+            default="",
+        )
+        if remove_input.strip():
+            to_remove = {r.strip().lower() for r in remove_input.split(",")}
+            profile.watchlist = [
+                c for c in profile.watchlist if c.lower() not in to_remove
+            ]
+
+        profile.save()
+        console.print(f"[green]Watchlist updated: {len(profile.watchlist)} companies[/green]")
+    else:
+        console.print("[dim]No changes made.[/dim]")
+
+
+# ---------------------------------------------------------------------------
 # Jobs commands
 # ---------------------------------------------------------------------------
 

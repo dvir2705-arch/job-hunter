@@ -102,6 +102,7 @@
 - [ ] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
 - [ ] Retry logic in scrapers (exponential backoff on 429/503)
 - [x] Unify `RELEVANT_KEYWORDS` between `relevance_filter.py` and `discovery.py`
+- [x] Company CLI (list/add/remove/suggest) — manages profile watchlist
 - [ ] Cover letter critique loop (Claude scores and suggests improvements after generation)
 - [ ] Job analytics: applications per week, response rate trend
 - [ ] Hebrew cover letter option for Israeli companies
@@ -164,7 +165,7 @@ jobs init
 4. **Company suggestions via Haiku** — `suggest_companies(profile) -> List[str]`. Plug into init wizard. Save to `profile.watchlist`. Tests.
 5. **Relevance filter update** — When `domains` is empty, derive filter keywords from `target_positions + skills`. Tests.
 6. **Profile CLI** — `jobs profile show/edit/validate`, `--profile-path` flag on all commands.
-7. **Company CLI** — `jobs companies list/add/remove/suggest`.
+7. **Company CLI** — `jobs companies list/add/remove/suggest`. ✅ DONE
 8. **Integration tests** — 3 test profiles (CS student, backend dev, data scientist). Verify Dvir's profile still works.
 
 ### Still Pending (not in current plan)
