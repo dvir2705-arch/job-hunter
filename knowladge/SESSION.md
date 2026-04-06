@@ -1,7 +1,7 @@
 # Session State
 
-## Last Session: #17 (2026-04-06)
-See `knowladge/sessions/session-17_2026-04-06_profile-enrich.md`
+## Last Session: #18 (2026-04-07)
+See `knowladge/sessions/session-18_2026-04-07_profile-cli.md`
 
 ## Current Status
 Priority 1-4: all done
@@ -14,7 +14,7 @@ Phase 2 — New User Onboarding (approved plan in CLAUDE.md):
 - Step 3: `jobs init` wizard (minimal) — DONE (7e9db46)
 - Step 4: Company suggestions via Haiku
 - Step 5: Relevance filter update (derive from target_positions + skills)
-- Step 6: Profile CLI (show/edit/validate, --profile-path) — IN PROGRESS (enrich done, show/edit/validate remaining)
+- Step 6: Profile CLI (show/edit/validate, --profile-path) — DONE (ecc7fe2)
 - Step 7: Company CLI (list/add/remove/suggest)
 - Step 8: Integration tests
 
@@ -22,8 +22,8 @@ Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Phase 2 Step 6 continued — `profile show/edit/validate`, `--profile-path` flag on all commands.
-**Session number:** 18
+**Goal:** Phase 2 Step 4 — Company suggestions via Haiku (`suggest_companies(profile) -> List[str]`, plug into init wizard)
+**Session number:** 19
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session Log Convention
