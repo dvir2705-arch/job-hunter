@@ -154,7 +154,7 @@ class TestInitCommand:
 # ---------------------------------------------------------------------------
 
 class TestCVPreFill:
-    def test_init_from_cv_prefills_fields(self, runner, tmp_data_dir, tmp_path):
+    def test_init_from_cv_prefills_flat_skills(self, runner, tmp_data_dir, tmp_path):
         cv_json = {
             "name": "CV Person",
             "email": "cv@example.com",
@@ -175,6 +175,40 @@ class TestCVPreFill:
         assert data["education"]["university"] == "Stanford"
         assert "Python" in data["skills"]
 
+    def test_init_from_cv_prefills_categorized_skills(self, runner, tmp_data_dir, tmp_path):
+        """base_cv.json uses dict format: {"programming": [...], "technical": [...]}."""
+        cv_json = {
+            "name": "Dvir",
+            "email": "d@g.com",
+            "phone": "053",
+            "education": [{"institution": "BGU", "degree": "B.Sc. EE"}],
+            "skills": {
+                "programming": ["Python", "Assembly", "MATLAB"],
+                "technical": ["Machine Learning", "Signal Processing"],
+                "tools": ["Git"],
+            },
+            "projects": [
+                {"name": "Job Hunter", "technologies": ["REST APIs", "Web Scraping"]},
+            ],
+        }
+        cv_path = tmp_path / "cv.json"
+        cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
+
+        result = runner.invoke(cli, ["init", "--from-cv", str(cv_path)],
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n")
+        assert result.exit_code == 0
+        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        # All categorized skills extracted
+        assert "Python" in data["skills"]
+        assert "Machine Learning" in data["skills"]
+        assert "Signal Processing" in data["skills"]
+        assert "Git" in data["skills"]
+        # Project technologies extracted
+        assert "REST APIs" in data["skills"]
+        assert "Web Scraping" in data["skills"]
+        # No duplicates
+        assert len(data["skills"]) == len(set(data["skills"]))
+
 
 # ---------------------------------------------------------------------------
 # require_profile guard tests
@@ -182,7 +216,7 @@ class TestCVPreFill:
 
 class TestRequireProfileGuard:
     def test_cv_adapt_blocked_without_profile(self, runner, tmp_data_dir):
-        result = runner.invoke(cli, ["cv", "adapt", "-j", "fake.txt"])
+        result = runner.invoke(cli, ["cv", "adapt", "-u", "https://fake.example.com"])
         assert result.exit_code != 0
         assert "Profile not found" in result.output
         assert "job-hunter init" in result.output
@@ -278,3 +312,72 @@ class TestExperienceLevelField:
     def test_default_watchlist_empty(self):
         p = UserProfile(name="A", email="a@b.com", phone="1")
         assert p.watchlist == []
+
+
+# ---------------------------------------------------------------------------
+# Profile enrich command
+# ---------------------------------------------------------------------------
+
+class TestProfileEnrich:
+    def test_enrich_adds_cv_skills(self, runner, tmp_data_dir):
+        """Enrich pulls missing skills from CV into profile."""
+        # Create profile with 2 skills
+        UserProfile(
+            name="A", email="a@b.com", phone="1",
+            skills=["Python", "MATLAB"],
+        ).save(tmp_data_dir / "user_profile.json")
+
+        # Create CV with more skills
+        cv_dir = tmp_data_dir / "cv"
+        cv_dir.mkdir(exist_ok=True)
+        cv_data = {
+            "skills": {
+                "programming": ["Python", "Assembly", "MATLAB"],
+                "technical": ["Machine Learning", "Signal Processing"],
+            },
+            "projects": [{"name": "P", "technologies": ["REST APIs"]}],
+        }
+        (cv_dir / "base_cv.json").write_text(json.dumps(cv_data), encoding="utf-8")
+
+        with patch("job_hunter.config.Config.CV_DIR", cv_dir):
+            result = runner.invoke(cli, ["profile", "enrich"], input="y\n")
+
+        assert result.exit_code == 0
+        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        assert "Machine Learning" in data["skills"]
+        assert "Signal Processing" in data["skills"]
+        assert "Assembly" in data["skills"]
+        assert "REST APIs" in data["skills"]
+        # Original skills preserved
+        assert "Python" in data["skills"]
+        assert "MATLAB" in data["skills"]
+
+    def test_enrich_no_duplicates(self, runner, tmp_data_dir):
+        """Skills already in profile are not added again."""
+        UserProfile(
+            name="A", email="a@b.com", phone="1",
+            skills=["Python", "Machine Learning"],
+        ).save(tmp_data_dir / "user_profile.json")
+
+        cv_dir = tmp_data_dir / "cv"
+        cv_dir.mkdir(exist_ok=True)
+        cv_data = {"skills": {"programming": ["Python"], "technical": ["Machine Learning"]}}
+        (cv_dir / "base_cv.json").write_text(json.dumps(cv_data), encoding="utf-8")
+
+        with patch("job_hunter.config.Config.CV_DIR", cv_dir):
+            result = runner.invoke(cli, ["profile", "enrich"])
+
+        assert "already has all CV skills" in result.output
+
+    def test_enrich_no_cv_shows_error(self, runner, tmp_data_dir):
+        """Enrich without a CV shows helpful error."""
+        UserProfile(name="A", email="a@b.com", phone="1").save(
+            tmp_data_dir / "user_profile.json"
+        )
+
+        cv_dir = tmp_data_dir / "cv"
+        cv_dir.mkdir(exist_ok=True)
+        with patch("job_hunter.config.Config.CV_DIR", cv_dir):
+            result = runner.invoke(cli, ["profile", "enrich"])
+
+        assert "No CV found" in result.output

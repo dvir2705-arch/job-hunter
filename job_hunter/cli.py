@@ -88,12 +88,21 @@ def init(from_cv):
         prefill["phone"] = cv_data.get("phone", "")
         prefill["university"] = cv_data.get("education", [{}])[0].get("institution", "")
         prefill["degree"] = cv_data.get("education", [{}])[0].get("degree", "")
-        skills_list = cv_data.get("skills", [])
-        if isinstance(skills_list, list) and skills_list:
-            if isinstance(skills_list[0], dict):
-                prefill["skills"] = [s.get("name", str(s)) for s in skills_list]
+        skills_data = cv_data.get("skills", [])
+        if isinstance(skills_data, dict):
+            # Categorized: {"programming": [...], "technical": [...], "tools": [...]}
+            prefill["skills"] = [s for cat in skills_data.values() for s in cat if isinstance(s, str)]
+        elif isinstance(skills_data, list) and skills_data:
+            if isinstance(skills_data[0], dict):
+                prefill["skills"] = [s.get("name", str(s)) for s in skills_data]
             else:
-                prefill["skills"] = skills_list
+                prefill["skills"] = skills_data
+        # Also extract project technologies
+        for proj in cv_data.get("projects", []):
+            prefill.setdefault("skills", []).extend(proj.get("technologies", []))
+        # Deduplicate while preserving order
+        if prefill.get("skills"):
+            prefill["skills"] = list(dict.fromkeys(prefill["skills"]))
         if prefill.get("name"):
             console.print(f"[green]Pre-filled from CV:[/green] {prefill['name']}")
 
@@ -181,6 +190,75 @@ def init(from_cv):
     saved = profile.save(profile_path)
     console.print(f"\n[green]Profile saved to {saved}[/green]")
     console.print("You're ready to go! Try [bold]job-hunter cv init[/bold] next.")
+
+
+# ---------------------------------------------------------------------------
+# Profile commands
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def profile():
+    """View and manage your profile."""
+
+
+@profile.command("enrich")
+@require_profile
+def profile_enrich():
+    """Pull skills from your CV into the profile for better job matching."""
+    import json as _json
+
+    cv_path = Config.CV_DIR / "base_cv.json"
+    if not cv_path.exists():
+        console.print(
+            "[red]No CV found.[/red] Run [bold]job-hunter cv init[/bold] first."
+        )
+        return
+
+    with open(cv_path, encoding="utf-8") as f:
+        cv_data = _json.load(f)
+
+    # Extract skills from CV (categorized dict + flat list + project techs)
+    cv_skills = []
+    skills_data = cv_data.get("skills", [])
+    if isinstance(skills_data, dict):
+        cv_skills = [s for cat in skills_data.values() for s in cat if isinstance(s, str)]
+    elif isinstance(skills_data, list) and skills_data:
+        if isinstance(skills_data[0], dict):
+            cv_skills = [s.get("name", str(s)) for s in skills_data]
+        else:
+            cv_skills = list(skills_data)
+
+    for proj in cv_data.get("projects", []):
+        cv_skills.extend(proj.get("technologies", []))
+
+    # Deduplicate
+    cv_skills = list(dict.fromkeys(cv_skills))
+
+    prof = get_profile()
+    current_lower = {s.lower() for s in prof.skills}
+    new_skills = [s for s in cv_skills if s.lower() not in current_lower]
+
+    if not new_skills:
+        console.print("[green]Profile already has all CV skills.[/green]")
+        return
+
+    console.print(f"[bold]Current profile skills:[/bold] {', '.join(prof.skills)}")
+    console.print(f"[bold]New from CV:[/bold] {', '.join(new_skills)}")
+
+    if not click.confirm(f"Add {len(new_skills)} skills to profile?", default=True):
+        console.print("Skipped.")
+        return
+
+    prof.skills.extend(new_skills)
+    # Clear cached queries so they regenerate with richer skills
+    prof.search_config = {}
+    prof.save()
+    # Reset cached profile so next get_profile() reloads
+    import job_hunter.profile as _prof_mod
+    _prof_mod._profile = None
+
+    console.print(f"[green]Profile updated with {len(new_skills)} new skills.[/green]")
+    console.print("[dim]Search queries will regenerate on next scan.[/dim]")
 
 
 # ---------------------------------------------------------------------------
