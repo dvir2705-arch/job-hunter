@@ -27,13 +27,27 @@ def test_accept_python_developer():
     assert len(rejected) == 0
 
 
-def test_accept_rf_engineer():
+def test_accept_rf_engineer(monkeypatch):
+    """RF Engineer accepted when 'rf' is in target_positions."""
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=[], target_positions=["rf"], domains=[],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
     accepted, rejected = filter_relevant_jobs([make_job("RF Engineer")])
     assert len(accepted) == 1
     assert len(rejected) == 0
 
 
-def test_accept_machine_learning_researcher():
+def test_accept_machine_learning_researcher(monkeypatch):
+    """ML Researcher accepted when 'machine learning' is in target_positions."""
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=[], target_positions=["machine learning"], domains=[],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
     accepted, rejected = filter_relevant_jobs([make_job("Machine Learning Researcher")])
     assert len(accepted) == 1
     assert len(rejected) == 0
@@ -248,3 +262,58 @@ class TestSeniorityReject:
     def test_default_constant_matches_search_strategy_full(self):
         """DEFAULT_SENIORITY_KEYWORDS should match SENIORITY_REJECT_FULL."""
         assert DEFAULT_SENIORITY_KEYWORDS == list(SENIORITY_REJECT_FULL)
+
+
+# ---------------------------------------------------------------------------
+# Empty domains — derive keywords from target_positions + skills
+# ---------------------------------------------------------------------------
+
+class TestEmptyDomains:
+    """When domains is empty, filter should use target_positions + skills."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_profile(self, monkeypatch):
+        """Profile with empty domains but filled target_positions + skills."""
+        from job_hunter.profile import UserProfile
+        profile = UserProfile(
+            name="Test",
+            email="t@t.com",
+            phone="050",
+            skills=["Python", "MATLAB"],
+            target_positions=["software", "data science"],
+            domains=[],  # empty
+            education={"university": "BGU", "degree": "B.Sc. CS", "year": "3rd"},
+            experience_level="none",
+        )
+        monkeypatch.setattr(
+            "job_hunter.jobs.relevance_filter.get_profile", lambda: profile,
+        )
+        # Clear cached profile
+        import job_hunter.profile as pm
+        monkeypatch.setattr(pm, "_profile", None)
+
+    def test_accept_by_target_position(self):
+        """'Software Developer' accepted via target_positions keyword."""
+        accepted, _ = filter_relevant_jobs([make_job("Software Developer")])
+        assert len(accepted) == 1
+
+    def test_accept_by_skill(self):
+        """'Python Developer' accepted via skills keyword."""
+        accepted, _ = filter_relevant_jobs([make_job("Python Developer")])
+        assert len(accepted) == 1
+
+    def test_accept_by_synonym(self):
+        """'Data Scientist' accepted via synonym of 'data science'."""
+        accepted, _ = filter_relevant_jobs([make_job("Data Scientist")])
+        assert len(accepted) == 1
+
+    def test_reject_unrelated(self):
+        """Unrelated title still rejected."""
+        _, rejected = filter_relevant_jobs([make_job("Chef")])
+        assert len(rejected) == 1
+
+    def test_irrelevant_field_not_excluded_when_in_targets(self):
+        """If target_positions contains a professional field, it's not irrelevant."""
+        # "data science" is in target_positions → "data scientist" synonym is relevant
+        accepted, _ = filter_relevant_jobs([make_job("Data Scientist Intern")])
+        assert len(accepted) == 1

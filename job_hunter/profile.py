@@ -187,8 +187,8 @@ class UserProfile:
         # Recommended
         if not self.skills:
             issues.append("[WARN] No skills listed — CV adaptation will be generic")
-        if not self.domains:
-            issues.append("[WARN] No domain keywords — job matching will be inaccurate")
+        if not self.domains and not self.target_positions and not self.skills:
+            issues.append("[WARN] No domains, target positions, or skills — job matching will be inaccurate")
         if not self.cv_title:
             issues.append("[WARN] No cv_title in hard_rules — CV title won't be enforced")
         if not self.target_positions:

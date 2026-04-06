@@ -118,9 +118,9 @@ class TestProfileValidate:
         assert "No skills listed" in result.output
 
     def test_validate_warns_missing_domains(self, runner, tmp_data_dir):
-        _write_profile(tmp_data_dir, domains=[])
+        _write_profile(tmp_data_dir, domains=[], target_positions=[], skills=[])
         result = runner.invoke(cli, ["profile", "validate"])
-        assert "No domain keywords" in result.output
+        assert "job matching" in result.output
 
     def test_validate_error_bad_experience(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir, experience_level="invalid")

@@ -117,13 +117,9 @@ PROFESSIONAL_FIELDS = [
 
 
 def _get_irrelevant_keywords() -> List[str]:
-    """Build irrelevant keywords, excluding fields that overlap with the user's domains."""
-    try:
-        domains = {d.lower() for d in get_profile().domains}
-    except (FileNotFoundError, ValueError):
-        domains = set()
-
-    field_irrelevant = [kw for kw in PROFESSIONAL_FIELDS if kw not in domains]
+    """Build irrelevant keywords, excluding fields that overlap with the user's profile."""
+    relevant = set(_get_relevant_keywords())
+    field_irrelevant = [kw for kw in PROFESSIONAL_FIELDS if kw not in relevant]
     return ALWAYS_IRRELEVANT + field_irrelevant
 
 _IRRELEVANT_COMPANIES_ALL = [
@@ -132,12 +128,9 @@ _IRRELEVANT_COMPANIES_ALL = [
 
 
 def _get_irrelevant_companies() -> List[str]:
-    """Build irrelevant company keywords, excluding those in user's domains."""
-    try:
-        domains = {d.lower() for d in get_profile().domains}
-    except (FileNotFoundError, ValueError):
-        domains = set()
-    return [kw for kw in _IRRELEVANT_COMPANIES_ALL if kw not in domains]
+    """Build irrelevant company keywords, excluding those in user's profile."""
+    relevant = set(_get_relevant_keywords())
+    return [kw for kw in _IRRELEVANT_COMPANIES_ALL if kw not in relevant]
 
 DEFAULT_SENIORITY_KEYWORDS = [
     "senior", "manager", "director", "principal", "vp", "vice president",
