@@ -76,36 +76,64 @@ class TestProfileExists:
 # ---------------------------------------------------------------------------
 
 class TestInitCommand:
-    def test_init_creates_profile(self, runner, tmp_data_dir):
-        # Prompts: name, email, phone, university, degree, specialization,
-        #          cv_title, target_positions, skills, skills_not, domains
-        inputs = "Alice\nalice@example.com\n555\nMIT\nB.Sc. CS\nAI\n\nsoftware, ml\nPython\n\nml, python, software\n"
+    def test_init_creates_profile_student(self, runner, tmp_data_dir):
+        # Prompts: name, email, phone, target_roles, skills,
+        #          experience(none), country, cities, studying?(y), degree, university
+        inputs = (
+            "Alice\nalice@example.com\n555\n"
+            "software, ml\nPython\n"
+            "none\nIsrael\n\n"
+            "y\nB.Sc. CS\nMIT\n"
+        )
         result = runner.invoke(cli, ["init"], input=inputs)
         assert result.exit_code == 0
         assert "Profile saved" in result.output
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "Alice"
         assert data["email"] == "alice@example.com"
-        assert data["education"]["specialization"] == "AI"
         assert data["target_positions"] == ["software", "ml"]
-        assert data["domains"] == ["ml", "python", "software"]
+        assert data["education"]["degree"] == "B.Sc. CS"
+        assert data["education"]["university"] == "MIT"
+        assert data["experience_level"] == "none"
+        assert data["location"]["country"] == "Israel"
 
-    def test_init_custom_domains(self, runner, tmp_data_dir):
-        inputs = "Bob\nb@b.com\n111\nUni\nBSc\n\n\n\n\n\nml, python, rust\n"
+    def test_init_creates_profile_experienced(self, runner, tmp_data_dir):
+        # Prompts: name, email, phone, target_roles, skills,
+        #          experience(3-7), country, cities, radius
+        inputs = (
+            "Bob\nb@b.com\n111\n"
+            "backend, fullstack\nPython, React\n"
+            "3-7\nIsrael\nTel Aviv, Haifa\n25\n"
+        )
         result = runner.invoke(cli, ["init"], input=inputs)
         assert result.exit_code == 0
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
-        assert data["domains"] == ["ml", "python", "rust"]
+        assert data["name"] == "Bob"
+        assert data["experience_level"] == "3-7"
+        assert data["location"]["cities"] == ["Tel Aviv", "Haifa"]
+        assert data["location"]["radius_km"] == 25
+
+    def test_init_domains_derived_from_targets_and_skills(self, runner, tmp_data_dir):
+        inputs = (
+            "Carol\nc@c.com\n222\n"
+            "software developer\nPython, MATLAB\n"
+            "none\nIsrael\n\n"
+            "n\n"  # not studying
+        )
+        result = runner.invoke(cli, ["init"], input=inputs)
+        assert result.exit_code == 0
+        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        # Domains auto-derived from target_positions + skills
+        assert "python" in data["domains"]
+        assert "software" in data["domains"]
 
     def test_init_aborts_if_exists_and_user_declines(self, runner, tmp_data_dir):
-        # Create existing profile
         UserProfile(name="Old", email="o@o.com", phone="0").save(
             tmp_data_dir / "user_profile.json"
         )
         result = runner.invoke(cli, ["init"], input="n\n")
         assert result.exit_code == 0
         assert "Aborted" in result.output
-        # Profile unchanged
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "Old"
 
@@ -113,7 +141,8 @@ class TestInitCommand:
         UserProfile(name="Old", email="o@o.com", phone="0").save(
             tmp_data_dir / "user_profile.json"
         )
-        inputs = "y\nNew\nnew@n.com\n222\nUni\nBSc\n\n\n\n\n\n\n"
+        # y(overwrite), name, email, phone, targets, skills, exp, country, cities, studying(n)
+        inputs = "y\nNew\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\n"
         result = runner.invoke(cli, ["init"], input=inputs)
         assert result.exit_code == 0
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
@@ -136,11 +165,10 @@ class TestCVPreFill:
         cv_path = tmp_path / "cv.json"
         cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
 
-        # Press Enter for each prompt to accept pre-filled defaults
-        # Prompts: name, email, phone, university, degree, specialization,
-        #          cv_title, target_positions, skills, skills_not, domains
+        # Prompts: name(enter), email(enter), phone(enter), targets, skills(enter=prefilled),
+        #          experience(none), country, cities, studying(y), degree(enter=prefilled), university(enter=prefilled)
         result = runner.invoke(cli, ["init", "--from-cv", str(cv_path)],
-                               input="\n\n\n\n\n\n\n\n\n\n\n")
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n")
         assert result.exit_code == 0
         data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"

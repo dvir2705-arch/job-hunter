@@ -99,70 +99,83 @@ def init(from_cv):
 
     console.print("[bold]Welcome to Job Hunter![/bold] Let's set up your profile.\n")
 
-    name = click.prompt("Full name", default=prefill.get("name", ""))
-    email = click.prompt("Email", default=prefill.get("email", ""))
-    phone = click.prompt("Phone number", default=prefill.get("phone", ""))
-    university = click.prompt("University", default=prefill.get("university", ""))
-    degree = click.prompt("Degree (e.g. B.Sc. Mechanical Engineering)",
-                          default=prefill.get("degree", ""))
-    specialization = click.prompt(
-        "Specialization (e.g. Thermodynamics, Corporate Law, Signals)",
-        default="",
-    )
-    cv_title = click.prompt(
-        "CV title (appears at top of your CV)",
-        default=degree if degree else "",
-    )
+    # --- 1-3: Contact info ---------------------------------------------------
+    name = click.prompt("1. Full name", default=prefill.get("name", ""))
+    email = click.prompt("2. Email", default=prefill.get("email", ""))
+    phone = click.prompt("3. Phone number", default=prefill.get("phone", ""))
+
+    # --- 4-5: Job search focus -----------------------------------------------
     target_input = click.prompt(
-        "Target positions (comma-separated, e.g. software, mechanical design, legal intern)",
+        "4. Target roles (comma-separated, e.g. software developer, DSP engineer)",
         default="",
     )
     target_positions = [t.strip() for t in target_input.split(",") if t.strip()]
 
     skills_input = click.prompt(
-        "Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
+        "5. Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
         default=", ".join(prefill.get("skills", [])),
     )
     skills = [s.strip() for s in skills_input.split(",") if s.strip()]
 
-    skills_not_input = click.prompt(
-        "Skills you do NOT have but may appear in jobs (comma-separated, or Enter to skip)",
+    # --- 6: Experience level -------------------------------------------------
+    exp_level = click.prompt(
+        "6. Experience level (none / 1-3 / 3-7 / 7+)",
+        type=click.Choice(["none", "1-3", "3-7", "7+"], case_sensitive=False),
+        default="none",
+    )
+
+    # --- 7-9: Location -------------------------------------------------------
+    country = click.prompt("7. Country", default="Israel")
+
+    cities_input = click.prompt(
+        "8. Cities to search around (comma-separated, or Enter for country-wide)",
         default="",
     )
-    skills_not = [s.strip() for s in skills_not_input.split(",") if s.strip()]
+    cities = [c.strip() for c in cities_input.split(",") if c.strip()]
 
-    domains_input = click.prompt(
-        "Domain keywords for job matching (comma-separated, e.g. software, python, mechanical)",
-        default="",
-    )
-    if not domains_input.strip():
-        console.print("[yellow]No domain keywords entered — job matching will be less accurate.[/yellow]")
-        domains = []
-    else:
-        domains = [d.strip() for d in domains_input.split(",") if d.strip()]
+    radius_km = 25
+    if cities:
+        radius_km = click.prompt(
+            "9. Search radius around cities (km)",
+            type=click.Choice(["10", "25", "50"], case_sensitive=False),
+            default="25",
+        )
+        radius_km = int(radius_km)
 
+    location = {"country": country, "cities": cities, "radius_km": radius_km}
+
+    # --- Conditional: student info -------------------------------------------
     education = {}
-    if university or degree or specialization:
-        education = {
-            "university": university,
-            "degree": degree,
-            "specialization": specialization,
-        }
+    if exp_level == "none":
+        if click.confirm("Are you currently studying?", default=True):
+            degree = click.prompt(
+                "Degree (e.g. B.Sc. Electrical Engineering)",
+                default=prefill.get("degree", ""),
+            )
+            university = click.prompt(
+                "University",
+                default=prefill.get("university", ""),
+            )
+            education = {"university": university, "degree": degree}
 
-    hard_rules = {}
-    if cv_title:
-        hard_rules["cv_title"] = cv_title
+    # --- Derive domains from target_positions + skills -----------------------
+    domains = list({
+        token.lower()
+        for item in target_positions + skills
+        for token in item.split()
+        if len(token) > 2
+    })
 
     profile = UserProfile(
         name=name,
         email=email,
         phone=phone,
-        education=education,
-        hard_rules=hard_rules,
         target_positions=target_positions,
-        domains=domains,
         skills=skills,
-        skills_not=skills_not,
+        experience_level=exp_level,
+        location=location,
+        education=education,
+        domains=domains,
     )
 
     saved = profile.save(profile_path)
