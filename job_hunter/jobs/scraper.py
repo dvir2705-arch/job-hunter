@@ -281,20 +281,25 @@ class JobSpyScraper:
 
     COMPANY_NAME = "JobSpy"
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(self, query: str, location: str = "Israel", max_results: int = 20,
+               distance: int = None) -> List[JobListing]:
         try:
             from jobspy import scrape_jobs
         except ImportError:
             logger.error("python-jobspy is not installed. Run: pip install python-jobspy")
             return []
 
+        kwargs = dict(
+            site_name=["linkedin", "indeed"],
+            search_term=query,
+            location=location,
+            results_wanted=max_results,
+        )
+        if distance is not None:
+            kwargs["distance"] = distance
+
         try:
-            df = scrape_jobs(
-                site_name=["linkedin", "indeed"],
-                search_term=query,
-                location=location,
-                results_wanted=max_results,
-            )
+            df = scrape_jobs(**kwargs)
         except Exception as e:
             logger.error("JobSpy scrape failed: %s", e)
             return []
@@ -465,37 +470,58 @@ class JobScanner:
         """
         tasks = []  # list of (source_key, callable) pairs
 
+        # --- Location variants ------------------------------------------------
+        # If cities are set, JobSpy searches run per city with radius.
+        # Non-JobSpy scrapers (Workday, Amazon, Greenhouse) always get country.
+        if config.cities:
+            jobspy_locations = [
+                (f"{city}, {config.location}", config.radius_km)
+                for city in config.cities
+            ]
+        else:
+            jobspy_locations = [(config.location, None)]
+
         # --- Scraper tasks: each enabled scraper × each query ----------------
         for scraper_name in config.enabled_scrapers:
             scraper = self.SCRAPER_REGISTRY.get(scraper_name)
             if scraper is None:
                 logger.warning("Unknown scraper: %s — skipping", scraper_name)
                 continue
+
+            is_jobspy = isinstance(scraper, JobSpyScraper)
+            locations = jobspy_locations if is_jobspy else [(config.location, None)]
+
             for query in config.queries:
-                source_key = f"scraper:{scraper_name}:{query}"
-                tasks.append((
-                    source_key,
-                    lambda s=scraper, q=query: s.search(
-                        q, config.location, max_results=max_per_source,
-                    ),
-                ))
+                for loc, radius in locations:
+                    city_tag = f":{loc}" if len(locations) > 1 else ""
+                    source_key = f"scraper:{scraper_name}:{query}{city_tag}"
+                    tasks.append((
+                        source_key,
+                        lambda s=scraper, q=query, l=loc, r=radius: (
+                            s.search(q, l, max_results=max_per_source, distance=r)
+                            if r is not None and isinstance(s, JobSpyScraper)
+                            else s.search(q, l, max_results=max_per_source)
+                        ),
+                    ))
 
         # --- Company tasks: each company via JobSpy --------------------------
         if include_companies:
             companies = config.priority_companies if only_priority else config.companies
             jobspy = JobSpyScraper()
             for company_name in companies:
-                source_key = f"company:{company_name}"
-                # Use level keyword (e.g. "student") not a full query — keeps
-                # company search broad so it catches all role types.
                 level = config.level_keywords[0] if config.level_keywords else ""
                 search_term = f"{company_name} {level}".strip()
-                tasks.append((
-                    source_key,
-                    lambda q=search_term: jobspy.search(
-                        q, config.location, max_results=max_per_source,
-                    ),
-                ))
+                for loc, radius in jobspy_locations:
+                    city_tag = f":{loc}" if len(jobspy_locations) > 1 else ""
+                    source_key = f"company:{company_name}{city_tag}"
+                    tasks.append((
+                        source_key,
+                        lambda q=search_term, l=loc, r=radius: (
+                            jobspy.search(q, l, max_results=max_per_source, distance=r)
+                            if r is not None
+                            else jobspy.search(q, l, max_results=max_per_source)
+                        ),
+                    ))
 
         # --- Execute with cache check + parallel dispatch --------------------
         all_jobs: List[JobListing] = []

@@ -79,6 +79,8 @@ class SearchConfig:
 
     queries: List[str]
     location: str = "Israel"
+    cities: List[str] = field(default_factory=list)
+    radius_km: int = 25
     level_keywords: List[str] = field(default_factory=lambda: ["student", "intern"])
     seniority_reject: List[str] = field(default_factory=lambda: list(SENIORITY_REJECT_FULL))
     companies: List[str] = field(default_factory=list)
@@ -135,6 +137,8 @@ def build_search_config(profile: Optional[UserProfile] = None) -> SearchConfig:
     return SearchConfig(
         queries=queries,
         location=location,
+        cities=profile.cities,
+        radius_km=profile.radius_km,
         level_keywords=level_keywords,
         seniority_reject=seniority_reject,
         companies=companies,
