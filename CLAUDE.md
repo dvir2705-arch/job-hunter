@@ -166,7 +166,7 @@ jobs init
 5. **Relevance filter update** — When `domains` is empty, derive filter keywords from `target_positions + skills`. Tests.
 6. **Profile CLI** — `jobs profile show/edit/validate`, `--profile-path` flag on all commands.
 7. **Company CLI** — `jobs companies list/add/remove/suggest`. ✅ DONE
-8. **Integration tests** — 3 test profiles (CS student, backend dev, data scientist). Verify Dvir's profile still works.
+8. **Integration tests** — 3 test profiles (CS student, backend dev, data scientist). Verify Dvir's profile still works. ✅ DONE
 
 ### Still Pending (not in current plan)
 - Programmatic CV page-count safety net (render → check → retry)

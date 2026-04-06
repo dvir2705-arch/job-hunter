@@ -1476,6 +1476,12 @@ def jobs_search(query, location, max_results, source):
 @require_profile
 def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies, companies_all, fresh):
     """Scan all supported company career pages and show interactive menu."""
+    try:
+        Config.validate()
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+
     from job_hunter.jobs.scraper import JobScanner
     from job_hunter.jobs.history import JobHistory
     from job_hunter.jobs.relevance_filter import filter_relevant_jobs
@@ -1650,6 +1656,12 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
 @require_profile
 def jobs_refresh_queries():
     """Regenerate search queries from your profile using AI."""
+    try:
+        Config.validate()
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+
     from job_hunter.jobs.search_strategy import refresh_queries, _get_cached_queries
 
     profile = get_profile()
@@ -1687,6 +1699,12 @@ def jobs_refresh_queries():
 @require_profile
 def jobs_discover(relevance):
     """Review companies discovered during scans that aren't in companies.json."""
+    try:
+        Config.validate()
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        return
+
     from job_hunter.jobs.discovery import CompanyDiscovery
     from rich.panel import Panel
 
