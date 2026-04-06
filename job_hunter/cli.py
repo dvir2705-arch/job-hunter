@@ -191,8 +191,51 @@ def init(from_cv):
         domains=domains,
     )
 
-    saved = profile.save(profile_path)
-    console.print(f"\n[green]Profile saved to {saved}[/green]")
+    profile.save(profile_path)
+
+    # --- Company suggestions via Haiku ------------------------------------
+    console.print("\n[dim]Finding relevant companies to watch...[/dim]")
+    try:
+        from job_hunter.jobs.search_strategy import suggest_companies
+        suggestions = suggest_companies(profile)
+    except Exception:
+        suggestions = {"registry": [], "additional": []}
+
+    has_suggestions = suggestions["registry"] or suggestions["additional"]
+    if has_suggestions:
+        if suggestions["registry"]:
+            console.print("\n[bold]Companies we can scan for you:[/bold]")
+            for name in suggestions["registry"]:
+                console.print(f"  [green]\u2713[/green] {name}")
+
+        if suggestions["additional"]:
+            console.print("\n[bold]Also relevant (general search only):[/bold]")
+            for name in suggestions["additional"]:
+                console.print(f"  [blue]+[/blue] {name}")
+
+        if click.confirm("\nAdd these to your watchlist?", default=True):
+            profile.watchlist = suggestions["registry"] + suggestions["additional"]
+            remove_input = click.prompt(
+                "Remove any? (comma-separated names, or Enter to keep all)",
+                default="",
+            )
+            if remove_input.strip():
+                to_remove = {r.strip().lower() for r in remove_input.split(",")}
+                profile.watchlist = [
+                    c for c in profile.watchlist if c.lower() not in to_remove
+                ]
+            profile.save(profile_path)
+            console.print(
+                f"[green]Watchlist saved: {len(profile.watchlist)} companies[/green]"
+            )
+        else:
+            console.print("[dim]Skipped — you can add companies later with "
+                          "[bold]jobs companies add[/bold][/dim]")
+    else:
+        console.print("[dim]No company suggestions available — you can add "
+                      "companies later with [bold]jobs companies add[/bold][/dim]")
+
+    console.print(f"\n[green]Profile saved to {profile_path}[/green]")
     console.print("You're ready to go! Try [bold]job-hunter cv init[/bold] next.")
 
 

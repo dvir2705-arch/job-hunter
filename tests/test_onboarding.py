@@ -14,8 +14,11 @@ from job_hunter.profile import UserProfile, profile_exists
 @pytest.fixture
 def tmp_data_dir(tmp_path):
     """Patch Config.DATA_DIR to a temp directory for isolation."""
+    empty_suggestions = {"registry": [], "additional": []}
     with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.profile.Config.DATA_DIR", tmp_path):
+         patch("job_hunter.profile.Config.DATA_DIR", tmp_path), \
+         patch("job_hunter.jobs.search_strategy.suggest_companies",
+               return_value=empty_suggestions):
         yield tmp_path
 
 

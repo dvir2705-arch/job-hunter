@@ -303,12 +303,116 @@ def _save_cached_queries(profile: UserProfile, queries: List[str]) -> None:
 # Company list loader
 # ---------------------------------------------------------------------------
 
-def _load_company_registry() -> dict:
+_COMPANY_SUGGESTION_PROMPT = """\
+Suggest companies for a job seeker to watch.
+
+Candidate profile:
+- Target roles: {target_positions}
+- Skills: {skills}
+- Experience level: {experience_level}
+- Location: {country}
+{education_line}
+Available companies in our database (name — domains):
+{registry_list}
+
+Instructions:
+1. Pick companies from the database above that are relevant to this candidate. \
+Include companies where the candidate could realistically contribute, even if \
+the domain is not a perfect match. Skip only companies in clearly unrelated fields.
+2. Suggest up to 5 additional well-known companies NOT in the database above \
+that hire for these roles in {country}.
+
+Return ONLY a JSON object, no explanation:
+{{"registry": ["Company1", "Company2"], "additional": ["Company3", "Company4"]}}
+"""
+
+
+def suggest_companies(
+    profile: Optional[UserProfile] = None,
+    registry_path=None,
+) -> dict:
+    """Ask Haiku to suggest companies from registry + free-form.
+
+    Returns {"registry": [...], "additional": [...]}.
+    On API failure, returns all priority companies from registry.
+    """
+    if profile is None:
+        profile = get_profile()
+
+    registry = _load_company_registry(registry_path)
+    registry_names = {entry["name"]: entry for entry in registry.values()}
+
+    # Build numbered registry list for the prompt
+    lines = []
+    for i, (name, entry) in enumerate(registry_names.items(), 1):
+        domains = ", ".join(entry.get("domain", []))
+        lines.append(f"{i}. {name} — {domains}")
+    registry_list = "\n".join(lines)
+
+    # Education line (only if set)
+    education_line = ""
+    if profile.degree and profile.university:
+        education_line = f"- Education: {profile.degree} at {profile.university}\n"
+
+    prompt = _COMPANY_SUGGESTION_PROMPT.format(
+        target_positions=", ".join(profile.target_positions) if profile.target_positions else "general",
+        skills=", ".join(profile.skills) if profile.skills else "not specified",
+        experience_level=profile.experience_level or "not specified",
+        country=profile.country or "Israel",
+        education_line=education_line,
+        registry_list=registry_list,
+    )
+
+    try:
+        Config.validate()
+        client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+        response = client.messages.create(
+            model=HAIKU_MODEL,
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = response.content[0].text.strip()
+
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+        result = json.loads(raw)
+        if not isinstance(result, dict):
+            raise ValueError("Expected JSON object")
+
+        # Validate registry names — only keep exact matches
+        valid_registry = [
+            name for name in result.get("registry", [])
+            if name in registry_names
+        ]
+        additional = [
+            str(name).strip() for name in result.get("additional", [])
+            if str(name).strip()
+        ]
+
+        return {"registry": valid_registry, "additional": additional}
+
+    except Exception as e:
+        logger.warning("Haiku company suggestion failed (%s) — using fallback", e)
+        return _fallback_company_suggestions(registry_names)
+
+
+def _fallback_company_suggestions(registry_names: dict) -> dict:
+    """Return all priority companies when Haiku is unavailable."""
+    priority = [
+        name for name, entry in registry_names.items()
+        if entry.get("priority")
+    ]
+    return {"registry": priority, "additional": []}
+
+
+def _load_company_registry(registry_path=None) -> dict:
     """Load companies.json as a lookup dict keyed by lowercase company name.
 
     Returns {name_lower: {full entry dict}} or {} on failure.
     """
-    companies_file = Config.DATA_DIR / "jobs" / "companies.json"
+    companies_file = registry_path or (Config.DATA_DIR / "jobs" / "companies.json")
     try:
         with open(companies_file, "r", encoding="utf-8") as f:
             data = json.load(f)
