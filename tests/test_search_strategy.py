@@ -4,6 +4,13 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from job_hunter.profile import UserProfile
+
+
+@pytest.fixture(autouse=True)
+def isolate_profile_save(tmp_path):
+    """Prevent tests from writing to the real user_profile.json."""
+    with patch("job_hunter.jobs.search_strategy._save_cached_queries"):
+        yield
 from job_hunter.jobs.search_strategy import (
     build_search_config,
     generate_queries,
