@@ -99,7 +99,7 @@
 - [x] Guard all commands: helpful error if profile not initialized
 
 ### Priority 5 — New features
-- [ ] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
+- [x] Cross-platform browser/clipboard (replace Windows-only `clip`/`explorer` with `pyperclip`/`webbrowser`)
 - [ ] Retry logic in scrapers (exponential backoff on 429/503)
 - [x] Unify `RELEVANT_KEYWORDS` between `relevance_filter.py` and `discovery.py`
 - [x] Company CLI (list/add/remove/suggest) — manages profile watchlist

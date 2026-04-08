@@ -114,6 +114,10 @@ class CVAdapter:
             logger.error("Claude API error in CVAdapter.adapt: %s", e)
             return None
 
+        if not message.content:
+            logger.error("Claude returned empty content in CVAdapter.adapt")
+            return None
+
         raw = message.content[0].text.strip()
 
         # Strip markdown code fences if present
@@ -121,7 +125,11 @@ class CVAdapter:
             raw = raw.split("\n", 1)[1]
             raw = raw.rsplit("```", 1)[0]
 
-        adapted = json.loads(raw)
+        try:
+            adapted = json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse Claude response as JSON in adapt: %s", e)
+            return None
         return adapted
 
     def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements") -> dict:
@@ -180,12 +188,20 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
             logger.error("Claude API error in CVAdapter.adapt_with_requirements: %s", e)
             return None
 
+        if not message.content:
+            logger.error("Claude returned empty content in CVAdapter.adapt_with_requirements")
+            return None
+
         raw = message.content[0].text.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1]
             raw = raw.rsplit("```", 1)[0]
 
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse Claude response as JSON in adapt_with_requirements: %s", e)
+            return None
 
     def generate_cover_letter(self, cv_data: dict, job_description: str, company: str, job_title: str = "") -> str:
         user_message = (
@@ -204,6 +220,10 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
             )
         except anthropic.APIError as e:
             logger.error("Claude API error in CVAdapter.generate_cover_letter: %s", e)
+            return None
+
+        if not message.content:
+            logger.error("Claude returned empty content in CVAdapter.generate_cover_letter")
             return None
 
         return message.content[0].text.strip()

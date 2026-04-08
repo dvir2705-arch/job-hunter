@@ -17,27 +17,12 @@ def open_in_chrome(url: str) -> None:
     """Open a URL in Google Chrome, falling back to the default browser."""
     import webbrowser
     import subprocess
-    import platform
-    import os
 
-    system = platform.system()
     try:
-        if system == "Windows":
-            chrome_candidates = [
-                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
-                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
-                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-            ]
-            chrome_path = next((p for p in chrome_candidates if os.path.exists(p)), None)
-            if chrome_path:
-                subprocess.Popen([chrome_path, url])
-            else:
-                raise FileNotFoundError("Chrome not found")
-        elif system == "Darwin":
-            subprocess.Popen(["open", "-a", "Google Chrome", url])
-        else:
-            subprocess.Popen(["google-chrome", url])
-    except FileNotFoundError:
+        from job_hunter.cv.renderer import _find_chrome
+        chrome = _find_chrome()
+        subprocess.Popen([chrome, url])
+    except (RuntimeError, FileNotFoundError):
         webbrowser.open(url)
 
 
@@ -633,6 +618,7 @@ def cv_init(from_file):
 
 @cv.command("show")
 @click.option("--version", "-v", default=None, help="CV version filename to show (default: base CV)")
+@require_profile
 def cv_show(version):
     """Display the current base CV."""
     manager = CVManager()
@@ -779,6 +765,7 @@ def cv_render(version, output, template):
 
 
 @cv.command("list")
+@require_profile
 def cv_list():
     """List all saved CV versions."""
     manager = CVManager()
@@ -821,6 +808,7 @@ _STATUS_CHOICES = ["applied", "screening", "interview", "offer", "rejected", "wi
 @click.option("--status", "-s", default=None, type=click.Choice(_STATUS_CHOICES))
 @click.option("--company", "-c", default=None)
 @click.option("--follow-up", "follow_up", is_flag=True, help="Show only applications needing follow-up")
+@require_profile
 def apps_list(status, company, follow_up):
     """List job applications."""
     from datetime import datetime
@@ -883,6 +871,7 @@ def apps_list(status, company, follow_up):
 @click.argument("app_id")
 @click.option("--status", "-s", required=True, type=click.Choice(_STATUS_CHOICES))
 @click.option("--notes", "-n", default="")
+@require_profile
 def apps_update(app_id, status, notes):
     """Update the status of an application."""
     from job_hunter.applications.models import VALID_TRANSITIONS
@@ -912,6 +901,7 @@ def apps_update(app_id, status, notes):
 @apps.command("reset")
 @click.argument("app_id")
 @click.option("--notes", "-n", default="")
+@require_profile
 def apps_reset(app_id, notes):
     """Reset an application status back to 'applied'."""
     tracker = ApplicationTracker()
@@ -923,6 +913,7 @@ def apps_reset(app_id, notes):
 
 
 @apps.command("stats")
+@require_profile
 def apps_stats():
     """Show application statistics."""
     tracker = ApplicationTracker()
@@ -935,6 +926,7 @@ def apps_stats():
 
 
 @apps.command("dashboard")
+@require_profile
 def apps_dashboard():
     """Show a full application dashboard with stats, follow-ups, and recent activity."""
     from datetime import datetime
@@ -1061,6 +1053,7 @@ def recruiters():
 @click.option("--linkedin", "-l", default="", help="LinkedIn profile URL.")
 @click.option("--role", "-r", default="", help="Recruiter role/title.")
 @click.option("--notes", default="", help="Free-text notes.")
+@require_profile
 def recruiters_add(company, name, email, linkedin, role, notes):
     """Add a recruiter contact for a company."""
     from job_hunter.recruiters.manager import RecruiterManager
@@ -1072,6 +1065,7 @@ def recruiters_add(company, name, email, linkedin, role, notes):
 
 @recruiters.command("list")
 @click.option("--company", "-c", default=None, help="Filter by company name (fuzzy).")
+@require_profile
 def recruiters_list(company):
     """List saved recruiter contacts."""
     from job_hunter.recruiters.manager import RecruiterManager
@@ -1121,6 +1115,7 @@ def recruiters_list(company):
 @recruiters.command("remove")
 @click.option("--company", "-c", required=True)
 @click.option("--email", "-e", required=True)
+@require_profile
 def recruiters_remove(company, email):
     """Remove a recruiter by email."""
     from job_hunter.recruiters.manager import RecruiterManager
@@ -1133,6 +1128,7 @@ def recruiters_remove(company, email):
 
 @recruiters.command("search")
 @click.argument("company")
+@require_profile
 def recruiters_search(company):
     """Open LinkedIn and Google searches to find recruiters for a company."""
     import urllib.parse
@@ -1159,6 +1155,7 @@ def recruiters_search(company):
 @recruiters.command("find-emails")
 @click.argument("domain")
 @click.option("--limit", "-l", default=5, show_default=True, help="Max results.")
+@require_profile
 def recruiters_find_emails(domain, limit):
     """Search Hunter.io for emails at a company domain."""
     from job_hunter.recruiters.hunter import HunterAPI
@@ -1210,6 +1207,7 @@ def recruiters_find_emails(domain, limit):
               help="Max HR contacts to save per company.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Show what would happen without saving or using quota.")
+@require_profile
 def recruiters_scan_all(limit, dry_run):
     """Scan all companies from companies.json and find recruiter emails via Hunter.io."""
     import json
@@ -2088,14 +2086,25 @@ def _send_email_to_recruiter(job, recruiter) -> None:
 
             # Copy path to clipboard
             try:
-                subprocess.run(['clip'], input=str(latest_cv.absolute()).encode(), check=True)
+                import pyperclip
+                pyperclip.copy(str(latest_cv.absolute()))
                 console.print(f"[cyan]CV path copied to clipboard:[/cyan] {latest_cv.name}")
             except Exception:
-                pass
+                console.print(f"[cyan]CV path:[/cyan] {latest_cv.absolute()}")
 
             # Open folder with CV selected
-            subprocess.run(['explorer', '/select,', str(latest_cv.absolute())])
-            console.print(f"[cyan]Opened CV folder — drag file to Gmail to attach[/cyan]")
+            try:
+                import platform as _plat
+                _sys = _plat.system()
+                if _sys == "Windows":
+                    subprocess.run(['explorer', '/select,', str(latest_cv.absolute())])
+                elif _sys == "Darwin":
+                    subprocess.run(['open', '-R', str(latest_cv.absolute())])
+                else:
+                    subprocess.Popen(['xdg-open', str(latest_cv.parent.absolute())])
+                console.print(f"[cyan]Opened CV folder — drag file to Gmail to attach[/cyan]")
+            except Exception:
+                console.print(f"[cyan]CV folder:[/cyan] {latest_cv.parent.absolute()}")
         else:
             console.print("[yellow]No adapted CV found. Run [2] Adapt CV first.[/yellow]")
     else:

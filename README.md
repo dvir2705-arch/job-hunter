@@ -33,6 +33,10 @@
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Python 3.11+
+- Google Chrome or Chromium (required for PDF generation)
+
 **1. Clone & install**
 ```bash
 git clone https://github.com/dvir2705-arch/job-hunter.git
@@ -46,9 +50,16 @@ cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
 ```
 
-**3. Add your CV**
+**3. Initialize your profile**
 ```bash
-# Edit data/cv/base_cv.json with your real information
+job-hunter init
+```
+
+**4. Add your CV**
+```bash
+# Import from a Word document:
+job-hunter cv init --from-file my_cv.docx
+# Or edit data/cv/base_cv.json directly
 job-hunter cv show
 ```
 

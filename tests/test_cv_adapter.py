@@ -76,3 +76,54 @@ def test_api_error_returns_none():
     result = adapter.adapt(SAMPLE_CV, SAMPLE_JOB)
 
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Empty/invalid response → None
+# ---------------------------------------------------------------------------
+
+def test_empty_content_returns_none():
+    adapter = make_adapter()
+    msg = MagicMock()
+    msg.content = []
+    adapter.client.messages.create.return_value = msg
+
+    assert adapter.adapt(SAMPLE_CV, SAMPLE_JOB) is None
+
+
+def test_invalid_json_response_returns_none():
+    adapter = make_adapter()
+    adapter.client.messages.create.return_value = make_response("not valid json at all")
+
+    assert adapter.adapt(SAMPLE_CV, SAMPLE_JOB) is None
+
+
+def test_empty_content_in_adapt_with_requirements_returns_none():
+    adapter = make_adapter()
+    msg = MagicMock()
+    msg.content = []
+    adapter.client.messages.create.return_value = msg
+
+    from job_hunter.jobs.analyzer import JobRequirements
+    reqs = JobRequirements(
+        title="Python Dev", company="Acme", domain="software",
+        role_summary="Build stuff", required_skills=["Python"],
+        preferred_skills=[], key_technologies=[], education="BSc",
+        experience_level="junior", location="Israel"
+    )
+
+    with patch("job_hunter.cv.adapter.get_profile") as mock_profile:
+        mock_profile.return_value = MagicMock(
+            cv_title="Electrical Engineering Student",
+            hard_rules={}, university="BGU",
+        )
+        assert adapter.adapt_with_requirements(SAMPLE_CV, reqs) is None
+
+
+def test_empty_content_in_generate_cover_letter_returns_none():
+    adapter = make_adapter()
+    msg = MagicMock()
+    msg.content = []
+    adapter.client.messages.create.return_value = msg
+
+    assert adapter.generate_cover_letter(SAMPLE_CV, SAMPLE_JOB, "Acme") is None

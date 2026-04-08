@@ -1,4 +1,6 @@
 import os
+import platform
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -7,18 +9,43 @@ from jinja2 import Environment, FileSystemLoader
 
 from job_hunter.config import Config
 
-_CHROME_PATHS = [
-    Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
-    Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
-    Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
-]
-
 
 def _find_chrome() -> str:
-    for p in _CHROME_PATHS:
+    """Find Chrome/Chromium executable across Windows, macOS, and Linux."""
+    system = platform.system()
+    candidates: list[Path] = []
+
+    if system == "Windows":
+        candidates = [
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
+            Path("C:/Program Files/Google/Chrome/Application/chrome.exe"),
+            Path("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"),
+        ]
+    elif system == "Darwin":
+        candidates = [
+            Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            Path.home() / "Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        ]
+    else:  # Linux
+        candidates = [
+            Path("/usr/bin/google-chrome"),
+            Path("/usr/bin/google-chrome-stable"),
+            Path("/usr/bin/chromium"),
+            Path("/usr/bin/chromium-browser"),
+            Path("/snap/bin/chromium"),
+        ]
+
+    for p in candidates:
         if p.exists():
             return str(p)
-    raise RuntimeError("Chrome not found. Install Google Chrome to generate PDFs.")
+
+    # Fallback: check PATH
+    for name in ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome"]:
+        path = shutil.which(name)
+        if path:
+            return path
+
+    raise RuntimeError("Chrome/Chromium not found. Install Google Chrome to generate PDFs.")
 
 
 class CVRenderer:
