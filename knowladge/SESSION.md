@@ -1,7 +1,7 @@
 # Session State
 
-## Last Session: #22 (2026-04-07)
-See `knowladge/sessions/session-22_2026-04-07_integration-tests.md`
+## Last Session: #23 (2026-04-08)
+See `knowladge/sessions/session-23_2026-04-08_per-user-data-isolation.md`
 
 ## Current Status
 Priority 1-4: all done
@@ -9,10 +9,10 @@ Session A (profile redesign + docx parser): done
 Search Strategy Redesign (steps 1-6): done
 Phase 2 — New User Onboarding: ALL 8 STEPS DONE
 
-Multi-User Readiness (approved plan in .claude/plans/):
-- B1: CV template on init (import from docx)
+Multi-User Readiness:
+- B1: CV template on init (import from docx) — DONE
 - B2: API key validation early — DONE
-- B3: Per-user data isolation
+- B3: Per-user data isolation — DONE
 - B4: Clean first-run experience
 - B5: Remove hardcoded Dvir data
 
@@ -20,8 +20,8 @@ Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Multi-user readiness B3 — Per-user data isolation
-**Session number:** 23
+**Goal:** Multi-user readiness B4 — Clean first-run experience
+**Session number:** 24
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session Log Convention
