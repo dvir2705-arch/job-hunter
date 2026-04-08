@@ -7,14 +7,14 @@ from typing import List, Tuple
 
 from .scraper import JobListing
 
-HISTORY_FILE = Path("data/jobs/scan_history.json")
+from job_hunter.config import Config
 
 
 class JobHistory:
     """Persists seen jobs so new ones can be flagged on subsequent scans."""
 
     def __init__(self):
-        self.history_file = HISTORY_FILE
+        self.history_file = Config.SCAN_HISTORY_FILE
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
         self._load()
 

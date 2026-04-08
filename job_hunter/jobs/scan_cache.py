@@ -33,7 +33,7 @@ class ScanCache:
     """Simple JSON file cache for scan results, keyed by source."""
 
     def __init__(self, path: Optional[Path] = None):
-        self.path = path or (Config.DATA_DIR / "jobs" / "scan_cache.json")
+        self.path = path or Config.SCAN_CACHE_FILE
         self._data: Optional[dict] = None
 
     # ------------------------------------------------------------------

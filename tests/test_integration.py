@@ -120,6 +120,7 @@ def tmp_data_dir(tmp_path):
     (jobs_dir / "companies.json").write_text(json.dumps(registry), encoding="utf-8")
 
     with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
+         patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
          patch("job_hunter.profile.Config.DATA_DIR", tmp_path):
         yield tmp_path
 

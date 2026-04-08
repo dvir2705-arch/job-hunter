@@ -6,8 +6,7 @@ from datetime import datetime
 from typing import List, Optional
 from dataclasses import dataclass, asdict
 
-DATA_DIR = Path("data/cover_letters")
-OUTPUT_DIR = Path("output/cover_letters")
+from job_hunter.config import Config
 
 
 @dataclass
@@ -29,8 +28,8 @@ class CoverLetterHistory:
     """Manages cover letter history for comparison and improvement."""
 
     def __init__(self):
-        self.data_dir = DATA_DIR
-        self.output_dir = OUTPUT_DIR
+        self.data_dir = Config.COVER_LETTER_DATA_DIR
+        self.output_dir = Config.COVER_LETTER_OUTPUT_DIR
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.history_file = self.data_dir / "history.json"

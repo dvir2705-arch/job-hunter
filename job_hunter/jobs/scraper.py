@@ -588,7 +588,7 @@ def _load_company_names(only_priority: bool = True) -> List[str]:
     import json
     from job_hunter.config import Config
 
-    companies_file = Config.DATA_DIR / "jobs" / "companies.json"
+    companies_file = Config.companies_file()
     try:
         with open(companies_file, "r", encoding="utf-8") as f:
             data = json.load(f)

@@ -45,8 +45,12 @@ def open_in_chrome(url: str) -> None:
 @click.version_option(package_name="job-hunter")
 @click.option("--profile-path", type=click.Path(exists=True), default=None,
               help="Path to a custom user_profile.json file.")
-def cli(profile_path):
+@click.option("--user", default=None, envvar="JOB_HUNTER_USER",
+              help="User ID for per-user data isolation (env: JOB_HUNTER_USER).")
+def cli(profile_path, user):
     """Job Hunter — personal career bot powered by Claude AI."""
+    if user:
+        Config.set_user(user)
     Config.ensure_dirs()
     if profile_path:
         set_profile_path(Path(profile_path))
@@ -1158,7 +1162,7 @@ def recruiters_scan_all(limit, dry_run):
     from job_hunter.recruiters.manager import RecruiterManager
     from rich.table import Table
 
-    companies_file = Path("data/jobs/companies.json")
+    companies_file = Config.companies_file()
     with open(companies_file, "r", encoding="utf-8") as f:
         companies = json.load(f).get("companies", [])
 
@@ -1768,7 +1772,7 @@ def jobs_discover(relevance):
                 ok = discovery.add_to_companies_json(company_name)
                 if ok:
                     console.print(f"[green]Added to companies.json: {company_name}[/green]")
-                    console.print(f"[dim]Edit data/jobs/companies.json to fill in career_url and scraper.[/dim]")
+                    console.print(f"[dim]Edit {Config.companies_file()} to fill in career_url and scraper.[/dim]")
                 else:
                     console.print(f"[yellow]{company_name} is already in companies.json.[/yellow]")
                     discovery.mark_added(company_name)

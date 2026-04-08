@@ -7,8 +7,7 @@ from typing import List, Dict
 
 from .scraper import JobListing
 
-DISCOVERED_FILE = Path("data/jobs/discovered_companies.json")
-COMPANIES_FILE = Path("data/jobs/companies.json")
+from job_hunter.config import Config
 
 def _get_relevant_keywords() -> list:
     """Load domain keywords from user profile, with fallback."""
@@ -30,7 +29,7 @@ class CompanyDiscovery:
     """Tracks companies found in scans that are not yet in companies.json."""
 
     def __init__(self):
-        self.discovered_file = DISCOVERED_FILE
+        self.discovered_file = Config.DISCOVERED_COMPANIES_FILE
         self.discovered_file.parent.mkdir(parents=True, exist_ok=True)
         self._load()
         self._load_known_companies()
@@ -53,8 +52,9 @@ class CompanyDiscovery:
             json.dump(self.data, f, indent=2, ensure_ascii=False)
 
     def _load_known_companies(self):
-        if COMPANIES_FILE.exists():
-            with open(COMPANIES_FILE, "r", encoding="utf-8") as f:
+        companies_file = Config.companies_file()
+        if companies_file.exists():
+            with open(companies_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.known_companies = {c["name"].lower() for c in data.get("companies", [])}
         else:
@@ -146,10 +146,11 @@ class CompanyDiscovery:
 
         Returns True on success, False if company already exists there.
         """
-        if not COMPANIES_FILE.exists():
+        companies_file = Config.companies_file()
+        if not companies_file.exists():
             return False
 
-        with open(COMPANIES_FILE, "r", encoding="utf-8") as f:
+        with open(companies_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         # Guard: don't duplicate
@@ -173,7 +174,7 @@ class CompanyDiscovery:
 
         data.setdefault("companies", []).append(stub)
 
-        with open(COMPANIES_FILE, "w", encoding="utf-8") as f:
+        with open(companies_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
         self.mark_added(company)

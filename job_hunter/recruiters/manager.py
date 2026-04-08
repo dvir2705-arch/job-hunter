@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
-RECRUITERS_FILE = Path("data/recruiters/recruiters.json")
+from job_hunter.config import Config
 
 
 @dataclass
@@ -22,7 +22,7 @@ class Recruiter:
 
 class RecruiterManager:
     def __init__(self):
-        self.file = RECRUITERS_FILE
+        self.file = Config.RECRUITERS_FILE
         self.file.parent.mkdir(parents=True, exist_ok=True)
         self._load()
 

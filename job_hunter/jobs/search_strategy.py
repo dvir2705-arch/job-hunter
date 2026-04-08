@@ -412,7 +412,7 @@ def _load_company_registry(registry_path=None) -> dict:
 
     Returns {name_lower: {full entry dict}} or {} on failure.
     """
-    companies_file = registry_path or (Config.DATA_DIR / "jobs" / "companies.json")
+    companies_file = registry_path or Config.companies_file()
     try:
         with open(companies_file, "r", encoding="utf-8") as f:
             data = json.load(f)
