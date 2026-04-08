@@ -107,6 +107,20 @@
 - [ ] Job analytics: applications per week, response rate trend
 - [ ] Hebrew cover letter option for Israeli companies
 
+### Priority 6 — CLI test coverage gaps (audit 2026-04-08)
+272 tests total: 80 CLI-level (CliRunner), 192 module-level.
+
+Groups WITH CLI tests:
+- `init` — 28 tests (test_onboarding.py)
+- `profile` — 17 tests (test_profile_cli.py)
+- `companies` — 17 tests (test_companies_cli.py)
+- `jobs` — 18 tests (test_integration.py)
+
+Groups WITHOUT CLI tests (module-level only):
+- [ ] `cv` (init/show/adapt/render/list) — only test_cv_adapter.py + test_cv_manager.py
+- [ ] `apps` (list/update/reset/stats/dashboard) — only test_tracker.py + test_application_models.py
+- [ ] `recruiters` (add/list/remove/search/find-emails/scan-all) — no CLI tests at all
+
 ### Done on 2026-03-29 (not in original roadmap)
 - [x] Relevance filter: expanded irrelevant keywords + uncertain jobs always deep-checked via Haiku + accept on API failure
 - [x] Company-targeted search: 30 companies in `companies.json`, 12 priority, default scan includes priority companies, `--no-companies` and `--companies-all` flags
@@ -171,7 +185,8 @@ jobs init
 ### Still Pending (not in current plan)
 - Programmatic CV page-count safety net (render → check → retry)
 - Quick CV adapt via URL without scanning
-- Interview prep module
+- Interview prep module (planned module — no CLI commands yet)
+- Job Analysis module (planned module — no CLI commands yet)
 - Profile import from file + free-text input
 - Docx-native CV adaptation
 

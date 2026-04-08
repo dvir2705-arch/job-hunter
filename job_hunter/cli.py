@@ -116,17 +116,30 @@ def init(from_cv):
 
     console.print("[bold]Welcome to Job Hunter![/bold] Let's set up your profile.\n")
 
+    def _prompt_required(label: str, default: str = "") -> str:
+        """Prompt until a non-empty value is given."""
+        while True:
+            value = click.prompt(label, default=default).strip()
+            if value:
+                return value
+            console.print("[yellow]This field is required.[/yellow]")
+
     # --- 1-3: Contact info ---------------------------------------------------
-    name = click.prompt("1. Full name", default=prefill.get("name", ""))
-    email = click.prompt("2. Email", default=prefill.get("email", ""))
-    phone = click.prompt("3. Phone number", default=prefill.get("phone", ""))
+    name = _prompt_required("1. Full name", default=prefill.get("name", ""))
+    email = _prompt_required("2. Email", default=prefill.get("email", ""))
+    phone = click.prompt("3. Phone number (optional, Enter to skip)",
+                         default=prefill.get("phone", ""))
 
     # --- 4-5: Job search focus -----------------------------------------------
-    target_input = click.prompt(
-        "4. Target roles (comma-separated, e.g. software developer, DSP engineer)",
-        default="",
-    )
-    target_positions = [t.strip() for t in target_input.split(",") if t.strip()]
+    while True:
+        target_input = click.prompt(
+            "4. Target roles (comma-separated, e.g. software developer, DSP engineer)",
+            default="",
+        )
+        target_positions = [t.strip() for t in target_input.split(",") if t.strip()]
+        if target_positions:
+            break
+        console.print("[yellow]At least one target role is required.[/yellow]")
 
     skills_input = click.prompt(
         "5. Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
@@ -195,15 +208,45 @@ def init(from_cv):
         domains=domains,
     )
 
+    # --- Summary + confirmation ---------------------------------------------
+    from rich.panel import Panel
+    summary_lines = [
+        f"[bold]Name:[/bold]       {profile.name}",
+        f"[bold]Email:[/bold]      {profile.email}",
+        f"[bold]Phone:[/bold]      {profile.phone or '(not set)'}",
+        f"[bold]Roles:[/bold]      {', '.join(profile.target_positions)}",
+        f"[bold]Skills:[/bold]     {', '.join(profile.skills) or '(none)'}",
+        f"[bold]Experience:[/bold] {profile.experience_level}",
+        f"[bold]Location:[/bold]   {location.get('country', '')}",
+    ]
+    if education:
+        summary_lines.append(
+            f"[bold]Education:[/bold]  {education.get('degree', '')} @ {education.get('university', '')}"
+        )
+    console.print(Panel("\n".join(summary_lines), title="Profile Summary", border_style="blue"))
+
+    if not click.confirm("Save this profile?", default=True):
+        console.print("Aborted — run [bold]job-hunter init[/bold] again to start over.")
+        return
+
     profile.save(profile_path)
 
     # --- Company suggestions via Haiku ------------------------------------
-    console.print("\n[dim]Finding relevant companies to watch...[/dim]")
-    try:
-        from job_hunter.jobs.search_strategy import suggest_companies
-        suggestions = suggest_companies(profile)
-    except Exception:
+    if not Config.ANTHROPIC_API_KEY:
+        console.print(
+            "\n[yellow]No API key found.[/yellow] Company suggestions require "
+            "ANTHROPIC_API_KEY in your .env file.\n"
+            "[dim]You can add companies later with "
+            "[bold]job-hunter companies add[/bold][/dim]"
+        )
         suggestions = {"registry": [], "additional": []}
+    else:
+        console.print("\n[dim]Finding relevant companies to watch...[/dim]")
+        try:
+            from job_hunter.jobs.search_strategy import suggest_companies
+            suggestions = suggest_companies(profile)
+        except Exception:
+            suggestions = {"registry": [], "additional": []}
 
     has_suggestions = suggestions["registry"] or suggestions["additional"]
     if has_suggestions:
@@ -240,7 +283,17 @@ def init(from_cv):
                       "companies later with [bold]jobs companies add[/bold][/dim]")
 
     console.print(f"\n[green]Profile saved to {profile_path}[/green]")
-    console.print("You're ready to go! Try [bold]job-hunter cv init[/bold] next.")
+    console.print()
+    console.print("[bold]What to do next:[/bold]")
+    console.print("  1. [bold]job-hunter cv init --from-file <cv>[/bold]  — Upload your CV (docx or JSON)")
+    console.print("  2. [bold]job-hunter profile show[/bold]              — Review your profile")
+    console.print("  3. [bold]job-hunter jobs scan[/bold]                 — Find matching jobs")
+    if not Config.ANTHROPIC_API_KEY:
+        console.print()
+        console.print(
+            "[yellow]Tip:[/yellow] Set ANTHROPIC_API_KEY in your .env file to enable "
+            "AI features (CV adaptation, job matching)."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -546,7 +599,7 @@ def cv_init(from_file):
         from job_hunter.cv.parser import parse_cv_file
         structured = parse_cv_file(from_path)
         if structured is None:
-            console.print("[red]Failed to structure CV. Check API key and try again.[/red]")
+            console.print("[red]Failed to structure CV.[/red] Make sure ANTHROPIC_API_KEY is set in your .env file.")
             return
 
         # Step 5: Save structured JSON as base_cv.json
@@ -572,7 +625,10 @@ def cv_init(from_file):
         console.print(f"[red]Unsupported file format: {suffix}. Use .docx or .json[/red]")
         return
 
-    console.print("Next: [bold]job-hunter cv adapt[/bold] to adapt for a job.")
+    console.print()
+    console.print("[bold]What to do next:[/bold]")
+    console.print("  [bold]job-hunter cv adapt -u <job-url>[/bold]  — Adapt CV for a specific job")
+    console.print("  [bold]job-hunter cv show[/bold]                — Preview your base CV")
 
 
 @cv.command("show")

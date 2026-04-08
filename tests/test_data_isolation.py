@@ -210,7 +210,7 @@ class TestEndToEnd:
             from job_hunter.applications.models import Application
 
             # User 1
-            Config.DATA_DIR = tmp_path
+            Config._BASE_DATA_DIR = tmp_path
             Config.set_user("user1")
             Config.ensure_dirs()
             t1 = ApplicationTracker()
