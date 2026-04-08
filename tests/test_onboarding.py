@@ -19,13 +19,20 @@ def tmp_data_dir(tmp_path):
          patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
          patch("job_hunter.profile.Config.DATA_DIR", tmp_path), \
          patch("job_hunter.jobs.search_strategy.suggest_companies",
-               return_value=empty_suggestions):
+               return_value=empty_suggestions), \
+         patch("job_hunter.profile_manager.get_active_profile", return_value=None), \
+         patch("job_hunter.profile_manager.has_legacy_profile", return_value=False):
         yield tmp_path
 
 
 @pytest.fixture
 def runner():
     return CliRunner()
+
+
+def _profile_path(tmp_data_dir: Path, slug: str = "test") -> Path:
+    """Return the expected profile path under users/<slug>/."""
+    return tmp_data_dir / "users" / slug / "user_profile.json"
 
 
 # ---------------------------------------------------------------------------
@@ -91,10 +98,10 @@ class TestInitCommand:
             "y\nB.Sc. CS\nMIT\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
-        assert "Profile saved" in result.output
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        assert "saved" in result.output.lower()
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "Alice"
         assert data["email"] == "alice@example.com"
         assert data["target_positions"] == ["software", "ml"]
@@ -112,9 +119,9 @@ class TestInitCommand:
             "3-7\nIsrael\nTel Aviv, Haifa\n25\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "Bob"
         assert data["experience_level"] == "3-7"
         assert data["location"]["cities"] == ["Tel Aviv", "Haifa"]
@@ -128,9 +135,9 @@ class TestInitCommand:
             "n\n"  # not studying
             "y\n"  # save
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         # Domains auto-derived from target_positions + skills
         assert "python" in data["domains"]
         assert "software" in data["domains"]
@@ -151,9 +158,9 @@ class TestInitCommand:
         )
         # y(overwrite), name, email, phone, targets, skills, exp, country, cities, studying(n), save(y)
         inputs = "y\nNew\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\ny\n"
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "New"
 
 
@@ -170,10 +177,10 @@ class TestInitValidation:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "required" in result.output.lower()
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "Alice"
 
     def test_init_rejects_empty_email_then_accepts(self, runner, tmp_data_dir):
@@ -184,10 +191,10 @@ class TestInitValidation:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "required" in result.output.lower()
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["email"] == "alice@example.com"
 
     def test_init_allows_empty_phone(self, runner, tmp_data_dir):
@@ -198,9 +205,9 @@ class TestInitValidation:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["phone"] == ""
 
     def test_init_rejects_empty_targets_then_accepts(self, runner, tmp_data_dir):
@@ -211,10 +218,10 @@ class TestInitValidation:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "at least one" in result.output.lower()
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["target_positions"] == ["software"]
 
 
@@ -231,7 +238,7 @@ class TestInitGuidance:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "What to do next" in result.output
         assert "cv init" in result.output
@@ -247,7 +254,7 @@ class TestInitGuidance:
             "y\n"
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", ""):
-            result = runner.invoke(cli, ["init"], input=inputs)
+            result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "Set ANTHROPIC_API_KEY" in result.output
 
@@ -266,10 +273,10 @@ class TestInitApiKeyWarning:
             "y\n"
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", ""):
-            result = runner.invoke(cli, ["init"], input=inputs)
+            result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "No API key found" in result.output
-        assert (tmp_data_dir / "user_profile.json").exists()
+        assert _profile_path(tmp_data_dir).exists()
 
     def test_init_attempts_suggestions_when_api_key_present(self, runner, tmp_data_dir):
         """With API key set, company suggestions are attempted."""
@@ -280,7 +287,7 @@ class TestInitApiKeyWarning:
             "y\n"
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", "sk-test"):
-            result = runner.invoke(cli, ["init"], input=inputs)
+            result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "No API key found" not in result.output
 
@@ -298,7 +305,7 @@ class TestInitSummary:
             "none\nIsrael\n\nn\n"
             "y\n"
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "Profile Summary" in result.output
         assert "Alice" in result.output
@@ -312,10 +319,10 @@ class TestInitSummary:
             "none\nIsrael\n\nn\n"
             "n\n"  # decline save
         )
-        result = runner.invoke(cli, ["init"], input=inputs)
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "Aborted" in result.output
-        assert not (tmp_data_dir / "user_profile.json").exists()
+        assert not _profile_path(tmp_data_dir).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -337,10 +344,10 @@ class TestCVPreFill:
         # Prompts: name(enter), email(enter), phone(enter), targets, skills(enter=prefilled),
         #          experience(none), country, cities, studying(y), degree(enter=prefilled),
         #          university(enter=prefilled), save(y)
-        result = runner.invoke(cli, ["init", "--from-cv", str(cv_path)],
+        result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
                                input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\n")
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"
         assert data["education"]["university"] == "Stanford"
         assert "Python" in data["skills"]
@@ -364,10 +371,10 @@ class TestCVPreFill:
         cv_path = tmp_path / "cv.json"
         cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
 
-        result = runner.invoke(cli, ["init", "--from-cv", str(cv_path)],
+        result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
                                input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\n")
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         # All categorized skills extracted
         assert "Python" in data["skills"]
         assert "Machine Learning" in data["skills"]

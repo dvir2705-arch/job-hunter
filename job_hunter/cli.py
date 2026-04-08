@@ -34,8 +34,19 @@ def open_in_chrome(url: str) -> None:
               help="User ID for per-user data isolation (env: JOB_HUNTER_USER).")
 def cli(profile_path, user):
     """Job Hunter — personal career bot powered by Claude AI."""
+    from job_hunter.profile_manager import get_active_profile, has_legacy_profile, migrate_legacy_profile
+
     if user:
         Config.set_user(user)
+    elif not profile_path:
+        # Auto-activate: .active_profile > legacy migration > single-user
+        active = get_active_profile()
+        if active:
+            Config.set_user(active)
+        elif has_legacy_profile():
+            slug = migrate_legacy_profile("default")
+            Config.set_user(slug)
+            console.print(f"[dim]Migrated profile to multi-user mode (profile: {slug})[/dim]")
     Config.ensure_dirs()
     if profile_path:
         set_profile_path(Path(profile_path))
@@ -61,9 +72,23 @@ def require_profile(f):
 @cli.command()
 @click.option("--from-cv", type=click.Path(exists=True), default=None,
               help="Path to existing CV JSON to pre-fill profile fields.")
-def init(from_cv):
+@click.option("--name", "profile_name", default=None,
+              help="Profile name (slug). Prompted if not given.")
+def init(from_cv, profile_name):
     """Set up your profile — required before using other commands."""
     import json as _json
+    from job_hunter.profile_manager import (
+        slugify, set_active_profile, profile_exists as pm_profile_exists, list_profiles,
+    )
+
+    # Show existing profiles if any
+    existing = list_profiles()
+    if existing:
+        console.print("[bold]Existing profiles:[/bold]")
+        for p in existing:
+            marker = " [green](active)[/green]" if p["active"] else ""
+            console.print(f"  • {p['slug']} — {p['name']}{marker}")
+        console.print()
 
     profile_path = Config.DATA_DIR / "user_profile.json"
 
@@ -214,7 +239,28 @@ def init(from_cv):
         console.print("Aborted — run [bold]job-hunter init[/bold] again to start over.")
         return
 
+    # --- Profile name (slug) -------------------------------------------------
+    default_slug = slugify(name)
+    if not profile_name:
+        profile_name = click.prompt(
+            "Profile name (used to switch between profiles)",
+            default=default_slug,
+        )
+    slug = slugify(profile_name)
+    if slug != profile_name.lower().strip():
+        console.print(f"[dim]Using slug: {slug}[/dim]")
+
+    if pm_profile_exists(slug):
+        if not click.confirm(f"Profile '{slug}' already exists. Overwrite?", default=False):
+            console.print("Aborted.")
+            return
+
+    # Switch Config to the new profile directory and save
+    Config.set_user(slug)
+    Config.ensure_dirs()
+    profile_path = Config.DATA_DIR / "user_profile.json"
     profile.save(profile_path)
+    set_active_profile(slug)
 
     # --- Company suggestions via Haiku ------------------------------------
     if not Config.ANTHROPIC_API_KEY:
@@ -267,12 +313,13 @@ def init(from_cv):
         console.print("[dim]No company suggestions available — you can add "
                       "companies later with [bold]jobs companies add[/bold][/dim]")
 
-    console.print(f"\n[green]Profile saved to {profile_path}[/green]")
+    console.print(f"\n[green]Profile '{slug}' saved to {profile_path}[/green]")
     console.print()
     console.print("[bold]What to do next:[/bold]")
     console.print("  1. [bold]job-hunter cv init --from-file <cv>[/bold]  — Upload your CV (docx or JSON)")
     console.print("  2. [bold]job-hunter profile show[/bold]              — Review your profile")
     console.print("  3. [bold]job-hunter jobs scan[/bold]                 — Find matching jobs")
+    console.print(f"\n[dim]To switch profiles later: [bold]job-hunter profile switch <name>[/bold][/dim]")
     if not Config.ANTHROPIC_API_KEY:
         console.print()
         console.print(
@@ -511,6 +558,91 @@ def profile_edit():
         console.print(f"[green]Saved.[/green]")
 
     console.print("[green]Done editing profile.[/green]")
+
+
+@profile.command("list")
+def profile_list():
+    """List all profiles."""
+    from job_hunter.profile_manager import list_profiles as pm_list
+
+    profiles = pm_list()
+    if not profiles:
+        console.print("[dim]No profiles found. Run [bold]job-hunter init[/bold] to create one.[/dim]")
+        return
+
+    table = Table(title="Profiles")
+    table.add_column("", style="green", width=3)
+    table.add_column("Slug", style="bold")
+    table.add_column("Name")
+    table.add_column("Email")
+    table.add_column("Target Roles")
+
+    for p in profiles:
+        marker = "*" if p["active"] else ""
+        roles = ", ".join(p["target_positions"][:3])
+        table.add_row(marker, p["slug"], p["name"], p["email"], roles)
+
+    console.print(table)
+    console.print("[dim]* = active profile[/dim]")
+
+
+@profile.command("current")
+def profile_current():
+    """Show the active profile name."""
+    from job_hunter.profile_manager import get_active_profile
+
+    active = get_active_profile()
+    if active:
+        console.print(f"Active profile: [bold]{active}[/bold]")
+    else:
+        console.print("[dim]No active profile. Run [bold]job-hunter init[/bold] to create one.[/dim]")
+
+
+@profile.command("switch")
+@click.argument("name")
+def profile_switch(name):
+    """Switch to a different profile."""
+    from job_hunter.profile_manager import (
+        profile_exists as pm_exists, set_active_profile, get_active_profile,
+    )
+
+    if not pm_exists(name):
+        console.print(f"[red]Profile '{name}' not found.[/red]")
+        console.print("[dim]Run [bold]job-hunter profile list[/bold] to see available profiles.[/dim]")
+        return
+
+    current = get_active_profile()
+    if current == name:
+        console.print(f"[dim]Already on profile '{name}'.[/dim]")
+        return
+
+    set_active_profile(name)
+    console.print(f"[green]Switched to profile '{name}'.[/green]")
+
+
+@profile.command("delete")
+@click.argument("name")
+def profile_delete(name):
+    """Delete a profile and all its data."""
+    from job_hunter.profile_manager import delete_profile as pm_delete, get_active_profile
+
+    active = get_active_profile()
+    if name == active:
+        console.print(
+            f"[red]Cannot delete the active profile '{name}'.[/red] "
+            "Switch to another profile first."
+        )
+        return
+
+    if not click.confirm(f"Delete profile '{name}' and ALL its data? This cannot be undone", default=False):
+        console.print("Aborted.")
+        return
+
+    try:
+        pm_delete(name)
+        console.print(f"[green]Profile '{name}' deleted.[/green]")
+    except FileNotFoundError:
+        console.print(f"[red]Profile '{name}' not found.[/red]")
 
 
 # ---------------------------------------------------------------------------

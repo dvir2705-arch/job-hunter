@@ -1,7 +1,8 @@
 # Session State
 
-## Last Session: #26 (2026-04-08)
-See `knowladge/sessions/session-26_2026-04-08_real-user-readiness.md`
+## Last Session: #27 (2026-04-09)
+See `knowladge/sessions/session-27_2026-04-09_multi-profile-system.md`
+Completed: Multi-profile system — profile_manager.py, auto-activate on startup, legacy migration, init with profile name, profile list/current/switch/delete commands. 334 tests passing.
 
 ## Current Status
 Priority 1-4: all done
@@ -23,12 +24,19 @@ Real-User Testing Readiness (Session 26):
 - N4: @require_profile on 13 unguarded commands — DONE
 - N5: README prerequisites + .env.example update — DONE
 
+Multi-Profile System (Session 27):
+- profile_manager.py with slugify, list, get/set active, migrate — DONE
+- Auto-activate on CLI startup + legacy migration — DONE
+- Init with profile name + --name flag — DONE
+- profile list/current/switch/delete commands — DONE
+- 50 new tests (32 unit + 18 CLI) — DONE
+
 Priority 5 (remaining):
 - Retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
 **Goal:** Priority 5 — pick next feature (retry logic, cover letter critique, job analytics, or Hebrew cover letter) OR Priority 6 — CLI test coverage gaps
-**Session number:** 27
+**Session number:** 28
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session Log Convention

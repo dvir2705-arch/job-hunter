@@ -46,11 +46,14 @@ class Config:
 
         Rebases DATA_DIR to data/users/<user_id>/ and recalculates all
         derived paths. Shared registries (companies.json, templates/) stay
-        at the root data/ level.
+        at the root data/ level. Also invalidates the cached profile.
         """
         cls._active_user = user_id
         cls.DATA_DIR = cls._BASE_DATA_DIR / "users" / user_id
         cls._recalculate_paths()
+        # Invalidate cached profile so next load reads from new DATA_DIR
+        from job_hunter.profile import set_profile_path
+        set_profile_path(None)
 
     @classmethod
     def _recalculate_paths(cls) -> None:
