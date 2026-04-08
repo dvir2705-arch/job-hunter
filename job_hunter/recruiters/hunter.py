@@ -1,5 +1,6 @@
 """Hunter.io API integration for finding recruiter emails."""
 
+import json
 import requests
 from typing import Dict
 
@@ -8,48 +9,30 @@ from job_hunter.logger import get_logger
 
 logger = get_logger(__name__)
 
-COMPANY_DOMAINS = {
-    "intel": "intel.com",
-    "nvidia": "nvidia.com",
-    "amazon": "amazon.com",
-    "annapurna labs": "amazon.com",
-    "marvell": "marvell.com",
-    "wix": "wix.com",
-    "microsoft": "microsoft.com",
-    "google": "google.com",
-    "apple": "apple.com",
-    "qualcomm": "qualcomm.com",
-    "broadcom": "broadcom.com",
-    "applied materials": "amat.com",
-    "analog devices": "analog.com",
-    "tower semiconductor": "towersemi.com",
-    "sandisk": "sandisk.com",
-    "samsung": "samsung.com",
-    "ibm": "ibm.com",
-    "cisco": "cisco.com",
-    "elbit": "elbitsystems.com",
-    "gm": "gm.com",
-    "vayyar": "vayyar.com",
-    "arbe": "arberobotics.com",
-    "ceragon": "ceragon.com",
-    "valens": "valens.com",
-    "nextsilicon": "nextsilicon.com",
-    "hailo": "hailotech.com",
-    "base44": "base44.com",
-    "imagen": "imagen-ai.com",
-    "siemens": "siemens.com",
-    "texas instruments": "ti.com",
-    "nanox": "nanox.vision",
-    "stratasys": "stratasys.com",
-    "mobileye": "mobileye.com",
-    "experis": "experis.com",
-}
+
+def _load_company_domains() -> Dict[str, str]:
+    """Load company name → email domain mapping from companies.json."""
+    companies_file = Config.companies_file()
+    if not companies_file.exists():
+        return {}
+    try:
+        with open(companies_file, encoding="utf-8") as f:
+            data = json.load(f)
+        return {
+            c["name"].lower(): c["email_domain"]
+            for c in data.get("companies", [])
+            if c.get("email_domain")
+        }
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.error("Failed to load company domains from %s: %s", companies_file, e)
+        return {}
 
 
 def get_domain_for_company(company_name: str) -> str:
     """Return the email domain for a company name."""
     name_lower = company_name.lower()
-    for key, domain in COMPANY_DOMAINS.items():
+    domains = _load_company_domains()
+    for key, domain in domains.items():
         if key in name_lower or name_lower in key:
             return domain
     # Fallback: first word + .com

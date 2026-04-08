@@ -15,6 +15,7 @@
         "communications"
       ],
       "ats": "workday",
+      "email_domain": "intel.com",
       "scraper": "IntelScraper",
       "target_keywords": [
         "chip design",
@@ -41,6 +42,7 @@
         "ai_ml"
       ],
       "ats": "workday",
+      "email_domain": "nvidia.com",
       "scraper": "NVIDIAScraper",
       "target_keywords": [
         "chip design",
@@ -79,7 +81,8 @@
         "student",
         "intern"
       ],
-      "priority": true
+      "priority": true,
+      "email_domain": "apple.com"
     },
     {
       "name": "Qualcomm",
@@ -108,7 +111,8 @@
         "student",
         "intern"
       ],
-      "priority": true
+      "priority": true,
+      "email_domain": "qualcomm.com"
     },
     {
       "name": "Mobileye",
@@ -135,7 +139,8 @@
         "student",
         "intern"
       ],
-      "priority": true
+      "priority": true,
+      "email_domain": "mobileye.com"
     },
     {
       "name": "Marvell",
@@ -161,7 +166,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "marvell.com"
     },
     {
       "name": "Broadcom",
@@ -186,7 +192,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "broadcom.com"
     },
     {
       "name": "Amazon Annapurna",
@@ -212,7 +219,8 @@
         "student",
         "intern"
       ],
-      "priority": true
+      "priority": true,
+      "email_domain": "amazon.com"
     },
     {
       "name": "Sony Semiconductor",
@@ -236,7 +244,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "sony.com"
     },
     {
       "name": "Hailo",
@@ -263,7 +272,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "hailotech.com"
     },
     {
       "name": "Applied Materials",
@@ -289,7 +299,8 @@
         "imaging",
         "student"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "amat.com"
     },
     {
       "name": "Analog Devices",
@@ -314,7 +325,8 @@
         "intern",
         "student"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "analog.com"
     },
     {
       "name": "Tower Semiconductor",
@@ -338,7 +350,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "towersemi.com"
     },
     {
       "name": "Elbit Systems",
@@ -366,7 +379,8 @@
         "student",
         "intern"
       ],
-      "priority": true
+      "priority": true,
+      "email_domain": "elbitsystems.com"
     },
     {
       "name": "Sandisk",
@@ -389,7 +403,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "sandisk.com"
     },
     {
       "name": "Samsung Semiconductor Israel",
@@ -413,7 +428,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "samsung.com"
     },
     {
       "name": "IBM Research Israel",
@@ -437,7 +453,8 @@
         "intern",
         "student"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "ibm.com"
     },
     {
       "name": "Arbe Robotics",
@@ -462,7 +479,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "arberobotics.com"
     },
     {
       "name": "Vayyar",
@@ -487,7 +505,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "vayyar.com"
     },
     {
       "name": "Valens Semiconductor",
@@ -511,7 +530,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "valens.com"
     },
     {
       "name": "Cisco Israel",
@@ -537,7 +557,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "cisco.com"
     },
     {
       "name": "General Motors Israel",
@@ -561,7 +582,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "gm.com"
     },
     {
       "name": "NextSilicon",
@@ -585,7 +607,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "nextsilicon.com"
     },
     {
       "name": "Ceragon Networks",
@@ -609,7 +632,8 @@
         "student",
         "intern"
       ],
-      "priority": false
+      "priority": false,
+      "email_domain": "ceragon.com"
     },
     {
       "name": "Wix",
@@ -628,7 +652,8 @@
         "junior"
       ],
       "notes": "Large Israeli web development platform. careers.wix.com is a JS-rendered Wix site — no public API found. SmartRecruiters/Ashby/Greenhouse all 404. Needs browser-based scraper.",
-      "priority": true
+      "priority": true,
+      "email_domain": "wix.com"
     },
     {
       "name": "Base44",
@@ -647,7 +672,8 @@
         "intern"
       ],
       "notes": "Startup acquired by Wix 2023. May hire through Wix careers.",
-      "priority": true
+      "priority": true,
+      "email_domain": "base44.com"
     },
     {
       "name": "Microsoft",
@@ -672,7 +698,8 @@
         "intern"
       ],
       "notes": "gcsservices 502 on direct scraping. Use JobSpy/LinkedIn.",
-      "priority": true
+      "priority": true,
+      "email_domain": "microsoft.com"
     },
     {
       "name": "Google",
@@ -696,7 +723,8 @@
         "intern"
       ],
       "notes": "JS-rendered portal. Use JobSpy/LinkedIn.",
-      "priority": true
+      "priority": true,
+      "email_domain": "google.com"
     },
     {
       "name": "Meta",
@@ -719,7 +747,8 @@
         "intern"
       ],
       "notes": "Use JobSpy/LinkedIn for discovery.",
-      "priority": true
+      "priority": true,
+      "email_domain": "meta.com"
     },
     {
       "name": "Imagen",
@@ -737,7 +766,8 @@
         "intern"
       ],
       "notes": "AI photography company",
-      "priority": false
+      "priority": false,
+      "email_domain": "imagen-ai.com"
     }
   ],
   "job_boards": [

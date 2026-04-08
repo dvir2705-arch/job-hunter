@@ -129,15 +129,15 @@ Groups WITHOUT CLI tests (module-level only):
 - [x] CV content rules: "3rd year" hard rule, "debugging" banned, one-page hard rule in adapter prompts
 - [x] `base_cv.json` updated: "3rd year" in education, Job Hunter project in problem/solution/result format
 
-### Known hardcoded personal data (to fix in Priority 3)
-| File | What's hardcoded |
-|------|-----------------|
-| `cover_letter/generator.py:32–33` | Name, email, phone, university, degree in AI prompt |
-| `cli.py:1077–1078` | Name, email, phone in email compose |
-| `cv/adapter.py:24–39` | Title rule: "Electrical Engineering Student" |
-| `jobs/relevance_filter.py:6–48` | EE-specific keyword lists |
-| `change_summary.py:298–318` | EE/Python interview prep tips |
-| `recruiters/hunter.py:11–46` | Israel company→domain map |
+### Known hardcoded personal data — ALL RESOLVED
+| File | What was hardcoded | Status |
+|------|-----------------|--------|
+| `cover_letter/generator.py` | Name, email, phone, university, degree | ✅ Reads from profile |
+| `cli.py` | Name, email, phone in email compose | ✅ Reads from profile |
+| `cv/adapter.py` | Title rule | ✅ Reads from profile |
+| `jobs/relevance_filter.py` | EE-specific keyword lists | ✅ Reads from profile |
+| `change_summary.py` | EE/Python interview prep tips | ✅ File removed |
+| `recruiters/hunter.py` | Israel company→domain map | ✅ Reads from companies.json |
 
 ---
 

@@ -1,7 +1,7 @@
 # Session State
 
-## Last Session: #24 (2026-04-08)
-See `knowladge/sessions/session-24_2026-04-08_clean-first-run.md`
+## Last Session: #25 (2026-04-08)
+See `knowladge/sessions/session-25_2026-04-08_remove-hardcoded-data.md`
 
 ## Current Status
 Priority 1-4: all done
@@ -14,14 +14,14 @@ Multi-User Readiness:
 - B2: API key validation early — DONE
 - B3: Per-user data isolation — DONE
 - B4: Clean first-run experience — DONE
-- B5: Remove hardcoded Dvir data
+- B5: Remove hardcoded Dvir data — DONE
 
 Priority 5 (remaining):
 - Cross-platform browser/clipboard, retry logic, cover letter critique loop, job analytics, Hebrew cover letter
 
 ## Next Session
-**Goal:** Multi-user readiness B5 — Remove hardcoded Dvir data
-**Session number:** 25
+**Goal:** Priority 5 — pick next feature (cross-platform, retry logic, cover letter critique, job analytics, or Hebrew cover letter)
+**Session number:** 26
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session Log Convention
