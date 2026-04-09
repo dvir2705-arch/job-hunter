@@ -1731,7 +1731,9 @@ def jobs_scan(query, location, max_per_company, new_only, show_all, no_companies
 
     if query:
         # --- Legacy path: manual --query override ----------------------------
-        effective_location = location or "Israel"
+        profile = get_profile()
+        default_location = (profile.country if profile else None) or "Israel"
+        effective_location = location or default_location
         console.print(f"Scanning for: [bold]{query}[/bold] in {effective_location}...\n")
         with console.status("Fetching from Intel, NVIDIA, Marvell, Amazon..."):
             listings = scanner.scan(query=query, location=effective_location, max_per_company=max_per_company)

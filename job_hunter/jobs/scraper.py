@@ -393,12 +393,17 @@ class JobScanner:
     def company_scan(self, query: str = "student", location: str = "Israel",
                      max_per_company: int = 20, only_priority: bool = True,
                      progress_callback=None) -> List[JobListing]:
-        """Scan for jobs at specific companies from companies.json using JobSpy.
+        """Scan for jobs at specific companies using the active profile's watchlist.
 
-        Loops through each company name combined with query and runs a targeted JobSpy search.
-        When only_priority is True, only companies with priority=true are searched.
+        Falls back to companies.json only when no profile or empty watchlist.
+        When only_priority is True and using fallback, only companies with priority=true are searched.
         """
-        companies = _load_company_names(only_priority=only_priority)
+        from job_hunter.profile import get_profile
+        profile = get_profile()
+        if profile and profile.watchlist:
+            companies = list(profile.watchlist)
+        else:
+            companies = _load_company_names(only_priority=only_priority)
         if not companies:
             logger.error("No companies loaded from companies.json")
             return []
