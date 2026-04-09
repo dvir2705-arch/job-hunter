@@ -23,6 +23,10 @@ output/cover_letter_*
 # Generated adapted CV versions (base_cv.json is kept, versioned copies are not)
 data/cv/cv_*.json
 
+# Per-user data (personal info, applications, CVs)
+data/users/
+data/.active_profile
+
 # Job scan cache
 data/jobs/scan_history.json
 data/jobs/discovered_companies.json
