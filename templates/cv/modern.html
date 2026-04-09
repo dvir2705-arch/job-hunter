@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang | default('en') }}" dir="{{ 'rtl' if lang == 'he' else 'ltr' }}">
 <head>
   <meta charset="UTF-8">
   <style>
     @page { margin: 10mm 12mm; size: A4; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11pt; color: #222; padding: 10px; max-width: 800px; margin: auto; }
+    body { font-family: 'Helvetica Neue', Arial, 'David', sans-serif; font-size: 11pt; color: #222; padding: 10px; max-width: 800px; margin: auto; direction: {{ "rtl" if lang == "he" else "ltr" }}; text-align: {{ "right" if lang == "he" else "left" }}; }
     h1 { font-size: 20pt; font-weight: 700; color: #1a1a2e; }
     h2 { font-size: 10pt; font-weight: 400; color: #555; letter-spacing: 0.5px; margin-top: 4px; }
-    .contact { margin-top: 8px; font-size: 9pt; color: #555; display: flex; flex-wrap: wrap; gap: 12px; }
+    .contact { margin-top: 8px; font-size: 9pt; color: #555; display: flex; flex-wrap: wrap; gap: 12px; {% if lang == "he" %}justify-content: flex-end;{% endif %} }
     .contact span::before { content: "• "; color: #aaa; }
     .contact span:first-child::before { content: ""; }
     hr { border: none; border-top: 2px solid #1a1a2e; margin: 8px 0 6px; }
@@ -16,7 +16,7 @@
     .section-title { font-size: 11pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1a1a2e; border-bottom: 1px solid #ddd; padding-bottom: 2px; margin-bottom: 6px; }
     .summary { color: #333; line-height: 1.4; }
     .entry { margin-bottom: 8px; }
-    .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
+    .entry-header { display: flex; justify-content: space-between; align-items: baseline; {% if lang == "he" %}flex-direction: row-reverse;{% endif %} }
     .entry-title { font-weight: 700; font-size: 11pt; }
     .entry-subtitle { font-size: 10pt; color: #555; }
     .entry-date { font-size: 9pt; color: #888; white-space: nowrap; }
@@ -46,13 +46,13 @@
   <hr>
 
   <section>
-    <div class="section-title">Summary</div>
+    <div class="section-title">{{ titles.summary | default('Summary') }}</div>
     <p class="summary">{{ summary }}</p>
   </section>
 
   {% if experience is defined and experience %}
   <section>
-    <div class="section-title">Experience</div>
+    <div class="section-title">{{ titles.experience | default('Experience') }}</div>
     {% for exp in experience %}
     <div class="entry">
       <div class="entry-header">
@@ -72,7 +72,7 @@
 
   {% if projects is defined and projects %}
   <section>
-    <div class="section-title">Projects</div>
+    <div class="section-title">{{ titles.projects | default('Projects') }}</div>
     {% for proj in projects %}
     <div class="entry">
       <div class="entry-header">
@@ -93,7 +93,7 @@
   {% endif %}
 
   <section>
-    <div class="section-title">Education</div>
+    <div class="section-title">{{ titles.education | default('Education') }}</div>
     {% for edu in education %}
     <div class="entry">
       <div class="entry-header">
@@ -112,7 +112,7 @@
   </section>
 
   <section>
-    <div class="section-title">Skills</div>
+    <div class="section-title">{{ titles.skills | default('Skills') }}</div>
     {% if skills is mapping %}
       {% for category, items in skills.items() %}
       <div class="skill-category">
@@ -126,7 +126,7 @@
 
   {% if military is defined and military %}
   <section>
-    <div class="section-title">Military Service</div>
+    <div class="section-title">{{ titles.military | default('Military Service') }}</div>
     {% for m in military %}
     <div class="entry">
       <div class="entry-header">
@@ -146,7 +146,7 @@
 
   {% if volunteering is defined and volunteering %}
   <section>
-    <div class="section-title">Volunteering</div>
+    <div class="section-title">{{ titles.volunteering | default('Volunteering') }}</div>
     {% for v in volunteering %}
     <div class="entry">
       <div class="entry-header">
@@ -162,7 +162,7 @@
 
   {% if languages is defined and languages %}
   <section>
-    <div class="section-title">Languages</div>
+    <div class="section-title">{{ titles.languages | default('Languages') }}</div>
     <div class="skills">{{ languages | join(' | ') }}</div>
   </section>
   {% endif %}

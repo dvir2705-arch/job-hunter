@@ -90,13 +90,6 @@ def init(from_cv, profile_name):
             console.print(f"  • {p['slug']} — {p['name']}{marker}")
         console.print()
 
-    profile_path = Config.DATA_DIR / "user_profile.json"
-
-    if profile_path.exists():
-        if not click.confirm("Profile already exists. Overwrite?", default=False):
-            console.print("Aborted.")
-            return
-
     prefill = {}
     if from_cv:
         with open(from_cv, encoding="utf-8") as f:
@@ -656,9 +649,9 @@ def cv():
 
 @cv.command("init")
 @click.option("--from-file", "from_file", type=click.Path(exists=True), default=None,
-              help="Path to existing CV file (.docx or .json) to import.")
+              help="Path to existing CV file (.docx, .pdf, or .json) to import.")
 def cv_init(from_file):
-    """Initialize a base CV — from scratch or by importing a docx/json file."""
+    """Initialize a base CV — from scratch or by importing a docx/pdf/json file."""
     import shutil
 
     manager = CVManager()
@@ -729,6 +722,48 @@ def cv_init(from_file):
         shutil.copy2(str(from_path), str(template_path))
         console.print(f"[green]Original docx saved as template: {template_path}[/green]")
 
+    elif suffix == ".pdf":
+        from job_hunter.cv.parser import parse_pdf_text, parse_cv_file
+
+        console.print(f"Extracting text from [bold]{from_path.name}[/bold]...")
+        try:
+            raw_text = parse_pdf_text(from_path)
+        except Exception as e:
+            console.print(f"[red]Failed to read PDF: {e}[/red]")
+            return
+
+        if not raw_text.strip():
+            console.print("[red]Could not extract text from PDF.[/red] The file may be image-based — try a .docx instead.")
+            return
+
+        # Show preview of extracted text
+        preview_lines = raw_text.splitlines()[:15]
+        console.print("\n[bold]Extracted text preview:[/bold]")
+        for line in preview_lines:
+            console.print(f"  {line}")
+        if len(raw_text.splitlines()) > 15:
+            console.print(f"  [dim]... ({len(raw_text.splitlines())} lines total)[/dim]")
+
+        if not click.confirm("\nText extracted correctly?", default=True):
+            console.print("[yellow]Aborted.[/yellow] Try converting your PDF to .docx for better results.")
+            return
+
+        console.print("\nStructuring CV with Claude...")
+        structured = parse_cv_file(from_path)
+        if structured is None:
+            console.print("[red]Failed to structure CV.[/red] Make sure ANTHROPIC_API_KEY is set in your .env file.")
+            return
+
+        cv_path = manager.save_base(structured)
+        console.print(f"[green]Base CV saved to {cv_path}[/green]")
+
+        # Save original PDF for reference
+        template_path = Config.CV_DIR / "base_cv.pdf"
+        template_path.parent.mkdir(parents=True, exist_ok=True)
+        import shutil as _shutil
+        _shutil.copy2(str(from_path), str(template_path))
+        console.print(f"[green]Original PDF saved as reference: {template_path}[/green]")
+
     elif suffix == ".json":
         from job_hunter.cv.parser import parse_cv_file
         structured = parse_cv_file(from_path)
@@ -739,7 +774,7 @@ def cv_init(from_file):
         console.print(f"[green]Base CV saved to {cv_path}[/green]")
 
     else:
-        console.print(f"[red]Unsupported file format: {suffix}. Use .docx or .json[/red]")
+        console.print(f"[red]Unsupported file format: {suffix}. Use .docx, .pdf, or .json[/red]")
         return
 
     console.print()
@@ -765,8 +800,10 @@ def cv_show(version):
 @click.option("--job-title", "-t", default="", help="Job title.")
 @click.option("--company", "-c", default="", help="Company name.")
 @click.option("--label", "-l", default="", help="Label for the saved CV version.")
+@click.option("--lang", default=None, type=click.Choice(["en", "he"]),
+              help="Output language (default: auto-detect from base CV).")
 @require_profile
-def cv_adapt(url, desc, job_title, company, label, **_kwargs):
+def cv_adapt(url, desc, job_title, company, label, lang, **_kwargs):
     """Adapt your CV for a specific job using Claude AI."""
     import re
     from job_hunter.cv.adapter import CVAdapter
@@ -831,12 +868,18 @@ def cv_adapt(url, desc, job_title, company, label, **_kwargs):
     manager = CVManager()
     base_cv = manager.load_base()
 
+    # Auto-detect language from base CV if not specified
+    if lang is None:
+        from job_hunter.cv.adapter import detect_cv_language
+        lang = detect_cv_language(base_cv)
+        console.print(f"[dim]Auto-detected CV language: {lang}[/dim]")
+
     with console.status("Adapting CV with Claude..."):
         adapter = CVAdapter()
         if requirements:
-            adapted = adapter.adapt_with_requirements(base_cv, requirements)
+            adapted = adapter.adapt_with_requirements(base_cv, requirements, lang=lang)
         else:
-            adapted = adapter.adapt(base_cv, job_description, job_title)
+            adapted = adapter.adapt(base_cv, job_description, job_title, lang=lang)
 
     if not adapted:
         console.print("[red]CV adaptation failed (API error).[/red]")
@@ -853,7 +896,7 @@ def cv_adapt(url, desc, job_title, company, label, **_kwargs):
     renderer = CVRenderer()
     pdf_path = Config.CV_OUTPUT_DIR / f"{json_path.stem}.pdf"
     with console.status("Rendering PDF..."):
-        renderer.render_pdf(adapted, pdf_path)
+        renderer.render_pdf(adapted, pdf_path, lang=lang)
 
     diff_path = generate_change_summary(
         base_cv=base_cv,
@@ -880,19 +923,26 @@ def cv_adapt(url, desc, job_title, company, label, **_kwargs):
 @click.option("--version", "-v", default=None, help="CV version filename (default: base CV).")
 @click.option("--output", "-o", default=None, help="Output PDF path.")
 @click.option("--template", "-t", default="cv/modern.html", help="Template to use.")
+@click.option("--lang", default=None, type=click.Choice(["en", "he"]),
+              help="Output language (default: auto-detect from CV data).")
 @require_profile
-def cv_render(version, output, template):
+def cv_render(version, output, template, lang):
     """Render a CV version to PDF."""
+    from job_hunter.cv.adapter import detect_cv_language
     from job_hunter.cv.renderer import CVRenderer
 
     manager = CVManager()
     data = manager.load_version(version) if version else manager.load_base()
+
+    if lang is None:
+        lang = detect_cv_language(data)
+
     renderer = CVRenderer()
 
     name = data.get("name", "cv").replace(" ", "_").lower()
     out_path = Path(output) if output else Config.CV_OUTPUT_DIR / f"{name}_cv.pdf"
 
-    renderer.render_pdf(data, out_path, template)
+    renderer.render_pdf(data, out_path, template, lang=lang)
     console.print(f"[green]PDF saved to {out_path}[/green]")
 
 
@@ -2348,12 +2398,15 @@ def _adapt_cv_for_job(job) -> None:
     cv_manager = CVManager()
     base_cv = cv_manager.load_base()
 
+    from job_hunter.cv.adapter import detect_cv_language
+    cv_lang = detect_cv_language(base_cv)
+
     with console.status("Adapting CV with Claude..."):
         adapter = CVAdapter()
         if requirements:
-            adapted = adapter.adapt_with_requirements(base_cv, requirements)
+            adapted = adapter.adapt_with_requirements(base_cv, requirements, lang=cv_lang)
         else:
-            adapted = adapter.adapt(base_cv, description, job_title=job.title)
+            adapted = adapter.adapt(base_cv, description, job_title=job.title, lang=cv_lang)
 
     # 4. Save adapted CV JSON
     company_slug = job.company.lower().replace(" ", "_").replace("/", "_")[:20]
@@ -2365,7 +2418,7 @@ def _adapt_cv_for_job(job) -> None:
     renderer = CVRenderer()
     pdf_path = Config.CV_OUTPUT_DIR / f"{json_path.stem}.pdf"
     with console.status("Rendering PDF..."):
-        renderer.render_pdf(adapted, pdf_path)
+        renderer.render_pdf(adapted, pdf_path, lang=cv_lang)
 
     # 6. Generate change summary
     from job_hunter.cv.change_summary import generate_change_summary

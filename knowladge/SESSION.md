@@ -1,8 +1,8 @@
 # Session State
 
-## Last Session: #27 (2026-04-09)
-See `knowladge/sessions/session-27_2026-04-09_multi-profile-system.md`
-Completed: Multi-profile system — profile_manager.py, auto-activate on startup, legacy migration, init with profile name, profile list/current/switch/delete commands. 334 tests passing.
+## Last Session: #28 (2026-04-09)
+See `knowladge/sessions/session-28_2026-04-09_bilingual-cv-adaptation.md`
+Completed: Bilingual CV adaptation — schema normalization (fixes sparse rendering for non-Dvir users), lang param in adapter/renderer/CLI, RTL template support, Hebrew section titles, auto-detect CV language. 25 new tests, 306 total passing.
 
 ## Current Status
 Priority 1-4: all done
@@ -31,12 +31,19 @@ Multi-Profile System (Session 27):
 - profile list/current/switch/delete commands — DONE
 - 50 new tests (32 unit + 18 CLI) — DONE
 
+Bilingual CV Adaptation (Session 28):
+- Schema normalization (normalize_cv_schema) — DONE
+- Adapter lang param (en/he) + detect_cv_language — DONE
+- Template RTL + Hebrew section titles — DONE
+- CLI --lang option on cv adapt / cv render — DONE
+- 25 new tests — DONE
+
 Priority 5 (remaining):
-- Retry logic, cover letter critique loop, job analytics, Hebrew cover letter
+- Retry logic, cover letter critique loop, job analytics
 
 ## Next Session
-**Goal:** Priority 5 — pick next feature (retry logic, cover letter critique, job analytics, or Hebrew cover letter) OR Priority 6 — CLI test coverage gaps
-**Session number:** 28
+**Goal:** Priority 5 — pick next feature (retry logic, cover letter critique, job analytics) OR Priority 6 — CLI test coverage gaps
+**Session number:** 29
 **Start message:** "Working on job-hunter at C:\Users\dvir2\job-hunter. Read CLAUDE.md."
 
 ## Session Log Convention

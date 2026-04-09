@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from job_hunter.config import Config
+from job_hunter.cv.parser import normalize_cv_schema
 
 
 class CVManager:
@@ -19,7 +20,8 @@ class CVManager:
         if not path.exists():
             raise FileNotFoundError(f"Base CV not found at {path}. Run 'job-hunter cv init' first.")
         with open(path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+        return normalize_cv_schema(data)
 
     def save_base(self, data: dict) -> Path:
         path = self.cv_dir / self.BASE_CV_FILE

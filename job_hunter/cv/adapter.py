@@ -13,7 +13,35 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-def _build_system_prompt() -> str:
+def detect_cv_language(cv_data: dict) -> str:
+    """Detect base CV language by checking for Hebrew characters."""
+    text = cv_data.get("summary", "") + cv_data.get("name", "")
+    if not text:
+        return "en"
+    hebrew_chars = sum(1 for c in text if '\u0590' <= c <= '\u05FF')
+    return "he" if hebrew_chars > len(text) * 0.3 else "en"
+
+
+def _build_language_rules(lang: str) -> str:
+    """Build language instruction block for the system prompt."""
+    if lang == "he":
+        return """
+LANGUAGE (CRITICAL):
+- Write ALL CV content values in Hebrew (עברית).
+- JSON keys MUST remain in English (snake_case) — only values should be in Hebrew.
+- If the input CV is in English, translate content to professional Hebrew.
+- Keep technology names (Python, Git, Docker, etc.) and proper nouns in their original language.
+- Keep company names in their original language.
+"""
+    return """
+LANGUAGE:
+- Write all CV content in professional English.
+- If the input CV is in Hebrew or another language, translate all content to English.
+- Keep technology names and proper nouns as-is.
+"""
+
+
+def _build_system_prompt(lang: str = "en") -> str:
     """Build the CV adapter system prompt from user profile."""
     p = get_profile()
 
@@ -85,7 +113,7 @@ Keep language confident but modest. Avoid superlatives like "exceptional", "outs
 "remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
 "strong mathematical background" or let the grades speak for themselves. The CV should be \
 professional and confident, not boastful.
-
+{_build_language_rules(lang)}\
 Return ONLY valid JSON in the exact same schema as the input CV. Do not add commentary outside the JSON.
 """
 
@@ -96,18 +124,19 @@ class CVAdapter:
         self.client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
         self.model = model or Config.CLAUDE_MODEL
 
-    def adapt(self, cv_data: dict, job_description: str, job_title: str = "") -> dict:
+    def adapt(self, cv_data: dict, job_description: str, job_title: str = "",
+              lang: str = "en") -> dict:
         user_message = (
             f"Job Title: {job_title}\n\n"
             f"Job Description:\n{job_description}\n\n"
-            f"Candidate CV (JSON):\n{json.dumps(cv_data, indent=2)}"
+            f"Candidate CV (JSON):\n{json.dumps(cv_data, indent=2, ensure_ascii=False)}"
         )
 
         try:
             message = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
-                system=_build_system_prompt(),
+                system=_build_system_prompt(lang=lang),
                 messages=[{"role": "user", "content": user_message}],
             )
         except anthropic.APIError as e:
@@ -132,7 +161,8 @@ class CVAdapter:
             return None
         return adapted
 
-    def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements") -> dict:
+    def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements",
+                                lang: str = "en") -> dict:
         """Adapt CV using structured job requirements instead of raw description."""
         p = get_profile()
 
@@ -173,7 +203,7 @@ ADAPTATION RULES:
 {must_include_rule}
 
 CV DATA:
-{json.dumps(cv_data, indent=2)}
+{json.dumps(cv_data, indent=2, ensure_ascii=False)}
 
 Return ONLY valid JSON in the exact same schema as the input CV."""
 
@@ -181,7 +211,7 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
             message = self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
-                system=_build_system_prompt(),
+                system=_build_system_prompt(lang=lang),
                 messages=[{"role": "user", "content": prompt}],
             )
         except anthropic.APIError as e:
