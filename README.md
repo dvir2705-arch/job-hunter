@@ -32,7 +32,7 @@
 | AI Engine | Claude API (Anthropic) |
 | CLI Framework | Click + Rich |
 | Templating | Jinja2 |
-| PDF Rendering | WeasyPrint |
+| PDF Rendering | Chrome (headless) + Jinja2 HTML templates |
 | Job Scraping | python-jobspy, requests, BeautifulSoup |
 | Parallelism | concurrent.futures (ThreadPoolExecutor) |
 | Data Storage | JSON (file-based, per-user isolation) |
