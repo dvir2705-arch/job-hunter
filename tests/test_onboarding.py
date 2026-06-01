@@ -89,14 +89,15 @@ class TestProfileExists:
 class TestInitCommand:
     def test_init_creates_profile_student(self, runner, tmp_data_dir):
         # Prompts: name, email, phone, target_roles, skills,
-        #          experience(none), country, cities, studying?(y), degree, university,
-        #          save?(y)
+        #          experience(none), country, cities, studying?(y), degree, university, year,
+        #          save?(y), cv_import?(n)
         inputs = (
             "Alice\nalice@example.com\n555\n"
             "software, ml\nPython\n"
             "none\nIsrael\n\n"
-            "y\nB.Sc. CS\nMIT\n"
+            "y\nB.Sc. CS\nMIT\n3rd\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -112,12 +113,13 @@ class TestInitCommand:
 
     def test_init_creates_profile_experienced(self, runner, tmp_data_dir):
         # Prompts: name, email, phone, target_roles, skills,
-        #          experience(3-7), country, cities, radius, save?(y)
+        #          experience(3-7), country, cities, radius, save?(y), cv_import?(n)
         inputs = (
             "Bob\nb@b.com\n111\n"
             "backend, fullstack\nPython, React\n"
             "3-7\nIsrael\nTel Aviv, Haifa\n25\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -134,6 +136,7 @@ class TestInitCommand:
             "none\nIsrael\n\n"
             "n\n"  # not studying
             "y\n"  # save
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -156,8 +159,8 @@ class TestInitCommand:
         UserProfile(name="Old", email="o@o.com", phone="0").save(
             tmp_data_dir / "user_profile.json"
         )
-        # y(overwrite), name, email, phone, targets, skills, exp, country, cities, studying(n), save(y)
-        inputs = "y\nNew\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\ny\n"
+        # y(overwrite), name, email, phone, targets, skills, exp, country, cities, studying(n), save(y), cv?(n)
+        inputs = "y\nNew\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\ny\nn\n"
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
@@ -176,6 +179,7 @@ class TestInitValidation:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -190,6 +194,7 @@ class TestInitValidation:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -204,6 +209,7 @@ class TestInitValidation:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -217,6 +223,7 @@ class TestInitValidation:
             "\nsoftware\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -237,6 +244,7 @@ class TestInitGuidance:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -252,6 +260,7 @@ class TestInitGuidance:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", ""):
             result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
@@ -271,6 +280,7 @@ class TestInitApiKeyWarning:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", ""):
             result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
@@ -285,6 +295,7 @@ class TestInitApiKeyWarning:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         with patch("job_hunter.cli.Config.ANTHROPIC_API_KEY", "sk-test"):
             result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
@@ -304,6 +315,7 @@ class TestInitSummary:
             "software\nPython\n"
             "none\nIsrael\n\nn\n"
             "y\n"
+            "n\n"  # decline CV import
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
@@ -343,9 +355,9 @@ class TestCVPreFill:
 
         # Prompts: name(enter), email(enter), phone(enter), targets, skills(enter=prefilled),
         #          experience(none), country, cities, studying(y), degree(enter=prefilled),
-        #          university(enter=prefilled), save(y)
+        #          university(enter=prefilled), save(y), save_cv_as_base?(y)
         result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\n")
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\ny\n")
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"
@@ -372,7 +384,7 @@ class TestCVPreFill:
         cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
 
         result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\n")
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\ny\n")
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         # All categorized skills extracted

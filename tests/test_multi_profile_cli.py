@@ -235,6 +235,7 @@ class TestInitMultiProfile:
             "\n"                # cities (empty)
             "n\n"               # studying? no
             "y\n"               # save?
+            "n\n"               # CV import? no
         ))
         assert result.exit_code == 0, f"Output: {result.output}"
         # Profile saved under users/test-user/
@@ -256,6 +257,7 @@ class TestInitMultiProfile:
             "\n"                # cities
             "y\n"               # save?
             "bob-jones\n"       # profile name
+            "n\n"               # CV import? no
         ))
         assert result.exit_code == 0, f"Output: {result.output}"
         assert (isolate / "users" / "bob-jones" / "user_profile.json").exists()
@@ -275,6 +277,7 @@ class TestInitMultiProfile:
             "\n"
             "n\n"  # studying
             "y\n"  # save
+            "n\n"  # CV import? no
         ))
         assert result.exit_code == 0
         assert "alice" in result.output  # shows existing profiles

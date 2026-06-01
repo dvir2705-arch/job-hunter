@@ -23,8 +23,6 @@
 ## About the Developer
 - Name: Dvir Salomon
 - Background: 3rd year Electrical Engineering student at Ben-Gurion University
-- Specialization: Signals and Communications
-- GPA: 82 (Math scores: Linear Algebra 100, 99; Calculus 97)
 - Looking for: Software development, DSP, ML/AI positions
 
 ## Project Goals

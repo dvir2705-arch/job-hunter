@@ -52,3 +52,11 @@ data/logs/*.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Temp/junk files
+temp_*
+data/tmp_*
+scheme tree.pdf
+=1.1
+python
+knowladge/new-chat-onboarding-prompt.md

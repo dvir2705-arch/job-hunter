@@ -24,6 +24,112 @@ class JobListing:
 
 
 # ---------------------------------------------------------------------------
+# Location matcher — LinkedIn/JobSpy frequently return Israeli jobs with
+# just a city ("Tel Aviv") or country code ("IL, Haifa") instead of the
+# full country name. A strict substring match would drop legitimate local
+# jobs, so we accept country name, ISO code, and common city names.
+# Workday/Greenhouse/Amazon scrapers don't need this — their APIs return
+# structured location data that always includes the country.
+# ---------------------------------------------------------------------------
+
+COUNTRY_LOCATION_ALIASES = {
+    # NOTE: "IL" is intentionally NOT an alias — it clashes with Illinois,
+    # so "Chicago, IL" would incorrectly match Israel. Amazon's "IL, Tel Aviv"
+    # format is still caught via the city-name aliases below.
+    "israel": [
+        "israel",
+        "tel aviv", "tel-aviv", "haifa", "jerusalem", "herzliya",
+        "petah tikva", "petah-tikva", "petach tikva", "petach-tikva",
+        "ramat gan", "netanya", "yokneam", "yoqneam",
+        "kiryat gat", "kiryat-gat", "kiryat ono", "kiryat motzkin",
+        "rehovot", "beer sheva", "be'er sheva", "beersheba",
+        "kfar saba", "raanana", "ra'anana", "rishon le",
+        "holon", "bat yam", "ashdod", "ashkelon", "nazareth",
+        "lod", "modi'in", "modiin",
+        "ramat hasharon", "givatayim", "hod hasharon", "or yehuda",
+        "tiberias", "eilat", "ness ziona", "nes ziona",
+        "caesarea", "binyamina", "karmiel", "carmiel",
+        "airport city", "rosh ha'ayin", "rosh haayin",
+        "zichron ya'akov", "zichron yaakov",
+        "pardes hanna", "atlit", "tzfat", "safed",
+        "givat shmuel", "yehud", "kfar vradim",
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
+# Server-side location hints — LinkedIn's `location` URL param and JobSpy's
+# default `country_indeed` are advisory. Passing the proper geoId / country
+# name forces true country filtering instead of worldwide ranking.
+# ---------------------------------------------------------------------------
+
+LINKEDIN_GEOIDS = {
+    "israel": "101620260",
+    "united states": "103644278",
+    "usa": "103644278",
+    "united kingdom": "101165590",
+    "uk": "101165590",
+    "germany": "101282230",
+    "france": "105015875",
+    "india": "102713980",
+    "canada": "101174742",
+    "australia": "101452733",
+}
+
+JOBSPY_INDEED_COUNTRIES = {
+    "israel": "israel",
+    "united states": "usa",
+    "usa": "usa",
+    "united kingdom": "uk",
+    "uk": "uk",
+    "germany": "germany",
+    "france": "france",
+    "india": "india",
+    "canada": "canada",
+    "australia": "australia",
+}
+
+
+def _country_key(location: str) -> str:
+    """Extract the country segment from a location string (last comma-split part)."""
+    if not location:
+        return ""
+    return location.split(",")[-1].strip().lower()
+
+
+def _location_matches_country(requested: str, actual: str, title: str = "") -> bool:
+    """Return True if the job's location is a plausible match for the country.
+
+    Empty requested → no filter (accept).
+    Non-empty actual → must contain the country name or a known city alias.
+    Empty actual → fall back to title (JobSpy often returns Israeli postings
+        with no location field but the city in the title, e.g. Apple's
+        'Verification Student- Jerusalem'). Without this fallback we drop
+        legitimate local jobs.
+    """
+    if not requested:
+        return True
+    requested_l = requested.lower()
+    aliases = COUNTRY_LOCATION_ALIASES.get(requested_l, [])
+
+    if actual:
+        actual_l = actual.lower()
+        if requested_l in actual_l:
+            return True
+        return any(alias in actual_l for alias in aliases)
+
+    # Empty location — try the title as a last-resort hint.
+    if title:
+        title_l = title.lower()
+        if requested_l in title_l:
+            return True
+        if any(alias in title_l for alias in aliases):
+            return True
+
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Base Workday scraper — reused by Intel, NVIDIA, Marvell
 # ---------------------------------------------------------------------------
 
@@ -169,10 +275,19 @@ class LinkedInScraper:
     }
 
     def search(self, query: str, location: str = "Israel", max_results: int = 25) -> List[JobListing]:
+        # LinkedIn's `location` URL param is advisory — the guest search ranker
+        # returns worldwide results ranked by keyword match regardless. The
+        # geoId parameter is the strict server-side country filter. Attach it
+        # when we know the LinkedIn geoId for the requested country.
+        params = {"keywords": query, "location": location}
+        geo_id = LINKEDIN_GEOIDS.get(_country_key(location))
+        if geo_id:
+            params["geoId"] = geo_id
+
         try:
             response = requests.get(
                 self.SEARCH_URL,
-                params={"keywords": query, "location": location},
+                params=params,
                 headers=self.HEADERS,
                 timeout=10,
             )
@@ -210,10 +325,19 @@ class LinkedInScraper:
             if not clean_url.startswith("http"):
                 continue
 
+            job_title = title_el.get_text(strip=True)
+            job_location = location_el.get_text(strip=True) if location_el else ""
+            # LinkedIn often returns off-country results (esp. remote/US) despite the
+            # location param. Use the country-aware matcher so Israeli jobs listed
+            # as "Tel Aviv" (without the country suffix) still pass. When the
+            # location field is empty, the matcher falls back to the title.
+            if not _location_matches_country(location, job_location, title=job_title):
+                continue
+
             jobs.append(JobListing(
-                title=title_el.get_text(strip=True),
+                title=job_title,
                 company=company_el.get_text(strip=True) if company_el else "Unknown",
-                location=location_el.get_text(strip=True) if location_el else "Unknown",
+                location=job_location or "Unknown",
                 url=clean_url,
                 posted=date_el.get("datetime", "") if date_el else "",
             ))
@@ -295,6 +419,11 @@ class JobSpyScraper:
             location=location,
             results_wanted=max_results,
         )
+        # Indeed's `country_indeed` is the strict country filter (default 'usa').
+        # Without it, Indeed returns worldwide results even with location set.
+        country_indeed = JOBSPY_INDEED_COUNTRIES.get(_country_key(location))
+        if country_indeed:
+            kwargs["country_indeed"] = country_indeed
         if distance is not None:
             kwargs["distance"] = distance
 
@@ -304,6 +433,13 @@ class JobSpyScraper:
             logger.error("JobSpy scrape failed: %s", e)
             return []
 
+        # When country_indeed was set, Indeed's server-side filter already
+        # guarantees the country — no need to re-filter those rows client-side.
+        # (Indeed returns Israeli locations as Hebrew strings like "חיפה, HA, IL"
+        # which our alias list doesn't cover.) LinkedIn's rows still need the
+        # filter because LinkedIn ignores the location param for guest search.
+        trusted_sites = {"indeed"} if country_indeed else set()
+
         jobs = []
         for _, row in df.iterrows():
             title = row.get("title") or ""
@@ -311,9 +447,18 @@ class JobSpyScraper:
             loc = row.get("location") or ""
             url = row.get("job_url") or ""
             posted = str(row.get("date_posted") or "")[:10]
+            site = str(row.get("site") or "").lower()
 
             if not title or not url:
                 continue
+
+            # Skip client-side location filtering for sites we trust (see above).
+            # For other sites, fall back to the country-aware matcher, which also
+            # checks the title when the location field is empty (e.g. Apple's
+            # "Verification Student- Jerusalem" posting).
+            if site not in trusted_sites:
+                if not _location_matches_country(location, loc, title=title):
+                    continue
 
             jobs.append(JobListing(
                 title=title,
@@ -611,8 +756,26 @@ def _load_company_names(only_priority: bool = True) -> List[str]:
 # ---------------------------------------------------------------------------
 
 _FETCH_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/131.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9,he;q=0.8",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+    "Cache-Control": "max-age=0",
 }
 
 

@@ -1,6 +1,7 @@
 """Filter jobs based on user profile relevance."""
 
 import json
+import re
 from typing import List, Optional, Tuple
 
 import anthropic
@@ -53,13 +54,17 @@ def _get_relevant_keywords() -> List[str]:
     for d in p.domains:
         keywords.add(d.lower())
 
-    # Add target_positions — split multi-word entries into individual words too
+    # Add target_positions as full phrases.
+    # Only split into individual words when domains is empty (new user fallback).
     for pos in p.target_positions:
         pos_lower = pos.lower()
         keywords.add(pos_lower)
-        for word in pos_lower.split():
-            if len(word) > 2:  # skip "of", "in", etc.
-                keywords.add(word)
+    if not p.domains:
+        # Fallback for users who only filled target_positions — split into words
+        for pos in p.target_positions:
+            for word in pos.lower().split():
+                if len(word) > 2:
+                    keywords.add(word)
 
     # Add skills
     for skill in p.skills:
@@ -217,6 +222,18 @@ def score_job_fit(
         return None
 
 
+def _keyword_matches(keyword: str, text: str) -> bool:
+    """Check if keyword appears in text.
+
+    Short keywords (<=3 chars) use word-boundary matching to avoid false
+    positives like "c" matching any title containing the letter 'c'.
+    Longer keywords use substring matching (existing behaviour).
+    """
+    if len(keyword) <= 3:
+        return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
+    return keyword in text
+
+
 def filter_relevant_jobs(
     jobs: List[JobListing],
     seniority_reject: Optional[List[str]] = None,
@@ -236,6 +253,11 @@ def filter_relevant_jobs(
     """
     active_seniority = seniority_reject if seniority_reject is not None else DEFAULT_SENIORITY_KEYWORDS
 
+    # Cache keyword lists (avoid regenerating per job)
+    irrelevant_kws = _get_irrelevant_keywords()
+    relevant_kws = _get_relevant_keywords()
+    irrelevant_companies = _get_irrelevant_companies()
+
     accepted = []
     rejected = []
     uncertain = []
@@ -245,7 +267,7 @@ def filter_relevant_jobs(
         company_lower = job.company.lower()
 
         # Company blacklist
-        if any(kw in company_lower for kw in _get_irrelevant_companies()):
+        if any(_keyword_matches(kw, company_lower) for kw in irrelevant_companies):
             rejected.append(job)
             continue
 
@@ -254,18 +276,18 @@ def filter_relevant_jobs(
             rejected.append(job)
             continue
 
-        # Irrelevant keyword in title — reject even if "student" is present
-        if any(kw in title_lower for kw in _get_irrelevant_keywords()):
+        has_irrelevant = any(_keyword_matches(kw, title_lower) for kw in irrelevant_kws)
+        has_relevant = any(_keyword_matches(kw, title_lower) for kw in relevant_kws)
+
+        if has_irrelevant and has_relevant:
+            # Both signals — let AI decide instead of blanket reject
+            uncertain.append(job)
+        elif has_irrelevant:
             rejected.append(job)
-            continue
-
-        # Relevant keyword in title — accept immediately
-        if any(kw in title_lower for kw in _get_relevant_keywords()):
+        elif has_relevant:
             accepted.append(job)
-            continue
-
-        # Has "student"/"intern" but no clear signal — needs AI check
-        if "student" in title_lower or "intern" in title_lower:
+        elif "student" in title_lower or "intern" in title_lower:
+            # Has "student"/"intern" but no clear signal — needs AI check
             uncertain.append(job)
         else:
             rejected.append(job)

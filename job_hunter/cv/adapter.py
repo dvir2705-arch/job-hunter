@@ -98,21 +98,32 @@ If the job mentions them, emphasize relevant technical skills instead.
 
     return f"""\
 You are an expert CV writer and career coach. You will receive a candidate's CV in JSON format \
-and a job description. Your task is to adapt the CV to best match the job requirements while \
-keeping all information truthful. You may:
-- Reorder or emphasize relevant skills
-- Rewrite bullet points to use keywords from the job description
-- Adjust the summary to align with the role
-- Remove less relevant experience details
+and a job description. Your task is to make subtle, proportional adjustments so the CV \
+highlights relevant experience — while keeping the candidate's authentic profile front and center. \
+The CV should still read as THIS person's CV, not as a mirror of the job description.
+
+BALANCE (CRITICAL):
+- The CV must remain ~80% the candidate's original content and voice. Only ~20% should shift to \
+emphasize job-relevant aspects.
+- Do NOT rewrite bullet points just to insert job-description keywords. Only adjust phrasing \
+when the candidate genuinely has that experience.
+- Do NOT reshape the summary into a copy of the job requirements. Keep the candidate's identity \
+and background as the foundation, with a subtle nod toward the role.
+- Keyword stuffing is forbidden — if a skill or keyword doesn't reflect real experience, leave it out.
+
+You may:
+- Reorder skills to put job-relevant ones first (if the candidate has them)
+- Slightly adjust phrasing of bullet points to surface relevant aspects of real experience
+- Adjust the summary emphasis toward the role's domain — but keep the candidate's story
+- Remove less relevant experience details to fit one page
 {title_rules}{must_include_rules}{education_rules}\
 PAGE LENGTH (CRITICAL):
 The adapted CV MUST fit on exactly one page. Never add new content or skills. \
 Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.
 {banned_skills_rules}\
 Keep language confident but modest. Avoid superlatives like "exceptional", "outstanding", \
-"remarkable", "unparalleled". Instead of "exceptional mathematical abilities", write \
-"strong mathematical background" or let the grades speak for themselves. The CV should be \
-professional and confident, not boastful.
+"remarkable", "unparalleled". Let concrete facts (grades, projects, technologies) speak for \
+themselves. The CV should be professional and factual, not boastful or salesy.
 {_build_language_rules(lang)}\
 Return ONLY valid JSON in the exact same schema as the input CV. Do not add commentary outside the JSON.
 """
@@ -181,7 +192,8 @@ class CVAdapter:
             facts = "; ".join(f'"{f}"' for f in must_include)
             must_include_rule = f"8. MUST-INCLUDE FACTS: The CV MUST preserve these exactly: {facts}. Never remove or change them."
 
-        prompt = f"""Adapt this CV for the following role.
+        prompt = f"""Make subtle, proportional adjustments to this CV for the following role. \
+The CV should still read as THIS candidate's authentic profile — not a mirror of the job posting.
 
 ROLE: {requirements.title} at {requirements.company}
 DOMAIN: {requirements.domain}
@@ -193,9 +205,10 @@ KEY TECHNOLOGIES: {', '.join(requirements.key_technologies)}
 EDUCATION REQUIRED: {requirements.education}
 
 ADAPTATION RULES:
+0. BALANCE: Keep ~80% of the CV as-is. Only ~20% should shift emphasis. Do NOT rewrite the CV around the job description. No keyword stuffing — if a skill isn't real, leave it out.
 1. SKILLS ORDERING: If the candidate HAS a required skill, move it to the top of the skills section. Do NOT add skills the candidate doesn't have.
-2. SUMMARY: Adjust the summary to emphasize the relevant domain ({requirements.domain}). Same person, same facts, different emphasis.
-3. PROJECTS: Highlight aspects of projects that are relevant to {requirements.domain}. Don't change what the project does, just what's emphasized.
+2. SUMMARY: Keep the candidate's identity and story as the foundation. Add a subtle nod toward {requirements.domain} — but don't turn the summary into a job-description echo.
+3. PROJECTS: Keep project descriptions authentic. You may slightly emphasize aspects relevant to {requirements.domain}, but don't rewrite what the project does.
 {title_rule}
 5. HONESTY: Do not add, invent, or exaggerate anything. Only reorder and re-emphasize existing content.
 6. ONE PAGE: The adapted CV MUST fit on exactly one page. Never add new content or skills. Only reorder and rephrase existing items. Remove less relevant items if needed to fit one page.

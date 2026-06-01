@@ -117,81 +117,164 @@ def init(from_cv, profile_name):
         if prefill.get("name"):
             console.print(f"[green]Pre-filled from CV:[/green] {prefill['name']}")
 
-    console.print("[bold]Welcome to Job Hunter![/bold] Let's set up your profile.\n")
+    console.print("[bold]Welcome to Job Hunter![/bold] Let's set up your profile.")
+    console.print("[dim]Type 'back' at any prompt to return to the previous question.[/dim]\n")
+
+    class GoBack(Exception):
+        """Raised when user types 'back' to return to previous step."""
+
+    def _check_back(value: str) -> str:
+        """Raise GoBack if the user typed 'back'."""
+        if value.strip().lower() == "back":
+            raise GoBack()
+        return value
 
     def _prompt_required(label: str, default: str = "") -> str:
-        """Prompt until a non-empty value is given."""
+        """Prompt until a non-empty value is given. Raises GoBack on 'back'."""
         while True:
-            value = click.prompt(label, default=default).strip()
+            value = _check_back(click.prompt(label, default=default)).strip()
             if value:
                 return value
             console.print("[yellow]This field is required.[/yellow]")
 
-    # --- 1-3: Contact info ---------------------------------------------------
-    name = _prompt_required("1. Full name", default=prefill.get("name", ""))
-    email = _prompt_required("2. Email", default=prefill.get("email", ""))
-    phone = click.prompt("3. Phone number (optional, Enter to skip)",
-                         default=prefill.get("phone", ""))
+    # Collect answers in a dict so steps can read/write them
+    answers = {
+        "name": prefill.get("name", ""),
+        "email": prefill.get("email", ""),
+        "phone": prefill.get("phone", ""),
+        "target_positions": [],
+        "skills": prefill.get("skills", []),
+        "exp_level": "none",
+        "country": "Israel",
+        "cities": [],
+        "radius_km": 25,
+        "education": {},
+    }
 
-    # --- 4-5: Job search focus -----------------------------------------------
-    while True:
-        target_input = click.prompt(
-            "4. Target roles (comma-separated, e.g. software developer, DSP engineer)",
-            default="",
-        )
-        target_positions = [t.strip() for t in target_input.split(",") if t.strip()]
-        if target_positions:
-            break
-        console.print("[yellow]At least one target role is required.[/yellow]")
+    def step_name():
+        answers["name"] = _prompt_required("1. Full name", default=answers["name"])
 
-    skills_input = click.prompt(
-        "5. Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
-        default=", ".join(prefill.get("skills", [])),
-    )
-    skills = [s.strip() for s in skills_input.split(",") if s.strip()]
+    def step_email():
+        answers["email"] = _prompt_required("2. Email", default=answers["email"])
 
-    # --- 6: Experience level -------------------------------------------------
-    exp_level = click.prompt(
-        "6. Experience level (none / 1-3 / 3-7 / 7+)",
-        type=click.Choice(["none", "1-3", "3-7", "7+"], case_sensitive=False),
-        default="none",
-    )
+    def step_phone():
+        val = _check_back(click.prompt(
+            "3. Phone number (optional, Enter to skip)",
+            default=answers["phone"],
+        ))
+        answers["phone"] = val
 
-    # --- 7-9: Location -------------------------------------------------------
-    country = click.prompt("7. Country", default="Israel")
+    def step_target_roles():
+        while True:
+            val = _check_back(click.prompt(
+                "4. Target roles (comma-separated, e.g. software developer, DSP engineer)",
+                default=", ".join(answers["target_positions"]) if answers["target_positions"] else "",
+            ))
+            positions = [t.strip() for t in val.split(",") if t.strip()]
+            if positions:
+                answers["target_positions"] = positions
+                return
+            console.print("[yellow]At least one target role is required.[/yellow]")
 
-    cities_input = click.prompt(
-        "8. Cities to search around (comma-separated, or Enter for country-wide)",
-        default="",
-    )
-    cities = [c.strip() for c in cities_input.split(",") if c.strip()]
+    def step_skills():
+        val = _check_back(click.prompt(
+            "5. Key skills (comma-separated, e.g. Python, MATLAB, SolidWorks)",
+            default=", ".join(answers["skills"]),
+        ))
+        answers["skills"] = [s.strip() for s in val.split(",") if s.strip()]
 
-    radius_km = 25
-    if cities:
-        radius_km = click.prompt(
-            "9. Search radius around cities (km)",
-            type=click.Choice(["10", "25", "50"], case_sensitive=False),
-            default="25",
-        )
-        radius_km = int(radius_km)
+    def step_experience():
+        val = _check_back(click.prompt(
+            "6. Experience level (none / 1-3 / 3-7 / 7+)",
+            default=answers["exp_level"],
+        ))
+        val = val.strip().lower()
+        if val not in ("none", "1-3", "3-7", "7+"):
+            console.print("[yellow]Please enter one of: none, 1-3, 3-7, 7+[/yellow]")
+            step_experience()  # retry same step (GoBack still propagates)
+            return
+        answers["exp_level"] = val
 
-    location = {"country": country, "cities": cities, "radius_km": radius_km}
+    def step_country():
+        val = _check_back(click.prompt("7. Country", default=answers["country"]))
+        answers["country"] = val.strip() or "Israel"
 
-    # --- Conditional: student info -------------------------------------------
-    education = {}
-    if exp_level == "none":
-        if click.confirm("Are you currently studying?", default=True):
-            degree = click.prompt(
+    def step_cities():
+        val = _check_back(click.prompt(
+            "8. Cities to search around (comma-separated, or Enter for country-wide)",
+            default=", ".join(answers["cities"]) if answers["cities"] else "",
+        ))
+        answers["cities"] = [c.strip() for c in val.split(",") if c.strip()]
+
+    def step_radius():
+        # Only ask if cities were given; otherwise skip silently
+        if not answers["cities"]:
+            answers["radius_km"] = 25
+            return
+        val = _check_back(click.prompt(
+            "9. Search radius around cities (km, 10/25/50)",
+            default=str(answers["radius_km"]),
+        ))
+        val = val.strip()
+        if val not in ("10", "25", "50"):
+            console.print("[yellow]Please enter 10, 25, or 50.[/yellow]")
+            step_radius()
+            return
+        answers["radius_km"] = int(val)
+
+    def step_education():
+        if answers["exp_level"] != "none":
+            answers["education"] = {}
+            return
+        val = _check_back(click.prompt(
+            "Are you currently studying? (y/n)",
+            default="y",
+        )).strip().lower()
+        if val in ("y", "yes"):
+            degree = _check_back(click.prompt(
                 "Degree (e.g. B.Sc. Electrical Engineering)",
-                default=prefill.get("degree", ""),
-            )
-            university = click.prompt(
+                default=answers.get("education", {}).get("degree", prefill.get("degree", "")),
+            ))
+            university = _check_back(click.prompt(
                 "University",
-                default=prefill.get("university", ""),
-            )
-            education = {"university": university, "degree": degree}
+                default=answers.get("education", {}).get("university", prefill.get("university", "")),
+            ))
+            year = _check_back(click.prompt(
+                "Year of study (1st / 2nd / 3rd / 4th)",
+                default=answers.get("education", {}).get("year", prefill.get("year", "")),
+            )).strip()
+            answers["education"] = {"university": university, "degree": degree, "year": year}
+        else:
+            answers["education"] = {}
+
+    steps = [
+        step_name, step_email, step_phone, step_target_roles,
+        step_skills, step_experience, step_country, step_cities,
+        step_radius, step_education,
+    ]
+
+    i = 0
+    while i < len(steps):
+        try:
+            steps[i]()
+            i += 1
+        except GoBack:
+            if i > 0:
+                i -= 1
+                console.print("[dim]<< Going back...[/dim]")
+            else:
+                console.print("[dim]Already at the first question.[/dim]")
+
+    location = {
+        "country": answers["country"],
+        "cities": answers["cities"],
+        "radius_km": answers["radius_km"],
+    }
+    education = answers["education"]
 
     # --- Derive domains from target_positions + skills -----------------------
+    target_positions = answers["target_positions"]
+    skills = answers["skills"]
     domains = list({
         token.lower()
         for item in target_positions + skills
@@ -200,12 +283,12 @@ def init(from_cv, profile_name):
     })
 
     profile = UserProfile(
-        name=name,
-        email=email,
-        phone=phone,
+        name=answers["name"],
+        email=answers["email"],
+        phone=answers["phone"],
         target_positions=target_positions,
         skills=skills,
-        experience_level=exp_level,
+        experience_level=answers["exp_level"],
         location=location,
         education=education,
         domains=domains,
@@ -233,7 +316,7 @@ def init(from_cv, profile_name):
         return
 
     # --- Profile name (slug) -------------------------------------------------
-    default_slug = slugify(name)
+    default_slug = slugify(answers["name"])
     if not profile_name:
         profile_name = click.prompt(
             "Profile name (used to switch between profiles)",
@@ -307,11 +390,76 @@ def init(from_cv, profile_name):
                       "companies later with [bold]jobs companies add[/bold][/dim]")
 
     console.print(f"\n[green]Profile '{slug}' saved to {profile_path}[/green]")
+
+    # --- CV import (optional) -----------------------------------------------
+    cv_imported = False
+    if from_cv:
+        # --from-cv provided a JSON used for pre-fill; offer to save as base CV
+        if click.confirm("\nSave the provided CV JSON as your base CV?", default=True):
+            from job_hunter.cv.manager import CVManager
+            manager = CVManager()
+            cv_path = manager.save_base(cv_data)
+            console.print(f"[green]Base CV saved to {cv_path}[/green]")
+            cv_imported = True
+
+    if not cv_imported:
+        if click.confirm("\nDo you have a CV to import? (docx, pdf, or json)", default=False):
+            while True:
+                cv_file_input = click.prompt("Path to your CV file").strip().strip('"').strip("'")
+                cv_file_path = Path(cv_file_input)
+                if not cv_file_path.exists():
+                    console.print("[yellow]File not found. Please check the path.[/yellow]")
+                    continue
+                if cv_file_path.suffix.lower() not in (".docx", ".pdf", ".json"):
+                    console.print("[yellow]Unsupported format. Use .docx, .pdf, or .json[/yellow]")
+                    continue
+                break
+
+            suffix = cv_file_path.suffix.lower()
+            needs_api = suffix in (".docx", ".pdf")
+
+            if needs_api and not Config.ANTHROPIC_API_KEY:
+                console.print(
+                    "[yellow]CV structuring requires ANTHROPIC_API_KEY.[/yellow]\n"
+                    "Set it in your .env file, then run: "
+                    "[bold]job-hunter cv init --from-file " + str(cv_file_path) + "[/bold]"
+                )
+            else:
+                console.print(f"[dim]Importing {cv_file_path.name}...[/dim]")
+                try:
+                    from job_hunter.cv.parser import parse_cv_file
+                    from job_hunter.cv.manager import CVManager
+                    structured = parse_cv_file(cv_file_path)
+                    if structured is None:
+                        console.print("[red]Failed to parse CV.[/red]")
+                    else:
+                        manager = CVManager()
+                        saved_path = manager.save_base(structured)
+                        console.print(f"[green]Base CV saved to {saved_path}[/green]")
+                        # Copy original file as template
+                        if suffix == ".docx":
+                            import shutil as _shutil
+                            template_path = Config.CV_DIR / "base_cv.docx"
+                            template_path.parent.mkdir(parents=True, exist_ok=True)
+                            _shutil.copy2(str(cv_file_path), str(template_path))
+                            console.print(f"[green]Original docx saved as template: {template_path}[/green]")
+                        elif suffix == ".pdf":
+                            import shutil as _shutil
+                            template_path = Config.CV_DIR / "base_cv.pdf"
+                            template_path.parent.mkdir(parents=True, exist_ok=True)
+                            _shutil.copy2(str(cv_file_path), str(template_path))
+                            console.print(f"[green]Original PDF saved as reference: {template_path}[/green]")
+                        cv_imported = True
+                except Exception as e:
+                    console.print(f"[red]CV import failed: {e}[/red]")
+                    console.print("[dim]You can import later with: [bold]job-hunter cv init --from-file <cv>[/bold][/dim]")
+
     console.print()
     console.print("[bold]What to do next:[/bold]")
-    console.print("  1. [bold]job-hunter cv init --from-file <cv>[/bold]  — Upload your CV (docx or JSON)")
-    console.print("  2. [bold]job-hunter profile show[/bold]              — Review your profile")
-    console.print("  3. [bold]job-hunter jobs scan[/bold]                 — Find matching jobs")
+    if not cv_imported:
+        console.print("  1. [bold]job-hunter cv init --from-file <cv>[/bold]  — Upload your CV (docx or JSON)")
+    console.print(f"  {'1' if cv_imported else '2'}. [bold]job-hunter profile show[/bold]              — Review your profile")
+    console.print(f"  {'2' if cv_imported else '3'}. [bold]job-hunter jobs scan[/bold]                 — Find matching jobs")
     console.print(f"\n[dim]To switch profiles later: [bold]job-hunter profile switch <name>[/bold][/dim]")
     if not Config.ANTHROPIC_API_KEY:
         console.print()
@@ -2295,6 +2443,49 @@ def _send_email_to_recruiter(job, recruiter) -> None:
         console.print("[yellow]No CV folder found.[/yellow]")
 
 
+def _prompt_paste_description(job_url: str) -> str:
+    """Prompt the user to paste a job description inline in the terminal.
+
+    Falls back to a text editor if the user prefers.
+    Returns the trimmed description, or empty string if the user provided nothing.
+    """
+    console.print(
+        "[dim]Paste the job description below. "
+        "When done, type [bold]END[/bold] on a new line by itself.[/dim]"
+    )
+    lines = []
+    try:
+        while True:
+            line = input()
+            if line.strip() == "END":
+                break
+            lines.append(line)
+    except EOFError:
+        pass
+    text = "\n".join(lines).strip()
+
+    if not text:
+        # Nothing pasted — offer editor as fallback
+        if click.confirm("Nothing pasted. Open a text editor instead?", default=True):
+            template = (
+                f"# Paste the job description below this line, then save and close.\n"
+                f"# Job URL: {job_url}\n"
+                f"# Lines starting with '#' will be ignored.\n\n"
+            )
+            try:
+                edited = click.edit(template)
+            except click.UsageError:
+                edited = None
+            if edited:
+                text = "\n".join(
+                    ln for ln in edited.splitlines()
+                    if not ln.lstrip().startswith("#")
+                ).strip()
+        return text
+
+    return text
+
+
 def _adapt_cv_for_job(job) -> None:
     from job_hunter.jobs.scraper import fetch_job_description
     from job_hunter.cv.adapter import CVAdapter
@@ -2369,11 +2560,14 @@ def _adapt_cv_for_job(job) -> None:
 
     if not description:
         console.print(
-            "[yellow]Job description not available for this source "
-            "(page is JavaScript-rendered).\n"
-            "Tip: copy the job description text and use [bold]job-hunter cv adapt[/bold] with a file.[/yellow]"
+            "[yellow]Job description not available automatically "
+            "(site blocked us or page is JavaScript-rendered).[/yellow]"
         )
-        return
+        if click.confirm("Paste the job description manually?", default=True):
+            description = _prompt_paste_description(job.url)
+        if not description:
+            console.print("[yellow]No description provided — aborting CV adapt.[/yellow]")
+            return
 
     console.print(f"[dim]Fetched {len(description)} characters of job description.[/dim]")
 

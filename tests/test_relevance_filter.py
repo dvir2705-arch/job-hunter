@@ -21,7 +21,13 @@ def make_job(title: str, company: str = "Acme") -> JobListing:
 # Accept cases
 # ---------------------------------------------------------------------------
 
-def test_accept_python_developer():
+def test_accept_python_developer(monkeypatch):
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=["Python"], target_positions=["software"], domains=["python"],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
     accepted, rejected = filter_relevant_jobs([make_job("Python Developer")])
     assert len(accepted) == 1
     assert len(rejected) == 0
@@ -53,16 +59,73 @@ def test_accept_machine_learning_researcher(monkeypatch):
     assert len(rejected) == 0
 
 
-def test_accept_embedded_software_engineer():
+def test_accept_embedded_software_engineer(monkeypatch):
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=[], target_positions=["embedded", "software"], domains=["embedded", "software"],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
     accepted, rejected = filter_relevant_jobs([make_job("Embedded Software Engineer")])
     assert len(accepted) == 1
     assert len(rejected) == 0
 
 
-def test_accept_dsp_algorithm_engineer():
+def test_accept_dsp_algorithm_engineer(monkeypatch):
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=[], target_positions=["DSP"], domains=["dsp", "algorithm"],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
     accepted, rejected = filter_relevant_jobs([make_job("DSP Algorithm Engineer")])
     assert len(accepted) == 1
     assert len(rejected) == 0
+
+
+def test_single_char_skill_no_false_accept(monkeypatch):
+    """Skill 'C' must not match every title containing the letter 'c'."""
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=["C"], target_positions=[], domains=[],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
+    accepted, rejected = filter_relevant_jobs([make_job("Business Associate")])
+    assert len(accepted) == 0
+    assert len(rejected) == 1
+
+
+def test_single_char_skill_matches_standalone(monkeypatch):
+    """Skill 'C' should match when 'C' appears as a standalone word."""
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=["C"], target_positions=[], domains=[],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
+    accepted, rejected = filter_relevant_jobs([make_job("C Developer")])
+    assert len(accepted) == 1
+    assert len(rejected) == 0
+
+
+def test_irrelevant_and_relevant_goes_uncertain(monkeypatch):
+    """Title with both irrelevant and relevant keywords goes to AI, not auto-reject."""
+    from job_hunter.profile import UserProfile
+    profile = UserProfile(
+        name="T", email="t@t.com", phone="0",
+        skills=[], target_positions=["software"], domains=["software"],
+    )
+    monkeypatch.setattr("job_hunter.jobs.relevance_filter.get_profile", lambda: profile)
+    # "quality assurance" is irrelevant, "software" is relevant — should go to AI (uncertain)
+    # With Haiku mocked out, uncertain jobs get accepted (benefit of doubt)
+    with patch("job_hunter.jobs.relevance_filter._batch_haiku_filter", return_value=(
+        [make_job("Software Quality Assurance Engineer")], []
+    )):
+        accepted, rejected = filter_relevant_jobs(
+            [make_job("Software Quality Assurance Engineer")]
+        )
+    assert len(accepted) == 1
 
 
 # ---------------------------------------------------------------------------
