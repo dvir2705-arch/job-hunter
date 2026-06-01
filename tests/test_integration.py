@@ -293,9 +293,9 @@ class TestRelevanceFilterKeywords:
         # From skills
         assert "python" in keywords
         assert "docker" in keywords
-        # From target_positions
-        assert "backend" in keywords
-        assert "devops" in keywords
+        # From target_positions (added as full phrases when domains exist)
+        assert "backend developer" in keywords
+        assert "devops engineer" in keywords
 
     def test_data_scientist_keywords(self, tmp_data_dir):
         """Data scientist has ML-specific keywords."""
@@ -306,8 +306,9 @@ class TestRelevanceFilterKeywords:
 
         assert "python" in keywords
         assert "tensorflow" in keywords
-        assert "data" in keywords
-        assert "scientist" in keywords
+        # target_positions added as full phrases when domains exist
+        assert "data scientist" in keywords
+        assert "ml engineer" in keywords
 
     def test_dvir_keywords(self, tmp_data_dir):
         """Dvir's profile should produce EE-relevant keywords."""

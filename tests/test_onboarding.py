@@ -146,21 +146,34 @@ class TestInitCommand:
         assert "software" in data["domains"]
 
     def test_init_aborts_if_exists_and_user_declines(self, runner, tmp_data_dir):
+        # Create existing profile in multi-profile location
+        profile_dir = tmp_data_dir / "users" / "test"
+        profile_dir.mkdir(parents=True, exist_ok=True)
         UserProfile(name="Old", email="o@o.com", phone="0").save(
-            tmp_data_dir / "user_profile.json"
+            profile_dir / "user_profile.json"
         )
-        result = runner.invoke(cli, ["init"], input="n\n")
+        # Fill all prompts, then "Save?=y", overwrite?=n
+        inputs = (
+            "Old\no@o.com\n0\nsoftware\nPython\n"
+            "none\nIsrael\n\nn\n"  # steps + not studying
+            "y\n"   # save profile
+            "n\n"   # decline overwrite
+        )
+        result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "Aborted" in result.output
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads((profile_dir / "user_profile.json").read_text(encoding="utf-8"))
         assert data["name"] == "Old"
 
     def test_init_overwrites_if_confirmed(self, runner, tmp_data_dir):
+        # Create existing profile in multi-profile location
+        profile_dir = tmp_data_dir / "users" / "test"
+        profile_dir.mkdir(parents=True, exist_ok=True)
         UserProfile(name="Old", email="o@o.com", phone="0").save(
-            tmp_data_dir / "user_profile.json"
+            profile_dir / "user_profile.json"
         )
-        # y(overwrite), name, email, phone, targets, skills, exp, country, cities, studying(n), save(y), cv?(n)
-        inputs = "y\nNew\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\ny\nn\n"
+        # name, email, phone, targets, skills, exp, country, cities, studying(n), save(y), overwrite(y), cv?(n)
+        inputs = "New\nnew@n.com\n222\nsoftware\nPython\nnone\nIsrael\n\nn\ny\ny\nn\n"
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
@@ -355,9 +368,9 @@ class TestCVPreFill:
 
         # Prompts: name(enter), email(enter), phone(enter), targets, skills(enter=prefilled),
         #          experience(none), country, cities, studying(y), degree(enter=prefilled),
-        #          university(enter=prefilled), save(y), save_cv_as_base?(y)
+        #          university(enter=prefilled), year, save(y), save_cv_as_base?(y)
         result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\ny\n")
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n")
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"
@@ -384,7 +397,7 @@ class TestCVPreFill:
         cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
 
         result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\ny\ny\n")
+                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n")
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         # All categorized skills extracted

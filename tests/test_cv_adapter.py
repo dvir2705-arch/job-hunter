@@ -9,6 +9,20 @@ import anthropic
 SAMPLE_CV = {"name": "Dvir Salomon", "title": "Electrical Engineering Student"}
 SAMPLE_JOB = "We are looking for a Python developer with signal processing experience."
 
+_FAKE_PROFILE = MagicMock(
+    cv_title="Electrical Engineering Student",
+    hard_rules={}, university="BGU",
+    must_include_facts=[], banned_skills=[],
+    is_student=True, education={"year": "3rd"},
+)
+
+
+@pytest.fixture(autouse=True)
+def _mock_get_profile():
+    """Mock get_profile for all tests so no real profile file is needed."""
+    with patch("job_hunter.cv.adapter.get_profile", return_value=_FAKE_PROFILE):
+        yield
+
 
 def make_adapter():
     """Build a CVAdapter with all external dependencies mocked out."""
