@@ -240,10 +240,7 @@ pytest tests/test_onboarding.py  # Run specific test file
 - [x] Bilingual CV support (English + Hebrew/RTL)
 - [x] Company watchlist with AI suggestions
 - [x] Recruiter management + email finder
-- [ ] **Job Analytics** — Applications per week, response rate trends
-- [ ] **Cover Letter Critique** — AI scores and suggests improvements
-- [ ] **Interview Prep** — AI-generated questions tailored to the job
-- [ ] **Networking Tools** — Draft outreach messages to recruiters
+
 
 ---
 
