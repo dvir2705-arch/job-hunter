@@ -1,6 +1,6 @@
 """Tests for Application model — auto-init, status transitions, follow-up logic."""
 
-from job_hunter.applications.models import Application, VALID_TRANSITIONS
+from job_hunter.applications.models import VALID_TRANSITIONS, Application
 
 
 def make_app(**kwargs) -> Application:
@@ -12,6 +12,7 @@ def make_app(**kwargs) -> Application:
 # ---------------------------------------------------------------------------
 # Auto-init
 # ---------------------------------------------------------------------------
+
 
 def test_auto_id_assigned():
     app = make_app()
@@ -36,6 +37,7 @@ def test_history_seeded_on_creation():
 # update_status
 # ---------------------------------------------------------------------------
 
+
 def test_update_status_changes_status():
     app = make_app()
     app.update_status("interview")
@@ -53,6 +55,7 @@ def test_update_status_appends_to_history():
 # ---------------------------------------------------------------------------
 # reset_status
 # ---------------------------------------------------------------------------
+
 
 def test_reset_status_sets_applied():
     app = make_app()
@@ -72,6 +75,7 @@ def test_reset_status_appends_reset_event():
 # needs_follow_up
 # ---------------------------------------------------------------------------
 
+
 def test_needs_follow_up_false_for_terminal_statuses():
     for status in ("rejected", "withdrawn", "offer"):
         app = make_app()
@@ -90,6 +94,7 @@ def test_needs_follow_up_true_when_overdue():
 # VALID_TRANSITIONS
 # ---------------------------------------------------------------------------
 
+
 def test_valid_transition_applied_to_interview():
     assert "interview" in VALID_TRANSITIONS["applied"]
 
@@ -101,6 +106,7 @@ def test_invalid_transition_rejected_to_offer():
 # ---------------------------------------------------------------------------
 # Round-trip serialization
 # ---------------------------------------------------------------------------
+
 
 def test_to_dict_from_dict_roundtrip():
     app = make_app(job_title="DSP Engineer", company="Intel", location="Haifa")

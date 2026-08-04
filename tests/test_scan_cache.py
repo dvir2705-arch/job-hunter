@@ -8,14 +8,16 @@ from pathlib import Path
 import pytest
 
 from job_hunter.jobs.scan_cache import (
-    ScanCache, DEFAULT_TTL_MINUTES, ZERO_STREAK_THRESHOLD, ZERO_STREAK_TTL_MINUTES,
+    DEFAULT_TTL_MINUTES,
+    ZERO_STREAK_THRESHOLD,
+    ScanCache,
 )
 from job_hunter.jobs.scraper import JobListing
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def cache_path(tmp_path):
@@ -42,7 +44,7 @@ def _make_jobs(n: int = 3) -> list:
 
 def _backdate_entry(cache_path: Path, source: str, minutes_ago: int):
     """Manually set a cache entry's last_scan to N minutes in the past."""
-    with open(cache_path, "r", encoding="utf-8") as f:
+    with open(cache_path, encoding="utf-8") as f:
         data = json.load(f)
     past = datetime.now() - timedelta(minutes=minutes_ago)
     data[source]["last_scan"] = past.isoformat()
@@ -53,6 +55,7 @@ def _backdate_entry(cache_path: Path, source: str, minutes_ago: int):
 # ---------------------------------------------------------------------------
 # Key format
 # ---------------------------------------------------------------------------
+
 
 class TestKeyFormat:
     def test_company_key(self, cache):
@@ -80,6 +83,7 @@ class TestKeyFormat:
 # ---------------------------------------------------------------------------
 # Put / Get round-trip — returns JobListing objects
 # ---------------------------------------------------------------------------
+
 
 class TestPutGet:
     def test_roundtrip_returns_job_listings(self, cache):
@@ -120,6 +124,7 @@ class TestPutGet:
 # ---------------------------------------------------------------------------
 # Freshness / TTL boundary
 # ---------------------------------------------------------------------------
+
 
 class TestFreshness:
     def test_fresh_at_89_minutes(self, cache, cache_path):
@@ -178,7 +183,9 @@ class TestFreshness:
         # Build up a zero streak of 3
         for _ in range(ZERO_STREAK_THRESHOLD):
             cache.put("scraper:MarvellScraper:student", [])
-        assert cache.zero_streak("scraper:MarvellScraper:student") == ZERO_STREAK_THRESHOLD
+        assert (
+            cache.zero_streak("scraper:MarvellScraper:student") == ZERO_STREAK_THRESHOLD
+        )
 
         # Backdate to 2 hours ago — stale under 90min, fresh under 24h
         _backdate_entry(cache_path, "scraper:MarvellScraper:student", 120)
@@ -223,6 +230,7 @@ class TestFreshness:
 # Empty cache
 # ---------------------------------------------------------------------------
 
+
 class TestEmptyCache:
     def test_get_on_new_cache(self, cache):
         assert cache.get("query:anything") is None
@@ -242,6 +250,7 @@ class TestEmptyCache:
 # ---------------------------------------------------------------------------
 # Corrupted / malformed JSON
 # ---------------------------------------------------------------------------
+
 
 class TestCorruptedCache:
     def test_corrupted_json_recovers(self, cache_path):
@@ -281,7 +290,7 @@ class TestCorruptedCache:
         """Bad job entries are silently skipped, good ones are kept."""
         cache.put("query:test", _make_jobs(2))
         # Inject a bad entry
-        with open(cache_path, "r", encoding="utf-8") as f:
+        with open(cache_path, encoding="utf-8") as f:
             data = json.load(f)
         data["query:test"]["jobs"].append("not a dict")
         data["query:test"]["jobs"].append(42)
@@ -297,6 +306,7 @@ class TestCorruptedCache:
 # ---------------------------------------------------------------------------
 # Clear
 # ---------------------------------------------------------------------------
+
 
 class TestClear:
     def test_clear_removes_file(self, cache, cache_path):
@@ -315,6 +325,7 @@ class TestClear:
 # ---------------------------------------------------------------------------
 # Concurrent read/write safety
 # ---------------------------------------------------------------------------
+
 
 class TestConcurrency:
     def test_parallel_writes_no_crash(self, cache_path):

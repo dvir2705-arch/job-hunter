@@ -41,21 +41,27 @@ def runner():
     return CliRunner()
 
 
-def _create_profile(base: Path, slug: str, name: str = "Test User",
-                    email: str = "test@example.com"):
+def _create_profile(
+    base: Path, slug: str, name: str = "Test User", email: str = "test@example.com"
+):
     """Create a profile under users/<slug>/ and return the directory."""
     d = base / "users" / slug
     d.mkdir(parents=True, exist_ok=True)
-    (d / "user_profile.json").write_text(json.dumps({
-        "name": name,
-        "email": email,
-        "phone": "050-0000000",
-        "skills": ["Python"],
-        "target_positions": ["Developer"],
-        "domains": ["software"],
-        "experience_level": "1-3",
-        "location": {"country": "Israel", "cities": [], "radius_km": 25},
-    }), encoding="utf-8")
+    (d / "user_profile.json").write_text(
+        json.dumps(
+            {
+                "name": name,
+                "email": email,
+                "phone": "050-0000000",
+                "skills": ["Python"],
+                "target_positions": ["Developer"],
+                "domains": ["software"],
+                "experience_level": "1-3",
+                "location": {"country": "Israel", "cities": [], "radius_km": 25},
+            }
+        ),
+        encoding="utf-8",
+    )
     return d
 
 
@@ -66,6 +72,7 @@ def _set_active(base: Path, slug: str):
 # ---------------------------------------------------------------------------
 # profile list
 # ---------------------------------------------------------------------------
+
 
 class TestProfileList:
     def test_no_profiles(self, runner, isolate):
@@ -95,6 +102,7 @@ class TestProfileList:
 # profile current
 # ---------------------------------------------------------------------------
 
+
 class TestProfileCurrent:
     def test_no_active(self, runner, isolate):
         result = runner.invoke(cli, ["profile", "current"])
@@ -112,6 +120,7 @@ class TestProfileCurrent:
 # ---------------------------------------------------------------------------
 # profile switch
 # ---------------------------------------------------------------------------
+
 
 class TestProfileSwitch:
     def test_switch_success(self, runner, isolate):
@@ -141,6 +150,7 @@ class TestProfileSwitch:
 # ---------------------------------------------------------------------------
 # profile delete
 # ---------------------------------------------------------------------------
+
 
 class TestProfileDelete:
     def test_delete_success(self, runner, isolate):
@@ -179,6 +189,7 @@ class TestProfileDelete:
 # Auto-activate on startup
 # ---------------------------------------------------------------------------
 
+
 class TestAutoActivate:
     def test_reads_active_profile(self, runner, isolate):
         _create_profile(isolate, "dvir", name="Dvir")
@@ -200,16 +211,21 @@ class TestAutoActivate:
 
     def test_legacy_migration_on_startup(self, runner, isolate):
         # Create legacy profile at root
-        (isolate / "user_profile.json").write_text(json.dumps({
-            "name": "Legacy User",
-            "email": "legacy@test.com",
-            "phone": "050",
-            "skills": [],
-            "target_positions": ["Dev"],
-            "domains": [],
-            "experience_level": "none",
-            "location": {"country": "IL", "cities": [], "radius_km": 25},
-        }), encoding="utf-8")
+        (isolate / "user_profile.json").write_text(
+            json.dumps(
+                {
+                    "name": "Legacy User",
+                    "email": "legacy@test.com",
+                    "phone": "050",
+                    "skills": [],
+                    "target_positions": ["Dev"],
+                    "domains": [],
+                    "experience_level": "none",
+                    "location": {"country": "IL", "cities": [], "radius_km": 25},
+                }
+            ),
+            encoding="utf-8",
+        )
 
         result = runner.invoke(cli, ["profile", "current"])
         assert result.exit_code == 0
@@ -221,22 +237,27 @@ class TestAutoActivate:
 # init with profile name
 # ---------------------------------------------------------------------------
 
+
 class TestInitMultiProfile:
     @patch("job_hunter.config.Config.ANTHROPIC_API_KEY", "")
     def test_init_creates_named_profile(self, runner, isolate):
-        result = runner.invoke(cli, ["init", "--name", "test-user"], input=(
-            "Alice Smith\n"     # name
-            "alice@test.com\n"  # email
-            "050-111\n"         # phone
-            "Developer\n"       # target roles
-            "Python\n"          # skills
-            "none\n"            # experience
-            "Israel\n"          # country
-            "\n"                # cities (empty)
-            "n\n"               # studying? no
-            "y\n"               # save?
-            "n\n"               # CV import? no
-        ))
+        result = runner.invoke(
+            cli,
+            ["init", "--name", "test-user"],
+            input=(
+                "Alice Smith\n"  # name
+                "alice@test.com\n"  # email
+                "050-111\n"  # phone
+                "Developer\n"  # target roles
+                "Python\n"  # skills
+                "none\n"  # experience
+                "Israel\n"  # country
+                "\n"  # cities (empty)
+                "n\n"  # studying? no
+                "y\n"  # save?
+                "n\n"  # CV import? no
+            ),
+        )
         assert result.exit_code == 0, f"Output: {result.output}"
         # Profile saved under users/test-user/
         assert (isolate / "users" / "test-user" / "user_profile.json").exists()
@@ -246,19 +267,23 @@ class TestInitMultiProfile:
 
     @patch("job_hunter.config.Config.ANTHROPIC_API_KEY", "")
     def test_init_prompts_for_name(self, runner, isolate):
-        result = runner.invoke(cli, ["init"], input=(
-            "Bob Jones\n"       # name
-            "bob@test.com\n"    # email
-            "050-222\n"         # phone
-            "Analyst\n"         # target roles
-            "SQL\n"             # skills
-            "1-3\n"             # experience
-            "Israel\n"          # country
-            "\n"                # cities
-            "y\n"               # save?
-            "bob-jones\n"       # profile name
-            "n\n"               # CV import? no
-        ))
+        result = runner.invoke(
+            cli,
+            ["init"],
+            input=(
+                "Bob Jones\n"  # name
+                "bob@test.com\n"  # email
+                "050-222\n"  # phone
+                "Analyst\n"  # target roles
+                "SQL\n"  # skills
+                "1-3\n"  # experience
+                "Israel\n"  # country
+                "\n"  # cities
+                "y\n"  # save?
+                "bob-jones\n"  # profile name
+                "n\n"  # CV import? no
+            ),
+        )
         assert result.exit_code == 0, f"Output: {result.output}"
         assert (isolate / "users" / "bob-jones" / "user_profile.json").exists()
 
@@ -266,18 +291,22 @@ class TestInitMultiProfile:
     def test_init_shows_existing_profiles(self, runner, isolate):
         _create_profile(isolate, "alice", name="Alice")
         _set_active(isolate, "alice")
-        result = runner.invoke(cli, ["init", "--name", "bob"], input=(
-            "Bob\n"
-            "bob@t.com\n"
-            "050\n"
-            "Dev\n"
-            "Python\n"
-            "none\n"
-            "Israel\n"
-            "\n"
-            "n\n"  # studying
-            "y\n"  # save
-            "n\n"  # CV import? no
-        ))
+        result = runner.invoke(
+            cli,
+            ["init", "--name", "bob"],
+            input=(
+                "Bob\n"
+                "bob@t.com\n"
+                "050\n"
+                "Dev\n"
+                "Python\n"
+                "none\n"
+                "Israel\n"
+                "\n"
+                "n\n"  # studying
+                "y\n"  # save
+                "n\n"  # CV import? no
+            ),
+        )
         assert result.exit_code == 0
         assert "alice" in result.output  # shows existing profiles

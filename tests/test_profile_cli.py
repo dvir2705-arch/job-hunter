@@ -8,17 +8,18 @@ import pytest
 from click.testing import CliRunner
 
 from job_hunter.cli import cli
-from job_hunter.profile import UserProfile
 
 
 @pytest.fixture
 def tmp_data_dir(tmp_path):
     """Patch Config.DATA_DIR to a temp directory for isolation."""
-    with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
-         patch("job_hunter.profile.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.profile_manager.has_legacy_profile", return_value=False), \
-         patch("job_hunter.profile_manager.get_active_profile", return_value=None):
+    with (
+        patch("job_hunter.config.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path),
+        patch("job_hunter.profile.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.profile_manager.has_legacy_profile", return_value=False),
+        patch("job_hunter.profile_manager.get_active_profile", return_value=None),
+    ):
         yield tmp_path
 
 
@@ -26,6 +27,7 @@ def tmp_data_dir(tmp_path):
 def reset_profile_cache():
     """Reset cached profile between tests."""
     import job_hunter.profile as pm
+
     pm._profile = None
     pm._profile_path_override = None
     yield
@@ -62,6 +64,7 @@ def _write_profile(path: Path, **overrides) -> Path:
 # ---------------------------------------------------------------------------
 # profile show
 # ---------------------------------------------------------------------------
+
 
 class TestProfileShow:
     def test_show_displays_contact(self, runner, tmp_data_dir):
@@ -108,6 +111,7 @@ class TestProfileShow:
 # profile validate
 # ---------------------------------------------------------------------------
 
+
 class TestProfileValidate:
     def test_validate_clean_profile(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir)
@@ -141,6 +145,7 @@ class TestProfileValidate:
 # profile edit
 # ---------------------------------------------------------------------------
 
+
 class TestProfileEdit:
     def test_edit_name(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir)
@@ -148,14 +153,18 @@ class TestProfileEdit:
         assert result.exit_code == 0
         assert "Saved" in result.output
         # Verify persisted
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(
+            (tmp_data_dir / "user_profile.json").read_text(encoding="utf-8")
+        )
         assert data["name"] == "New Name"
 
     def test_edit_skills_list(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir)
         result = runner.invoke(cli, ["profile", "edit"], input="5\nGo, Rust, C\n0\n")
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(
+            (tmp_data_dir / "user_profile.json").read_text(encoding="utf-8")
+        )
         assert data["skills"] == ["Go", "Rust", "C"]
 
     def test_edit_exit_immediately(self, runner, tmp_data_dir):
@@ -174,6 +183,7 @@ class TestProfileEdit:
 # --profile-path flag
 # ---------------------------------------------------------------------------
 
+
 class TestProfilePathFlag:
     def test_show_with_custom_path(self, runner, tmp_path):
         profile_path = tmp_path / "custom_profile.json"
@@ -187,7 +197,9 @@ class TestProfilePathFlag:
             "experience_level": "3-7",
         }
         profile_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        result = runner.invoke(cli, ["--profile-path", str(profile_path), "profile", "show"])
+        result = runner.invoke(
+            cli, ["--profile-path", str(profile_path), "profile", "show"]
+        )
         assert result.exit_code == 0
         assert "Custom User" in result.output
 
@@ -200,6 +212,8 @@ class TestProfilePathFlag:
             "experience_level": "bad",
         }
         profile_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        result = runner.invoke(cli, ["--profile-path", str(profile_path), "profile", "validate"])
+        result = runner.invoke(
+            cli, ["--profile-path", str(profile_path), "profile", "validate"]
+        )
         assert result.exit_code == 1
         assert "Invalid experience_level" in result.output

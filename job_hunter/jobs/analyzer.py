@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import dataclass
-from typing import List, Optional
 
 import anthropic
 
@@ -17,15 +16,15 @@ class JobRequirements:
     """Structured requirements extracted from a job description."""
 
     # What they're looking for
-    required_skills: List[str]    # e.g. ["Python", "C++", "MATLAB"]
-    preferred_skills: List[str]   # nice-to-have skills
-    education: str                # e.g. "BSc Electrical Engineering"
-    experience_level: str         # "student", "junior", "mid", "senior"
+    required_skills: list[str]  # e.g. ["Python", "C++", "MATLAB"]
+    preferred_skills: list[str]  # nice-to-have skills
+    education: str  # e.g. "BSc Electrical Engineering"
+    experience_level: str  # "student", "junior", "mid", "senior"
 
     # What the role involves
-    role_summary: str             # 1 sentence: what you'd actually do
-    key_technologies: List[str]   # main tools/technologies used
-    domain: str                   # "software", "chip_design", "rf", "embedded", "ai_ml", "other"
+    role_summary: str  # 1 sentence: what you'd actually do
+    key_technologies: list[str]  # main tools/technologies used
+    domain: str  # "software", "chip_design", "rf", "embedded", "ai_ml", "other"
 
     # Metadata
     company: str
@@ -68,17 +67,19 @@ Rules:
         company: str,
         location: str,
         description: str,
-    ) -> Optional[JobRequirements]:
+    ) -> JobRequirements | None:
         """Parse a job description into structured requirements."""
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=500,
                 system=self.SYSTEM_PROMPT,
-                messages=[{
-                    "role": "user",
-                    "content": f"Job: {job_title} at {company}\n\nDescription:\n{description}",
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"Job: {job_title} at {company}\n\nDescription:\n{description}",
+                    }
+                ],
             )
         except anthropic.APIError as e:
             logger.error("Claude API error in JobAnalyzer.analyze: %s", e)

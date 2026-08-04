@@ -1,19 +1,22 @@
 """Tests for CVAdapter.adapt() — JSON fence stripping and API failure handling."""
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
-import anthropic
 
+import anthropic
+import pytest
 
 SAMPLE_CV = {"name": "Dvir Salomon", "title": "Electrical Engineering Student"}
 SAMPLE_JOB = "We are looking for a Python developer with signal processing experience."
 
 _FAKE_PROFILE = MagicMock(
     cv_title="Electrical Engineering Student",
-    hard_rules={}, university="BGU",
-    must_include_facts=[], banned_skills=[],
-    is_student=True, education={"year": "3rd"},
+    hard_rules={},
+    university="BGU",
+    must_include_facts=[],
+    banned_skills=[],
+    is_student=True,
+    education={"year": "3rd"},
 )
 
 
@@ -26,9 +29,12 @@ def _mock_get_profile():
 
 def make_adapter():
     """Build a CVAdapter with all external dependencies mocked out."""
-    with patch("job_hunter.cv.adapter.Config.validate"), \
-         patch("job_hunter.cv.adapter.anthropic.Anthropic"):
+    with (
+        patch("job_hunter.cv.adapter.Config.validate"),
+        patch("job_hunter.cv.adapter.anthropic.Anthropic"),
+    ):
         from job_hunter.cv.adapter import CVAdapter
+
         adapter = CVAdapter()
         adapter.client = MagicMock()
         return adapter
@@ -44,6 +50,7 @@ def make_response(text: str):
 # ---------------------------------------------------------------------------
 # JSON fence stripping
 # ---------------------------------------------------------------------------
+
 
 def test_clean_json_no_fences():
     adapter = make_adapter()
@@ -81,6 +88,7 @@ def test_strips_plain_code_fence():
 # API failure → None
 # ---------------------------------------------------------------------------
 
+
 def test_api_error_returns_none():
     adapter = make_adapter()
     adapter.client.messages.create.side_effect = anthropic.APIError(
@@ -95,6 +103,7 @@ def test_api_error_returns_none():
 # ---------------------------------------------------------------------------
 # Empty/invalid response → None
 # ---------------------------------------------------------------------------
+
 
 def test_empty_content_returns_none():
     adapter = make_adapter()
@@ -119,17 +128,25 @@ def test_empty_content_in_adapt_with_requirements_returns_none():
     adapter.client.messages.create.return_value = msg
 
     from job_hunter.jobs.analyzer import JobRequirements
+
     reqs = JobRequirements(
-        title="Python Dev", company="Acme", domain="software",
-        role_summary="Build stuff", required_skills=["Python"],
-        preferred_skills=[], key_technologies=[], education="BSc",
-        experience_level="junior", location="Israel"
+        title="Python Dev",
+        company="Acme",
+        domain="software",
+        role_summary="Build stuff",
+        required_skills=["Python"],
+        preferred_skills=[],
+        key_technologies=[],
+        education="BSc",
+        experience_level="junior",
+        location="Israel",
     )
 
     with patch("job_hunter.cv.adapter.get_profile") as mock_profile:
         mock_profile.return_value = MagicMock(
             cv_title="Electrical Engineering Student",
-            hard_rules={}, university="BGU",
+            hard_rules={},
+            university="BGU",
         )
         assert adapter.adapt_with_requirements(SAMPLE_CV, reqs) is None
 

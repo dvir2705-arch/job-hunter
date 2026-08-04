@@ -18,7 +18,7 @@ def detect_cv_language(cv_data: dict) -> str:
     text = cv_data.get("summary", "") + cv_data.get("name", "")
     if not text:
         return "en"
-    hebrew_chars = sum(1 for c in text if '\u0590' <= c <= '\u05FF')
+    hebrew_chars = sum(1 for c in text if "\u0590" <= c <= "\u05ff")
     return "he" if hebrew_chars > len(text) * 0.3 else "en"
 
 
@@ -48,7 +48,11 @@ def _build_system_prompt(lang: str = "en") -> str:
     # --- Title rules (always present) ----------------------------------------
     title_rules = ""
     if p.cv_title:
-        uni_example = f'"{p.cv_title} | {p.university}"  (university is a fact)' if p.university else ""
+        uni_example = (
+            f'"{p.cv_title} | {p.university}"  (university is a fact)'
+            if p.university
+            else ""
+        )
         title_rules = f"""
 TITLE RULES (CRITICAL — NEVER VIOLATE):
 1. The title MUST stay exactly as "{p.cv_title}" — this is the only accurate title.
@@ -135,8 +139,9 @@ class CVAdapter:
         self.client = anthropic.Anthropic(api_key=Config.ANTHROPIC_API_KEY)
         self.model = model or Config.CLAUDE_MODEL
 
-    def adapt(self, cv_data: dict, job_description: str, job_title: str = "",
-              lang: str = "en") -> dict:
+    def adapt(
+        self, cv_data: dict, job_description: str, job_title: str = "", lang: str = "en"
+    ) -> dict:
         user_message = (
             f"Job Title: {job_title}\n\n"
             f"Job Description:\n{job_description}\n\n"
@@ -172,13 +177,18 @@ class CVAdapter:
             return None
         return adapted
 
-    def adapt_with_requirements(self, cv_data: dict, requirements: "JobRequirements",
-                                lang: str = "en") -> dict:
+    def adapt_with_requirements(
+        self, cv_data: dict, requirements: "JobRequirements", lang: str = "en"
+    ) -> dict:
         """Adapt CV using structured job requirements instead of raw description."""
         p = get_profile()
 
         # Build dynamic rules from hard_rules
-        title_rule = f'4. TITLE: Keep exactly as "{p.cv_title}" — never change this.' if p.cv_title else ""
+        title_rule = (
+            f'4. TITLE: Keep exactly as "{p.cv_title}" — never change this.'
+            if p.cv_title
+            else ""
+        )
 
         banned = p.hard_rules.get("banned_skills", [])
         banned_rule = ""
@@ -232,7 +242,9 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
             return None
 
         if not message.content:
-            logger.error("Claude returned empty content in CVAdapter.adapt_with_requirements")
+            logger.error(
+                "Claude returned empty content in CVAdapter.adapt_with_requirements"
+            )
             return None
 
         raw = message.content[0].text.strip()
@@ -243,10 +255,15 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
         try:
             return json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse Claude response as JSON in adapt_with_requirements: %s", e)
+            logger.error(
+                "Failed to parse Claude response as JSON in adapt_with_requirements: %s",
+                e,
+            )
             return None
 
-    def generate_cover_letter(self, cv_data: dict, job_description: str, company: str, job_title: str = "") -> str:
+    def generate_cover_letter(
+        self, cv_data: dict, job_description: str, company: str, job_title: str = ""
+    ) -> str:
         user_message = (
             f"Company: {company}\n"
             f"Job Title: {job_title}\n\n"
@@ -266,7 +283,9 @@ Return ONLY valid JSON in the exact same schema as the input CV."""
             return None
 
         if not message.content:
-            logger.error("Claude returned empty content in CVAdapter.generate_cover_letter")
+            logger.error(
+                "Claude returned empty content in CVAdapter.generate_cover_letter"
+            )
             return None
 
         return message.content[0].text.strip()

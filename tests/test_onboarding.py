@@ -15,13 +15,17 @@ from job_hunter.profile import UserProfile, profile_exists
 def tmp_data_dir(tmp_path):
     """Patch Config.DATA_DIR to a temp directory for isolation."""
     empty_suggestions = {"registry": [], "additional": []}
-    with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
-         patch("job_hunter.profile.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.jobs.search_strategy.suggest_companies",
-               return_value=empty_suggestions), \
-         patch("job_hunter.profile_manager.get_active_profile", return_value=None), \
-         patch("job_hunter.profile_manager.has_legacy_profile", return_value=False):
+    with (
+        patch("job_hunter.config.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path),
+        patch("job_hunter.profile.Config.DATA_DIR", tmp_path),
+        patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=empty_suggestions,
+        ),
+        patch("job_hunter.profile_manager.get_active_profile", return_value=None),
+        patch("job_hunter.profile_manager.has_legacy_profile", return_value=False),
+    ):
         yield tmp_path
 
 
@@ -38,6 +42,7 @@ def _profile_path(tmp_data_dir: Path, slug: str = "test") -> Path:
 # ---------------------------------------------------------------------------
 # UserProfile.save tests
 # ---------------------------------------------------------------------------
+
 
 class TestUserProfileSave:
     def test_save_creates_file(self, tmp_data_dir):
@@ -56,9 +61,12 @@ class TestUserProfileSave:
 
     def test_save_roundtrip(self, tmp_data_dir):
         original = UserProfile(
-            name="Dvir", email="d@g.com", phone="053",
+            name="Dvir",
+            email="d@g.com",
+            phone="053",
             education={"university": "BGU", "degree": "B.Sc. EE"},
-            domains=["software", "dsp"], skills=["Python"],
+            domains=["software", "dsp"],
+            skills=["Python"],
         )
         path = original.save(tmp_data_dir / "user_profile.json")
         loaded = UserProfile.load(path)
@@ -71,6 +79,7 @@ class TestUserProfileSave:
 # ---------------------------------------------------------------------------
 # profile_exists tests
 # ---------------------------------------------------------------------------
+
 
 class TestProfileExists:
     def test_returns_false_when_missing(self, tmp_data_dir):
@@ -85,6 +94,7 @@ class TestProfileExists:
 # ---------------------------------------------------------------------------
 # `job-hunter init` command tests
 # ---------------------------------------------------------------------------
+
 
 class TestInitCommand:
     def test_init_creates_profile_student(self, runner, tmp_data_dir):
@@ -156,13 +166,15 @@ class TestInitCommand:
         inputs = (
             "Old\no@o.com\n0\nsoftware\nPython\n"
             "none\nIsrael\n\nn\n"  # steps + not studying
-            "y\n"   # save profile
-            "n\n"   # decline overwrite
+            "y\n"  # save profile
+            "n\n"  # decline overwrite
         )
         result = runner.invoke(cli, ["init", "--name", "test"], input=inputs)
         assert result.exit_code == 0
         assert "Aborted" in result.output
-        data = json.loads((profile_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(
+            (profile_dir / "user_profile.json").read_text(encoding="utf-8")
+        )
         assert data["name"] == "Old"
 
     def test_init_overwrites_if_confirmed(self, runner, tmp_data_dir):
@@ -183,6 +195,7 @@ class TestInitCommand:
 # ---------------------------------------------------------------------------
 # Input validation tests
 # ---------------------------------------------------------------------------
+
 
 class TestInitValidation:
     def test_init_rejects_empty_name_then_accepts(self, runner, tmp_data_dir):
@@ -249,6 +262,7 @@ class TestInitValidation:
 # Post-init guidance tests
 # ---------------------------------------------------------------------------
 
+
 class TestInitGuidance:
     def test_init_shows_next_steps(self, runner, tmp_data_dir):
         """After init, a checklist of next steps is shown."""
@@ -285,6 +299,7 @@ class TestInitGuidance:
 # API key warning tests
 # ---------------------------------------------------------------------------
 
+
 class TestInitApiKeyWarning:
     def test_init_warns_when_api_key_missing(self, runner, tmp_data_dir):
         """Missing API key shows warning but profile still saves."""
@@ -320,6 +335,7 @@ class TestInitApiKeyWarning:
 # Profile summary tests
 # ---------------------------------------------------------------------------
 
+
 class TestInitSummary:
     def test_init_shows_summary_before_save(self, runner, tmp_data_dir):
         """Profile summary panel is shown before saving."""
@@ -354,6 +370,7 @@ class TestInitSummary:
 # CV pre-fill tests
 # ---------------------------------------------------------------------------
 
+
 class TestCVPreFill:
     def test_init_from_cv_prefills_flat_skills(self, runner, tmp_data_dir, tmp_path):
         cv_json = {
@@ -369,15 +386,20 @@ class TestCVPreFill:
         # Prompts: name(enter), email(enter), phone(enter), targets, skills(enter=prefilled),
         #          experience(none), country, cities, studying(y), degree(enter=prefilled),
         #          university(enter=prefilled), year, save(y), save_cv_as_base?(y)
-        result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n")
+        result = runner.invoke(
+            cli,
+            ["init", "--name", "test", "--from-cv", str(cv_path)],
+            input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n",
+        )
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         assert data["name"] == "CV Person"
         assert data["education"]["university"] == "Stanford"
         assert "Python" in data["skills"]
 
-    def test_init_from_cv_prefills_categorized_skills(self, runner, tmp_data_dir, tmp_path):
+    def test_init_from_cv_prefills_categorized_skills(
+        self, runner, tmp_data_dir, tmp_path
+    ):
         """base_cv.json uses dict format: {"programming": [...], "technical": [...]}."""
         cv_json = {
             "name": "Dvir",
@@ -396,8 +418,11 @@ class TestCVPreFill:
         cv_path = tmp_path / "cv.json"
         cv_path.write_text(json.dumps(cv_json), encoding="utf-8")
 
-        result = runner.invoke(cli, ["init", "--name", "test", "--from-cv", str(cv_path)],
-                               input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n")
+        result = runner.invoke(
+            cli,
+            ["init", "--name", "test", "--from-cv", str(cv_path)],
+            input="\n\n\nsoftware\n\nnone\nIsrael\n\ny\n\n\n3rd\ny\ny\n",
+        )
         assert result.exit_code == 0
         data = json.loads(_profile_path(tmp_data_dir).read_text(encoding="utf-8"))
         # All categorized skills extracted
@@ -415,6 +440,7 @@ class TestCVPreFill:
 # ---------------------------------------------------------------------------
 # require_profile guard tests
 # ---------------------------------------------------------------------------
+
 
 class TestRequireProfileGuard:
     def test_cv_adapt_blocked_without_profile(self, runner, tmp_data_dir):
@@ -443,6 +469,7 @@ class TestRequireProfileGuard:
 # Phase 2: experience_level + watchlist
 # ---------------------------------------------------------------------------
 
+
 class TestExperienceLevelField:
     def test_save_and_load_experience_level(self, tmp_data_dir):
         p = UserProfile(name="A", email="a@b.com", phone="1", experience_level="3-7")
@@ -452,7 +479,9 @@ class TestExperienceLevelField:
 
     def test_save_and_load_watchlist(self, tmp_data_dir):
         p = UserProfile(
-            name="A", email="a@b.com", phone="1",
+            name="A",
+            email="a@b.com",
+            phone="1",
             watchlist=["Intel", "Google"],
         )
         path = p.save(tmp_data_dir / "user_profile.json")
@@ -466,14 +495,18 @@ class TestExperienceLevelField:
 
     def test_validate_valid_experience_levels(self):
         for level in ("", "none", "1-3", "3-7", "7+"):
-            p = UserProfile(name="A", email="a@b.com", phone="1", experience_level=level)
+            p = UserProfile(
+                name="A", email="a@b.com", phone="1", experience_level=level
+            )
             issues = p.validate()
             assert not any("experience_level" in i for i in issues)
 
     def test_migration_student_gets_none(self, tmp_data_dir):
         """Profile with education.year but no experience_level → migrates to 'none'."""
         data = {
-            "name": "A", "email": "a@b.com", "phone": "1",
+            "name": "A",
+            "email": "a@b.com",
+            "phone": "1",
             "education": {"university": "BGU", "year": "3rd"},
         }
         path = tmp_data_dir / "user_profile.json"
@@ -484,7 +517,9 @@ class TestExperienceLevelField:
     def test_migration_experienced_gets_1_3(self, tmp_data_dir):
         """Profile with work_experience but no experience_level → migrates to '1-3'."""
         data = {
-            "name": "A", "email": "a@b.com", "phone": "1",
+            "name": "A",
+            "email": "a@b.com",
+            "phone": "1",
             "work_experience": [{"title": "SWE", "company": "X"}],
         }
         path = tmp_data_dir / "user_profile.json"
@@ -503,7 +538,9 @@ class TestExperienceLevelField:
     def test_existing_experience_level_not_overwritten(self, tmp_data_dir):
         """Profile with explicit experience_level keeps it."""
         data = {
-            "name": "A", "email": "a@b.com", "phone": "1",
+            "name": "A",
+            "email": "a@b.com",
+            "phone": "1",
             "experience_level": "7+",
         }
         path = tmp_data_dir / "user_profile.json"
@@ -520,12 +557,15 @@ class TestExperienceLevelField:
 # Profile enrich command
 # ---------------------------------------------------------------------------
 
+
 class TestProfileEnrich:
     def test_enrich_adds_cv_skills(self, runner, tmp_data_dir):
         """Enrich pulls missing skills from CV into profile."""
         # Create profile with 2 skills
         UserProfile(
-            name="A", email="a@b.com", phone="1",
+            name="A",
+            email="a@b.com",
+            phone="1",
             skills=["Python", "MATLAB"],
         ).save(tmp_data_dir / "user_profile.json")
 
@@ -545,7 +585,9 @@ class TestProfileEnrich:
             result = runner.invoke(cli, ["profile", "enrich"], input="y\n")
 
         assert result.exit_code == 0
-        data = json.loads((tmp_data_dir / "user_profile.json").read_text(encoding="utf-8"))
+        data = json.loads(
+            (tmp_data_dir / "user_profile.json").read_text(encoding="utf-8")
+        )
         assert "Machine Learning" in data["skills"]
         assert "Signal Processing" in data["skills"]
         assert "Assembly" in data["skills"]
@@ -557,13 +599,17 @@ class TestProfileEnrich:
     def test_enrich_no_duplicates(self, runner, tmp_data_dir):
         """Skills already in profile are not added again."""
         UserProfile(
-            name="A", email="a@b.com", phone="1",
+            name="A",
+            email="a@b.com",
+            phone="1",
             skills=["Python", "Machine Learning"],
         ).save(tmp_data_dir / "user_profile.json")
 
         cv_dir = tmp_data_dir / "cv"
         cv_dir.mkdir(exist_ok=True)
-        cv_data = {"skills": {"programming": ["Python"], "technical": ["Machine Learning"]}}
+        cv_data = {
+            "skills": {"programming": ["Python"], "technical": ["Machine Learning"]}
+        }
         (cv_dir / "base_cv.json").write_text(json.dumps(cv_data), encoding="utf-8")
 
         with patch("job_hunter.config.Config.CV_DIR", cv_dir):

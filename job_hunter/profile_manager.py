@@ -4,10 +4,8 @@ import json
 import re
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from job_hunter.config import Config
-
 
 # Directories that belong to a user profile (moved during migration)
 _USER_DATA_DIRS = ("applications", "cv", "cover_letters", "jobs", "logs", "recruiters")
@@ -33,7 +31,7 @@ def _active_profile_file() -> Path:
     return Config._BASE_DATA_DIR / ".active_profile"
 
 
-def get_active_profile() -> Optional[str]:
+def get_active_profile() -> str | None:
     """Read the currently active profile name, or None if not set."""
     path = _active_profile_file()
     if not path.exists():
@@ -54,7 +52,7 @@ def profile_dir(name: str) -> Path:
     return Config._BASE_DATA_DIR / "users" / name
 
 
-def list_profiles() -> List[Dict]:
+def list_profiles() -> list[dict]:
     """List all profiles with basic metadata.
 
     Returns a list of dicts with keys: slug, name, email, target_positions.
@@ -71,13 +69,15 @@ def list_profiles() -> List[Dict]:
             try:
                 with open(profile_file, encoding="utf-8") as f:
                     data = json.load(f)
-                profiles.append({
-                    "slug": d.name,
-                    "name": data.get("name", ""),
-                    "email": data.get("email", ""),
-                    "target_positions": data.get("target_positions", []),
-                    "active": d.name == active,
-                })
+                profiles.append(
+                    {
+                        "slug": d.name,
+                        "name": data.get("name", ""),
+                        "email": data.get("email", ""),
+                        "target_positions": data.get("target_positions", []),
+                        "active": d.name == active,
+                    }
+                )
             except (json.JSONDecodeError, OSError):
                 continue
     return profiles

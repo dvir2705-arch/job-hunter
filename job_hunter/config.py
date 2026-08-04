@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -53,6 +54,7 @@ class Config:
         cls._recalculate_paths()
         # Invalidate cached profile so next load reads from new DATA_DIR
         from job_hunter.profile import set_profile_path
+
         set_profile_path(None)
 
     @classmethod
@@ -61,7 +63,9 @@ class Config:
         cls.CV_DIR = cls.DATA_DIR / "cv"
         cls.APPLICATIONS_FILE = cls.DATA_DIR / "applications" / "applications.json"
         cls.JOBS_DIR = cls.DATA_DIR / "jobs"
-        cls.DISCOVERED_COMPANIES_FILE = cls.DATA_DIR / "jobs" / "discovered_companies.json"
+        cls.DISCOVERED_COMPANIES_FILE = (
+            cls.DATA_DIR / "jobs" / "discovered_companies.json"
+        )
         cls.SCAN_HISTORY_FILE = cls.DATA_DIR / "jobs" / "scan_history.json"
         cls.SCAN_CACHE_FILE = cls.DATA_DIR / "jobs" / "scan_cache.json"
         cls.COVER_LETTER_DATA_DIR = cls.DATA_DIR / "cover_letters"

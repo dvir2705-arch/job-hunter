@@ -1,18 +1,18 @@
 """Automatic company discovery from job listings."""
 
 import json
-from pathlib import Path
 from datetime import datetime
-from typing import List, Dict
+
+from job_hunter.config import Config
 
 from .scraper import JobListing
 
-from job_hunter.config import Config
 
 def _get_relevant_keywords() -> list:
     """Load domain keywords from user profile, with fallback."""
     try:
         from job_hunter.profile import get_profile
+
         return get_profile().domains
     except (FileNotFoundError, ValueError, ImportError):
         return []
@@ -20,8 +20,15 @@ def _get_relevant_keywords() -> list:
 
 # Generic irrelevant keywords — operational roles no job-seeker targets
 IRRELEVANT_KEYWORDS = [
-    "marketing", "sales", "hr", "recruiter", "finance", "accounting",
-    "admin", "customer success", "support",
+    "marketing",
+    "sales",
+    "hr",
+    "recruiter",
+    "finance",
+    "accounting",
+    "admin",
+    "customer success",
+    "support",
 ]
 
 
@@ -36,7 +43,7 @@ class CompanyDiscovery:
 
     def _load(self):
         if self.discovered_file.exists():
-            with open(self.discovered_file, "r", encoding="utf-8") as f:
+            with open(self.discovered_file, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = {
@@ -54,13 +61,15 @@ class CompanyDiscovery:
     def _load_known_companies(self):
         companies_file = Config.companies_file()
         if companies_file.exists():
-            with open(companies_file, "r", encoding="utf-8") as f:
+            with open(companies_file, encoding="utf-8") as f:
                 data = json.load(f)
-            self.known_companies = {c["name"].lower() for c in data.get("companies", [])}
+            self.known_companies = {
+                c["name"].lower() for c in data.get("companies", [])
+            }
         else:
             self.known_companies = set()
 
-    def _calculate_relevance(self, job_titles: List[str]) -> str:
+    def _calculate_relevance(self, job_titles: list[str]) -> str:
         text = " ".join(job_titles).lower()
         relevant_hits = sum(1 for kw in _get_relevant_keywords() if kw in text)
         irrelevant_hits = sum(1 for kw in IRRELEVANT_KEYWORDS if kw in text)
@@ -74,7 +83,7 @@ class CompanyDiscovery:
         else:
             return "unknown"
 
-    def process_jobs(self, jobs: List[JobListing]) -> Dict[str, int]:
+    def process_jobs(self, jobs: list[JobListing]) -> dict[str, int]:
         """Process job listings, track unknown companies. Returns {"new": N, "updated": N}."""
         stats = {"new": 0, "updated": 0}
 
@@ -114,7 +123,7 @@ class CompanyDiscovery:
         self._save()
         return stats
 
-    def get_pending(self, relevance: str = None) -> List[Dict]:
+    def get_pending(self, relevance: str = None) -> list[dict]:
         """Return pending companies sorted by relevance then times_seen."""
         order = {"high": 0, "medium": 1, "unknown": 2, "low": 3}
         results = []
@@ -124,7 +133,9 @@ class CompanyDiscovery:
             if relevance and info["relevance_score"] != relevance:
                 continue
             results.append({"name": name, **info})
-        results.sort(key=lambda x: (order.get(x["relevance_score"], 99), -x["times_seen"]))
+        results.sort(
+            key=lambda x: (order.get(x["relevance_score"], 99), -x["times_seen"])
+        )
         return results
 
     def mark_ignored(self, company: str):
@@ -150,7 +161,7 @@ class CompanyDiscovery:
         if not companies_file.exists():
             return False
 
-        with open(companies_file, "r", encoding="utf-8") as f:
+        with open(companies_file, encoding="utf-8") as f:
             data = json.load(f)
 
         # Guard: don't duplicate
@@ -168,8 +179,8 @@ class CompanyDiscovery:
             "scraper": "todo",
             "target_keywords": ["student", "intern"],
             "notes": f"Auto-discovered via {entry.get('source', 'scan')}. "
-                     f"Seen {entry.get('times_seen', 1)}x. "
-                     f"Sample roles: {', '.join(entry.get('job_titles', [])[:2])}",
+            f"Seen {entry.get('times_seen', 1)}x. "
+            f"Sample roles: {', '.join(entry.get('job_titles', [])[:2])}",
         }
 
         data.setdefault("companies", []).append(stub)
@@ -182,8 +193,10 @@ class CompanyDiscovery:
         self.known_companies.add(company.lower())
         return True
 
-    def get_stats(self) -> Dict:
-        pending = [c for c in self.data["discovered"].values() if c["status"] == "pending"]
+    def get_stats(self) -> dict:
+        pending = [
+            c for c in self.data["discovered"].values() if c["status"] == "pending"
+        ]
         return {
             "total_discovered": len(self.data["discovered"]),
             "pending_review": len(pending),

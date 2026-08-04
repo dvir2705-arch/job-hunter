@@ -1,8 +1,6 @@
 import json
-import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from job_hunter.config import Config
 from job_hunter.cv.parser import normalize_cv_schema
@@ -18,8 +16,10 @@ class CVManager:
     def load_base(self) -> dict:
         path = self.cv_dir / self.BASE_CV_FILE
         if not path.exists():
-            raise FileNotFoundError(f"Base CV not found at {path}. Run 'job-hunter cv init' first.")
-        with open(path, "r") as f:
+            raise FileNotFoundError(
+                f"Base CV not found at {path}. Run 'job-hunter cv init' first."
+            )
+        with open(path) as f:
             data = json.load(f)
         return normalize_cv_schema(data)
 
@@ -37,17 +37,19 @@ class CVManager:
             json.dump(data, f, indent=2)
         return path
 
-    def list_versions(self) -> List[Path]:
-        return sorted(self.cv_dir.glob("cv_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    def list_versions(self) -> list[Path]:
+        return sorted(
+            self.cv_dir.glob("cv_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
 
     def load_version(self, filename: str) -> dict:
         path = self.cv_dir / filename
         if not path.exists():
             raise FileNotFoundError(f"CV version '{filename}' not found.")
-        with open(path, "r") as f:
+        with open(path) as f:
             return json.load(f)
 
-    def init_base(self, data: Optional[dict] = None) -> Path:
+    def init_base(self, data: dict | None = None) -> Path:
         if data is None:
             data = self._default_cv()
         return self.save_base(data)

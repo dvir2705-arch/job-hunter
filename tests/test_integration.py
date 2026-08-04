@@ -16,8 +16,6 @@ from unittest.mock import patch
 import pytest
 
 from job_hunter.profile import UserProfile
-from job_hunter.config import Config
-
 
 # ---------------------------------------------------------------------------
 # Test profiles
@@ -36,7 +34,11 @@ CS_STUDENT = {
         "degree": "B.Sc. Computer Science",
         "year": "2nd",
     },
-    "location": {"country": "Israel", "cities": ["Tel Aviv", "Ramat Gan"], "radius_km": 15},
+    "location": {
+        "country": "Israel",
+        "cities": ["Tel Aviv", "Ramat Gan"],
+        "radius_km": 15,
+    },
     "watchlist": ["Intel", "Google"],
 }
 
@@ -45,7 +47,11 @@ BACKEND_DEV = {
     "email": "amit@example.com",
     "phone": "052-9876543",
     "skills": ["Python", "Node.js", "PostgreSQL", "Docker", "AWS", "Kubernetes"],
-    "target_positions": ["backend developer", "full stack developer", "DevOps engineer"],
+    "target_positions": [
+        "backend developer",
+        "full stack developer",
+        "DevOps engineer",
+    ],
     "domains": ["software"],
     "experience_level": "3-7",
     "education": {
@@ -74,7 +80,11 @@ DATA_SCIENTIST = {
     "work_experience": [
         {"company": "Mobileye", "role": "Data Scientist Intern", "years": "2024-2025"},
     ],
-    "location": {"country": "Israel", "cities": ["Jerusalem", "Tel Aviv"], "radius_km": 25},
+    "location": {
+        "country": "Israel",
+        "cities": ["Jerusalem", "Tel Aviv"],
+        "radius_km": 25,
+    },
     "watchlist": ["Mobileye", "NVIDIA"],
 }
 
@@ -103,25 +113,47 @@ def tmp_data_dir(tmp_path):
     # Create companies.json registry
     registry = {
         "companies": [
-            {"name": "Intel", "domain": ["chip_design", "ai_ml"],
-             "scraper": "IntelScraper", "priority": True},
-            {"name": "NVIDIA", "domain": ["chip_design", "ai_ml"],
-             "scraper": "NVIDIAScraper", "priority": True},
-            {"name": "Marvell", "domain": ["chip_design", "communications"],
-             "scraper": "MarvellScraper", "priority": True},
-            {"name": "Amazon", "domain": ["cloud", "software"],
-             "scraper": "AmazonScraper", "priority": True},
-            {"name": "Mobileye", "domain": ["autonomous_driving", "ai_ml"],
-             "scraper": None, "priority": False},
+            {
+                "name": "Intel",
+                "domain": ["chip_design", "ai_ml"],
+                "scraper": "IntelScraper",
+                "priority": True,
+            },
+            {
+                "name": "NVIDIA",
+                "domain": ["chip_design", "ai_ml"],
+                "scraper": "NVIDIAScraper",
+                "priority": True,
+            },
+            {
+                "name": "Marvell",
+                "domain": ["chip_design", "communications"],
+                "scraper": "MarvellScraper",
+                "priority": True,
+            },
+            {
+                "name": "Amazon",
+                "domain": ["cloud", "software"],
+                "scraper": "AmazonScraper",
+                "priority": True,
+            },
+            {
+                "name": "Mobileye",
+                "domain": ["autonomous_driving", "ai_ml"],
+                "scraper": None,
+                "priority": False,
+            },
         ]
     }
     jobs_dir = tmp_path / "jobs"
     jobs_dir.mkdir()
     (jobs_dir / "companies.json").write_text(json.dumps(registry), encoding="utf-8")
 
-    with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
-         patch("job_hunter.profile.Config.DATA_DIR", tmp_path):
+    with (
+        patch("job_hunter.config.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path),
+        patch("job_hunter.profile.Config.DATA_DIR", tmp_path),
+    ):
         yield tmp_path
 
 
@@ -129,6 +161,7 @@ def tmp_data_dir(tmp_path):
 def reset_profile_cache():
     """Reset cached profile between tests."""
     import job_hunter.profile as pm
+
     pm._profile = None
     pm._profile_path_override = None
     yield
@@ -147,13 +180,17 @@ def _save_profile(data: dict, tmp_dir: Path) -> UserProfile:
 # Profile save/load round-trip
 # ---------------------------------------------------------------------------
 
+
 class TestProfileRoundTrip:
-    @pytest.mark.parametrize("label,data", [
-        ("cs_student", CS_STUDENT),
-        ("backend_dev", BACKEND_DEV),
-        ("data_scientist", DATA_SCIENTIST),
-        ("dvir", DVIR_PROFILE),
-    ])
+    @pytest.mark.parametrize(
+        "label,data",
+        [
+            ("cs_student", CS_STUDENT),
+            ("backend_dev", BACKEND_DEV),
+            ("data_scientist", DATA_SCIENTIST),
+            ("dvir", DVIR_PROFILE),
+        ],
+    )
     def test_save_and_reload(self, tmp_data_dir, label, data):
         path = tmp_data_dir / "user_profile.json"
         path.write_text(json.dumps(data), encoding="utf-8")
@@ -172,12 +209,15 @@ class TestProfileRoundTrip:
         assert reloaded.name == profile.name
         assert reloaded.watchlist == profile.watchlist
 
-    @pytest.mark.parametrize("label,data", [
-        ("cs_student", CS_STUDENT),
-        ("backend_dev", BACKEND_DEV),
-        ("data_scientist", DATA_SCIENTIST),
-        ("dvir", DVIR_PROFILE),
-    ])
+    @pytest.mark.parametrize(
+        "label,data",
+        [
+            ("cs_student", CS_STUDENT),
+            ("backend_dev", BACKEND_DEV),
+            ("data_scientist", DATA_SCIENTIST),
+            ("dvir", DVIR_PROFILE),
+        ],
+    )
     def test_validation_passes(self, tmp_data_dir, label, data):
         profile = _save_profile(data, tmp_data_dir)
         issues = profile.validate()
@@ -189,20 +229,28 @@ class TestProfileRoundTrip:
 # Search config build
 # ---------------------------------------------------------------------------
 
+
 class TestSearchConfigBuild:
-    @pytest.mark.parametrize("label,data", [
-        ("cs_student", CS_STUDENT),
-        ("backend_dev", BACKEND_DEV),
-        ("data_scientist", DATA_SCIENTIST),
-        ("dvir", DVIR_PROFILE),
-    ])
+    @pytest.mark.parametrize(
+        "label,data",
+        [
+            ("cs_student", CS_STUDENT),
+            ("backend_dev", BACKEND_DEV),
+            ("data_scientist", DATA_SCIENTIST),
+            ("dvir", DVIR_PROFILE),
+        ],
+    )
     def test_build_search_config(self, tmp_data_dir, label, data):
         profile = _save_profile(data, tmp_data_dir)
 
         from job_hunter.jobs.search_strategy import build_search_config
+
         # Mock Haiku query generation to avoid API calls
         mock_queries = ["test query 1", "test query 2"]
-        with patch("job_hunter.jobs.search_strategy.generate_queries", return_value=mock_queries):
+        with patch(
+            "job_hunter.jobs.search_strategy.generate_queries",
+            return_value=mock_queries,
+        ):
             config = build_search_config(profile)
 
         # Queries present
@@ -219,7 +267,10 @@ class TestSearchConfigBuild:
         profile = _save_profile(CS_STUDENT, tmp_data_dir)
 
         from job_hunter.jobs.search_strategy import build_search_config
-        with patch("job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]):
+
+        with patch(
+            "job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]
+        ):
             config = build_search_config(profile)
 
         assert "student" in config.level_keywords or "intern" in config.level_keywords
@@ -230,7 +281,10 @@ class TestSearchConfigBuild:
         profile = _save_profile(BACKEND_DEV, tmp_data_dir)
 
         from job_hunter.jobs.search_strategy import build_search_config
-        with patch("job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]):
+
+        with patch(
+            "job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]
+        ):
             config = build_search_config(profile)
 
         # 3-7 years: should use SENIORITY_REJECT_EXPERIENCED (only VP/director/etc)
@@ -242,7 +296,10 @@ class TestSearchConfigBuild:
         profile = _save_profile(DATA_SCIENTIST, tmp_data_dir)
 
         from job_hunter.jobs.search_strategy import build_search_config
-        with patch("job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]):
+
+        with patch(
+            "job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]
+        ):
             config = build_search_config(profile)
 
         assert "senior" in config.seniority_reject
@@ -252,7 +309,10 @@ class TestSearchConfigBuild:
         profile = _save_profile(DVIR_PROFILE, tmp_data_dir)
 
         from job_hunter.jobs.search_strategy import build_search_config
-        with patch("job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]):
+
+        with patch(
+            "job_hunter.jobs.search_strategy.generate_queries", return_value=["q"]
+        ):
             config = build_search_config(profile)
 
         assert "IntelScraper" in config.enabled_scrapers
@@ -263,12 +323,14 @@ class TestSearchConfigBuild:
 # Relevance filter keywords
 # ---------------------------------------------------------------------------
 
+
 class TestRelevanceFilterKeywords:
     def test_cs_student_keywords(self, tmp_data_dir):
         """CS student keywords derived from target_positions + skills (no domains)."""
         _save_profile(CS_STUDENT, tmp_data_dir)
 
         from job_hunter.jobs.relevance_filter import _get_relevant_keywords
+
         keywords = _get_relevant_keywords()
 
         # From skills
@@ -286,6 +348,7 @@ class TestRelevanceFilterKeywords:
         _save_profile(BACKEND_DEV, tmp_data_dir)
 
         from job_hunter.jobs.relevance_filter import _get_relevant_keywords
+
         keywords = _get_relevant_keywords()
 
         # From domains
@@ -302,6 +365,7 @@ class TestRelevanceFilterKeywords:
         _save_profile(DATA_SCIENTIST, tmp_data_dir)
 
         from job_hunter.jobs.relevance_filter import _get_relevant_keywords
+
         keywords = _get_relevant_keywords()
 
         assert "python" in keywords
@@ -315,6 +379,7 @@ class TestRelevanceFilterKeywords:
         _save_profile(DVIR_PROFILE, tmp_data_dir)
 
         from job_hunter.jobs.relevance_filter import _get_relevant_keywords
+
         keywords = _get_relevant_keywords()
 
         assert "python" in keywords
@@ -326,6 +391,7 @@ class TestRelevanceFilterKeywords:
     def test_no_profile_returns_empty(self, tmp_data_dir):
         """No profile file → empty keywords (graceful fallback)."""
         from job_hunter.jobs.relevance_filter import _get_relevant_keywords
+
         keywords = _get_relevant_keywords()
         assert keywords == []
 
@@ -334,10 +400,12 @@ class TestRelevanceFilterKeywords:
 # API key validation (B2)
 # ---------------------------------------------------------------------------
 
+
 class TestAPIKeyValidation:
     def test_scan_rejects_missing_key(self, tmp_data_dir):
         """jobs scan should fail immediately if ANTHROPIC_API_KEY is missing."""
         from click.testing import CliRunner
+
         from job_hunter.cli import cli
 
         _save_profile(CS_STUDENT, tmp_data_dir)
@@ -351,6 +419,7 @@ class TestAPIKeyValidation:
     def test_refresh_rejects_missing_key(self, tmp_data_dir):
         """jobs refresh-queries should fail immediately if key is missing."""
         from click.testing import CliRunner
+
         from job_hunter.cli import cli
 
         _save_profile(CS_STUDENT, tmp_data_dir)
@@ -364,6 +433,7 @@ class TestAPIKeyValidation:
     def test_discover_rejects_missing_key(self, tmp_data_dir):
         """jobs discover should fail immediately if key is missing."""
         from click.testing import CliRunner
+
         from job_hunter.cli import cli
 
         _save_profile(CS_STUDENT, tmp_data_dir)
@@ -378,6 +448,7 @@ class TestAPIKeyValidation:
 # ---------------------------------------------------------------------------
 # Cross-profile consistency
 # ---------------------------------------------------------------------------
+
 
 class TestCrossProfileConsistency:
     def test_student_is_student_property(self, tmp_data_dir):
@@ -400,9 +471,14 @@ class TestCrossProfileConsistency:
         """Each profile's watchlist should determine which companies are scanned."""
         from job_hunter.jobs.search_strategy import _load_companies
 
-        for label, data in [("cs", CS_STUDENT), ("backend", BACKEND_DEV),
-                            ("ds", DATA_SCIENTIST), ("dvir", DVIR_PROFILE)]:
+        for label, data in [
+            ("cs", CS_STUDENT),
+            ("backend", BACKEND_DEV),
+            ("ds", DATA_SCIENTIST),
+            ("dvir", DVIR_PROFILE),
+        ]:
             profile = _save_profile(data, tmp_data_dir)
             companies, priority = _load_companies(profile)
-            assert set(companies) == set(data["watchlist"]), \
-                f"{label}: expected {data['watchlist']}, got {companies}"
+            assert set(companies) == set(
+                data["watchlist"]
+            ), f"{label}: expected {data['watchlist']}, got {companies}"

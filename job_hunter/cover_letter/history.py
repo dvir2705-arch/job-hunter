@@ -1,10 +1,8 @@
 """Cover letter history management for comparison and learning."""
 
 import json
-from pathlib import Path
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import List, Optional
-from dataclasses import dataclass, asdict
 
 from job_hunter.config import Config
 
@@ -12,6 +10,7 @@ from job_hunter.config import Config
 @dataclass
 class CoverLetterRecord:
     """A stored cover letter with metadata."""
+
     id: str
     job_title: str
     company: str
@@ -20,8 +19,8 @@ class CoverLetterRecord:
     job_description: str
     created_at: str
     file_path: str
-    critique: Optional[str] = None
-    score: Optional[int] = None
+    critique: str | None = None
+    score: int | None = None
 
 
 class CoverLetterHistory:
@@ -38,10 +37,12 @@ class CoverLetterHistory:
     def _load_history(self):
         """Load history from JSON file."""
         if self.history_file.exists():
-            with open(self.history_file, 'r', encoding='utf-8') as f:
+            with open(self.history_file, encoding="utf-8") as f:
                 data = json.load(f)
                 self.records = [
-                    CoverLetterRecord(**{k: v for k, v in r.items() if k != "mentioned_job_hunter"})
+                    CoverLetterRecord(
+                        **{k: v for k, v in r.items() if k != "mentioned_job_hunter"}
+                    )
                     for r in data.get("records", [])
                 ]
         else:
@@ -49,15 +50,22 @@ class CoverLetterHistory:
 
     def _save_history(self):
         """Save history to JSON file."""
-        with open(self.history_file, 'w', encoding='utf-8') as f:
-            json.dump({"records": [asdict(r) for r in self.records]}, f, indent=2, ensure_ascii=False)
+        with open(self.history_file, "w", encoding="utf-8") as f:
+            json.dump(
+                {"records": [asdict(r) for r in self.records]},
+                f,
+                indent=2,
+                ensure_ascii=False,
+            )
 
-    def save(self,
-             job_title: str,
-             company: str,
-             language: str,
-             content: str,
-             job_description: str) -> CoverLetterRecord:
+    def save(
+        self,
+        job_title: str,
+        company: str,
+        language: str,
+        content: str,
+        job_description: str,
+    ) -> CoverLetterRecord:
         """Save a new cover letter to history."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         company_slug = company.lower().replace(" ", "_").replace("/", "_")[:20]
@@ -67,7 +75,7 @@ class CoverLetterHistory:
         filename = f"cover_letter_{record_id}.txt"
         file_path = self.output_dir / filename
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         record = CoverLetterRecord(
@@ -86,22 +94,22 @@ class CoverLetterHistory:
 
         return record
 
-    def get_recent(self, limit: int = 5) -> List[CoverLetterRecord]:
+    def get_recent(self, limit: int = 5) -> list[CoverLetterRecord]:
         """Get the most recent cover letters."""
         return sorted(self.records, key=lambda r: r.created_at, reverse=True)[:limit]
 
-    def get_by_company(self, company: str) -> List[CoverLetterRecord]:
+    def get_by_company(self, company: str) -> list[CoverLetterRecord]:
         """Get all cover letters for a specific company."""
         return [r for r in self.records if company.lower() in r.company.lower()]
 
-    def get_by_id(self, record_id: str) -> Optional[CoverLetterRecord]:
+    def get_by_id(self, record_id: str) -> CoverLetterRecord | None:
         """Get a specific cover letter by ID."""
         for r in self.records:
             if r.id == record_id:
                 return r
         return None
 
-    def get_all(self) -> List[CoverLetterRecord]:
+    def get_all(self) -> list[CoverLetterRecord]:
         """Get all cover letters."""
         return self.records
 

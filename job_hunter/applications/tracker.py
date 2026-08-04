@@ -1,8 +1,7 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
 
-from job_hunter.applications.models import Application, VALID_TRANSITIONS
+from job_hunter.applications.models import VALID_TRANSITIONS, Application
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
 
@@ -12,7 +11,7 @@ logger = get_logger(__name__)
 class ApplicationTracker:
     def __init__(self, filepath: Path = None):
         self.filepath = filepath or Config.APPLICATIONS_FILE
-        self.applications: List[Application] = []
+        self.applications: list[Application] = []
         self._load()
 
     def _load(self) -> None:
@@ -21,7 +20,7 @@ class ApplicationTracker:
             return
 
         try:
-            with open(self.filepath, "r", encoding="utf-8") as f:
+            with open(self.filepath, encoding="utf-8") as f:
                 data = json.load(f)
         except json.JSONDecodeError as e:
             logger.error("Corrupted applications file %s: %s", self.filepath, e)
@@ -64,7 +63,11 @@ class ApplicationTracker:
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(self.filepath, "w", encoding="utf-8") as f:
-                json.dump({"applications": [a.to_dict() for a in self.applications]}, f, indent=2)
+                json.dump(
+                    {"applications": [a.to_dict() for a in self.applications]},
+                    f,
+                    indent=2,
+                )
         except PermissionError as e:
             logger.error("Cannot write applications file %s: %s", self.filepath, e)
 
@@ -75,14 +78,14 @@ class ApplicationTracker:
         self._save()
         return app
 
-    def get_by_id(self, partial_id: str) -> Optional[Application]:
+    def get_by_id(self, partial_id: str) -> Application | None:
         """Find application by full or partial ID."""
         for app in self.applications:
             if app.id.startswith(partial_id):
                 return app
         return None
 
-    def reset_status(self, app_id: str, note: str = "") -> Optional[Application]:
+    def reset_status(self, app_id: str, note: str = "") -> Application | None:
         """Reset application status to 'applied'. For corrections only."""
         app = self.get_by_id(app_id)
         if not app:
@@ -91,7 +94,9 @@ class ApplicationTracker:
         self._save()
         return app
 
-    def update_status(self, app_id: str, new_status: str, note: str = "") -> Optional[Application]:
+    def update_status(
+        self, app_id: str, new_status: str, note: str = ""
+    ) -> Application | None:
         """Update status with transition validation."""
         app = self.get_by_id(app_id)
         if not app:
@@ -110,32 +115,34 @@ class ApplicationTracker:
 
     # --- Queries ---
 
-    def get_all(self) -> List[Application]:
+    def get_all(self) -> list[Application]:
         return list(self.applications)
 
-    def get_by_status(self, status: str) -> List[Application]:
+    def get_by_status(self, status: str) -> list[Application]:
         return [a for a in self.applications if a.status == status]
 
-    def get_by_company(self, company: str) -> List[Application]:
+    def get_by_company(self, company: str) -> list[Application]:
         return [a for a in self.applications if a.company.lower() == company.lower()]
 
-    def get_needing_follow_up(self) -> List[Application]:
+    def get_needing_follow_up(self) -> list[Application]:
         return [a for a in self.applications if a.needs_follow_up()]
 
     # --- Stats ---
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         apps = self.applications
         total = len(apps)
 
-        by_status: Dict[str, int] = {}
-        by_company: Dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        by_company: dict[str, int] = {}
         for a in apps:
             by_status[a.status] = by_status.get(a.status, 0) + 1
             by_company[a.company] = by_company.get(a.company, 0) + 1
 
         responded = sum(
-            1 for a in apps if a.status in ("screening", "interview", "offer", "rejected")
+            1
+            for a in apps
+            if a.status in ("screening", "interview", "offer", "rejected")
         )
         response_rate = round(responded / total * 100, 1) if total else 0.0
 

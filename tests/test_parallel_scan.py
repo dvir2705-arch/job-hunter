@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from job_hunter.jobs.scraper import JobScanner, JobListing
 from job_hunter.jobs.scan_cache import ScanCache
+from job_hunter.jobs.scraper import JobListing, JobScanner
 from job_hunter.jobs.search_strategy import SearchConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_jobs(prefix: str, n: int = 2) -> list:
     return [
@@ -67,6 +67,7 @@ def scanner():
 # Basic parallel dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestParallelDispatch:
     def test_runs_all_enabled_scrapers(self, scanner, cache):
         mock_a = _mock_scraper("A", _make_jobs("A", 2))
@@ -81,7 +82,9 @@ class TestParallelDispatch:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         assert mock_a.search.called
         assert mock_b.search.called
@@ -107,7 +110,9 @@ class TestParallelDispatch:
             enabled_scrapers=["NonexistentScraper"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         assert results == []
 
@@ -115,6 +120,7 @@ class TestParallelDispatch:
 # ---------------------------------------------------------------------------
 # Company scan integration
 # ---------------------------------------------------------------------------
+
 
 class TestCompanyScan:
     def test_company_tasks_submitted(self, scanner, cache):
@@ -126,11 +132,14 @@ class TestCompanyScan:
         )
 
         with patch.object(
-            scanner, "_run_source",
+            scanner,
+            "_run_source",
             return_value=_make_jobs("TestCo", 2),
         ) as mock_run:
             results = scanner.parallel_scan(
-                config, cache, include_companies=True,
+                config,
+                cache,
+                include_companies=True,
                 only_priority=True,
             )
         # At least the company task should have been submitted
@@ -147,7 +156,9 @@ class TestCompanyScan:
             priority_companies=["ShouldNotRun"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         # Only scraper results, no company results
         assert len(results) == 1
@@ -165,17 +176,24 @@ class TestCompanyScan:
         # only_priority=True → 1 company task
         with patch.object(scanner, "_run_source", return_value=[]):
             scanner.parallel_scan(
-                config, cache, include_companies=True, only_priority=True,
+                config,
+                cache,
+                include_companies=True,
+                only_priority=True,
             )
             # Clear cache for next run
             cache.clear()
 
         with patch.object(scanner, "_run_source", return_value=[]) as mock_run:
             scanner.parallel_scan(
-                config, cache, include_companies=True, only_priority=False,
+                config,
+                cache,
+                include_companies=True,
+                only_priority=False,
             )
             company_keys = [
-                call.args[0] for call in mock_run.call_args_list
+                call.args[0]
+                for call in mock_run.call_args_list
                 if call.args[0].startswith("company:")
             ]
             assert len(company_keys) == 3
@@ -185,12 +203,15 @@ class TestCompanyScan:
 # Dedup across sources
 # ---------------------------------------------------------------------------
 
+
 class TestDedup:
     def test_dedup_across_scrapers(self, scanner, cache):
         """Same job from two scrapers is deduplicated."""
         shared_job = JobListing(
-            title="Shared Job", company="Corp",
-            location="Israel", url="https://example.com/shared",
+            title="Shared Job",
+            company="Corp",
+            location="Israel",
+            url="https://example.com/shared",
         )
         mock_a = _mock_scraper("A", [shared_job])
         mock_b = _mock_scraper("B", [shared_job])
@@ -203,19 +224,25 @@ class TestDedup:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         assert len(results) == 1
 
     def test_dedup_by_title_company(self, scanner, cache):
         """Same title+company but different URL is still deduped."""
         job1 = JobListing(
-            title="Engineer", company="Corp",
-            location="Israel", url="https://a.com/1",
+            title="Engineer",
+            company="Corp",
+            location="Israel",
+            url="https://a.com/1",
         )
         job2 = JobListing(
-            title="Engineer", company="Corp",
-            location="Israel", url="https://b.com/2",
+            title="Engineer",
+            company="Corp",
+            location="Israel",
+            url="https://b.com/2",
         )
         mock_a = _mock_scraper("A", [job1])
         mock_b = _mock_scraper("B", [job2])
@@ -228,7 +255,9 @@ class TestDedup:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         assert len(results) == 1
 
@@ -236,6 +265,7 @@ class TestDedup:
 # ---------------------------------------------------------------------------
 # Cache integration
 # ---------------------------------------------------------------------------
+
 
 class TestCacheIntegration:
     def test_skips_fresh_sources(self, scanner, cache):
@@ -251,7 +281,10 @@ class TestCacheIntegration:
             enabled_scrapers=["MockScraperA"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False, ttl_minutes=90,
+            config,
+            cache,
+            include_companies=False,
+            ttl_minutes=90,
         )
         # Scraper should NOT have been called — result served from cache
         mock_a.search.assert_not_called()
@@ -266,7 +299,9 @@ class TestCacheIntegration:
             enabled_scrapers=["MockScraperA"],
         )
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         # Cache should now have the result
         cached = cache.get("scraper:MockScraperA:q1")
@@ -297,7 +332,10 @@ class TestCacheIntegration:
             enabled_scrapers=["MockScraperA"],
         )
         results = scanner.parallel_scan(
-            config, fresh_cache, include_companies=False, ttl_minutes=90,
+            config,
+            fresh_cache,
+            include_companies=False,
+            ttl_minutes=90,
         )
         # Scraper should have been called since cache is stale
         mock_a.search.assert_called_once()
@@ -307,6 +345,7 @@ class TestCacheIntegration:
 # ---------------------------------------------------------------------------
 # Error handling — one source fails, others continue
 # ---------------------------------------------------------------------------
+
 
 class TestErrorHandling:
     def test_failing_scraper_doesnt_kill_scan(self, scanner, cache):
@@ -323,7 +362,9 @@ class TestErrorHandling:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         # A's results should still be returned
         assert len(results) == 2
@@ -343,7 +384,9 @@ class TestErrorHandling:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         results = scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         assert results == []
 
@@ -351,6 +394,7 @@ class TestErrorHandling:
 # ---------------------------------------------------------------------------
 # Progress callback
 # ---------------------------------------------------------------------------
+
 
 class TestProgressCallback:
     def test_callback_fires_per_source(self, scanner, cache):
@@ -371,7 +415,9 @@ class TestProgressCallback:
             enabled_scrapers=["MockScraperA", "MockScraperB"],
         )
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
             progress_callback=on_progress,
         )
         assert len(calls) == 2
@@ -396,7 +442,9 @@ class TestProgressCallback:
             enabled_scrapers=["MockScraperA"],
         )
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
             progress_callback=on_progress,
         )
         assert len(calls) == 1
@@ -417,7 +465,9 @@ class TestProgressCallback:
             enabled_scrapers=["MockScraperA"],
         )
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
             progress_callback=on_progress,
         )
         assert len(calls) == 1
@@ -438,7 +488,9 @@ class TestProgressCallback:
             enabled_scrapers=["MockScraperA"],
         )
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
             progress_callback=on_progress,
         )
         assert len(calls) == 1
@@ -448,6 +500,7 @@ class TestProgressCallback:
 # ---------------------------------------------------------------------------
 # No stagger — tasks submit immediately
 # ---------------------------------------------------------------------------
+
 
 class TestNoStagger:
     def test_no_stagger_delay(self, scanner, cache):
@@ -466,7 +519,9 @@ class TestNoStagger:
 
         start = time.monotonic()
         scanner.parallel_scan(
-            config, cache, include_companies=False,
+            config,
+            cache,
+            include_companies=False,
         )
         elapsed = time.monotonic() - start
         # No stagger — should complete in under 0.5s with mock scrapers

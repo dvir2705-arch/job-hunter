@@ -3,44 +3,51 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 from docx import Document
 from docx.shared import Pt
-
 
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class DocxSection:
     """A detected section in a docx CV."""
-    name: str           # e.g. "Education", "Skills"
-    semantic_type: str   # normalized: "education", "experience", "skills", "summary", "custom"
-    header_para: int     # paragraph index of the header (-1 for implicit sections)
-    start_para: int      # first content paragraph (after header)
-    end_para: int        # last paragraph (inclusive) before next section
+
+    name: str  # e.g. "Education", "Skills"
+    semantic_type: (
+        str  # normalized: "education", "experience", "skills", "summary", "custom"
+    )
+    header_para: int  # paragraph index of the header (-1 for implicit sections)
+    start_para: int  # first content paragraph (after header)
+    end_para: int  # last paragraph (inclusive) before next section
 
 
 @dataclass
 class DocxSectionMap:
     """Complete section map of a parsed docx CV."""
-    header: Optional[DocxSection]    # name + title block at top
-    contact: Optional[DocxSection]   # contact info block
-    sections: List[DocxSection] = field(default_factory=list)
-    unmapped_paras: List[int] = field(default_factory=list)
+
+    header: DocxSection | None  # name + title block at top
+    contact: DocxSection | None  # contact info block
+    sections: list[DocxSection] = field(default_factory=list)
+    unmapped_paras: list[int] = field(default_factory=list)
 
     def summary(self) -> str:
         """Human-readable summary of detected sections."""
         lines = []
         if self.header:
-            lines.append(f"  [header]  — paragraphs {self.header.start_para}-{self.header.end_para}")
+            lines.append(
+                f"  [header]  — paragraphs {self.header.start_para}-{self.header.end_para}"
+            )
         if self.contact:
-            lines.append(f"  [contact] — paragraphs {self.contact.start_para}-{self.contact.end_para}")
+            lines.append(
+                f"  [contact] — paragraphs {self.contact.start_para}-{self.contact.end_para}"
+            )
         for s in self.sections:
             lines.append(
-                f"  [{s.semantic_type}] \"{s.name}\" "
+                f'  [{s.semantic_type}] "{s.name}" '
                 f"— paragraphs {s.start_para}-{s.end_para}"
             )
         if self.unmapped_paras:
@@ -54,38 +61,55 @@ class DocxSectionMap:
 
 _SECTION_MAP = {
     # summary
-    "summary": "summary", "profile": "summary", "about": "summary",
-    "about me": "summary", "objective": "summary", "professional summary": "summary",
+    "summary": "summary",
+    "profile": "summary",
+    "about": "summary",
+    "about me": "summary",
+    "objective": "summary",
+    "professional summary": "summary",
     "career objective": "summary",
     # education
-    "education": "education", "academic background": "education",
+    "education": "education",
+    "academic background": "education",
     "academic education": "education",
     # experience
-    "experience": "experience", "work experience": "experience",
-    "employment": "experience", "work history": "experience",
+    "experience": "experience",
+    "work experience": "experience",
+    "employment": "experience",
+    "work history": "experience",
     "professional experience": "experience",
     # skills
-    "skills": "skills", "technical skills": "skills",
-    "core competencies": "skills", "competencies": "skills",
+    "skills": "skills",
+    "technical skills": "skills",
+    "core competencies": "skills",
+    "competencies": "skills",
     "key skills": "skills",
     # projects
-    "projects": "projects", "personal projects": "projects",
+    "projects": "projects",
+    "personal projects": "projects",
     "academic projects": "projects",
     # languages
     "languages": "languages",
     # military
-    "military": "military", "military service": "military",
+    "military": "military",
+    "military service": "military",
     "national service": "military",
     # volunteering
-    "volunteering": "volunteering", "volunteer experience": "volunteering",
-    "volunteer work": "volunteering", "community involvement": "volunteering",
+    "volunteering": "volunteering",
+    "volunteer experience": "volunteering",
+    "volunteer work": "volunteering",
+    "community involvement": "volunteering",
     # certifications
-    "certifications": "certifications", "certificates": "certifications",
-    "licenses": "certifications", "licenses & certifications": "certifications",
+    "certifications": "certifications",
+    "certificates": "certifications",
+    "licenses": "certifications",
+    "licenses & certifications": "certifications",
     # publications
     "publications": "publications",
     # awards
-    "awards": "awards", "honors": "awards", "achievements": "awards",
+    "awards": "awards",
+    "honors": "awards",
+    "achievements": "awards",
     "honors & awards": "awards",
     # references
     "references": "references",
@@ -104,6 +128,7 @@ _LINKEDIN_RE = re.compile(r"linkedin\.com", re.IGNORECASE)
 # Section classification
 # ---------------------------------------------------------------------------
 
+
 def classify_section(header_text: str) -> str:
     """Map detected header text to a semantic type."""
     normalized = header_text.strip().lower()
@@ -121,7 +146,8 @@ def classify_section(header_text: str) -> str:
 # Header detection signals
 # ---------------------------------------------------------------------------
 
-def _compute_median_font_size(paragraphs) -> Optional[int]:
+
+def _compute_median_font_size(paragraphs) -> int | None:
     """Compute the median font size across all runs with explicit size."""
     sizes = []
     for para in paragraphs:
@@ -217,6 +243,7 @@ def is_section_header(para, median_font_size, para_index: int = -1) -> bool:
 # Contact block detection
 # ---------------------------------------------------------------------------
 
+
 def _is_contact_paragraph(para) -> bool:
     """Check if a paragraph contains contact info (email, phone, linkedin)."""
     text = para.text
@@ -230,6 +257,7 @@ def _is_contact_paragraph(para) -> bool:
 # ---------------------------------------------------------------------------
 # Main section map builder
 # ---------------------------------------------------------------------------
+
 
 def build_section_map(doc: Document) -> DocxSectionMap:
     """Analyze a docx Document and return a map of detected sections."""
@@ -251,10 +279,12 @@ def build_section_map(doc: Document) -> DocxSectionMap:
     while i < len(headers):
         idx, text = headers[i]
         # Check if next header is immediately after and also short
-        if (i + 1 < len(headers)
-                and headers[i + 1][0] == idx + 1
-                and len(text.split()) <= 3
-                and len(headers[i + 1][1].split()) <= 3):
+        if (
+            i + 1 < len(headers)
+            and headers[i + 1][0] == idx + 1
+            and len(text.split()) <= 3
+            and len(headers[i + 1][1].split()) <= 3
+        ):
             merged_text = f"{text} {headers[i + 1][1]}"
             merged_headers.append((idx, merged_text))
             i += 2  # skip the next one
@@ -313,14 +343,18 @@ def build_section_map(doc: Document) -> DocxSectionMap:
     # Build content sections from real headers
     sections = []
     for j, (header_idx, header_text) in enumerate(real_headers):
-        next_idx = real_headers[j + 1][0] if j + 1 < len(real_headers) else len(paragraphs)
-        sections.append(DocxSection(
-            name=header_text,
-            semantic_type=classify_section(header_text),
-            header_para=header_idx,
-            start_para=header_idx + 1,
-            end_para=next_idx - 1,
-        ))
+        next_idx = (
+            real_headers[j + 1][0] if j + 1 < len(real_headers) else len(paragraphs)
+        )
+        sections.append(
+            DocxSection(
+                name=header_text,
+                semantic_type=classify_section(header_text),
+                header_para=header_idx,
+                start_para=header_idx + 1,
+                end_para=next_idx - 1,
+            )
+        )
 
     # Find unmapped paragraphs
     mapped = set()

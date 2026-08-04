@@ -1,17 +1,17 @@
 """Tests for B3 — per-user data isolation via Config.set_user()."""
 
-import json
 import os
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
-from job_hunter.config import Config
+import pytest
 
+from job_hunter.config import Config
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _save_original_config():
     """Snapshot Config class attributes before a test."""
@@ -54,6 +54,7 @@ def reset_config():
 # Config.set_user() path recalculation
 # ---------------------------------------------------------------------------
 
+
 class TestSetUser:
     def test_set_user_rebases_data_dir(self):
         Config.set_user("alice")
@@ -65,7 +66,9 @@ class TestSetUser:
 
     def test_set_user_recalculates_applications_file(self):
         Config.set_user("bob")
-        assert Config.APPLICATIONS_FILE == Path("./data/users/bob/applications/applications.json")
+        assert Config.APPLICATIONS_FILE == Path(
+            "./data/users/bob/applications/applications.json"
+        )
 
     def test_set_user_recalculates_jobs_dir(self):
         Config.set_user("bob")
@@ -73,18 +76,26 @@ class TestSetUser:
 
     def test_set_user_recalculates_scan_files(self):
         Config.set_user("carol")
-        assert Config.SCAN_HISTORY_FILE == Path("./data/users/carol/jobs/scan_history.json")
+        assert Config.SCAN_HISTORY_FILE == Path(
+            "./data/users/carol/jobs/scan_history.json"
+        )
         assert Config.SCAN_CACHE_FILE == Path("./data/users/carol/jobs/scan_cache.json")
-        assert Config.DISCOVERED_COMPANIES_FILE == Path("./data/users/carol/jobs/discovered_companies.json")
+        assert Config.DISCOVERED_COMPANIES_FILE == Path(
+            "./data/users/carol/jobs/discovered_companies.json"
+        )
 
     def test_set_user_recalculates_cover_letter_paths(self):
         Config.set_user("dave")
         assert Config.COVER_LETTER_DATA_DIR == Path("./data/users/dave/cover_letters")
-        assert Config.COVER_LETTER_HISTORY_FILE == Path("./data/users/dave/cover_letters/history.json")
+        assert Config.COVER_LETTER_HISTORY_FILE == Path(
+            "./data/users/dave/cover_letters/history.json"
+        )
 
     def test_set_user_recalculates_recruiters(self):
         Config.set_user("eve")
-        assert Config.RECRUITERS_FILE == Path("./data/users/eve/recruiters/recruiters.json")
+        assert Config.RECRUITERS_FILE == Path(
+            "./data/users/eve/recruiters/recruiters.json"
+        )
 
     def test_set_user_recalculates_log_dir(self):
         Config.set_user("frank")
@@ -110,6 +121,7 @@ class TestSetUser:
 # Backward compatibility — no user = single-user mode
 # ---------------------------------------------------------------------------
 
+
 class TestBackwardCompat:
     def test_default_data_dir(self):
         assert Config.DATA_DIR == Path("./data")
@@ -128,11 +140,13 @@ class TestBackwardCompat:
 # Modules use Config paths (not hardcoded)
 # ---------------------------------------------------------------------------
 
+
 class TestModulesUseConfig:
     def test_cover_letter_history_uses_config(self, tmp_path):
         Config.COVER_LETTER_DATA_DIR = tmp_path / "cl_data"
         Config.COVER_LETTER_OUTPUT_DIR = tmp_path / "cl_output"
         from job_hunter.cover_letter.history import CoverLetterHistory
+
         history = CoverLetterHistory()
         assert history.data_dir == tmp_path / "cl_data"
         assert history.output_dir == tmp_path / "cl_output"
@@ -140,24 +154,28 @@ class TestModulesUseConfig:
     def test_job_history_uses_config(self, tmp_path):
         Config.SCAN_HISTORY_FILE = tmp_path / "jobs" / "scan_history.json"
         from job_hunter.jobs.history import JobHistory
+
         history = JobHistory()
         assert history.history_file == tmp_path / "jobs" / "scan_history.json"
 
     def test_recruiter_manager_uses_config(self, tmp_path):
         Config.RECRUITERS_FILE = tmp_path / "recruiters" / "recruiters.json"
         from job_hunter.recruiters.manager import RecruiterManager
+
         mgr = RecruiterManager()
         assert mgr.file == tmp_path / "recruiters" / "recruiters.json"
 
     def test_discovery_uses_config(self, tmp_path):
         Config.DISCOVERED_COMPANIES_FILE = tmp_path / "jobs" / "discovered.json"
         from job_hunter.jobs.discovery import CompanyDiscovery
+
         disc = CompanyDiscovery()
         assert disc.discovered_file == tmp_path / "jobs" / "discovered.json"
 
     def test_scan_cache_uses_config(self, tmp_path):
         Config.SCAN_CACHE_FILE = tmp_path / "jobs" / "scan_cache.json"
         from job_hunter.jobs.scan_cache import ScanCache
+
         cache = ScanCache()
         assert cache.path == tmp_path / "jobs" / "scan_cache.json"
 
@@ -165,12 +183,14 @@ class TestModulesUseConfig:
         Config.APPLICATIONS_FILE = tmp_path / "apps" / "applications.json"
         (tmp_path / "apps").mkdir()
         from job_hunter.applications.tracker import ApplicationTracker
+
         tracker = ApplicationTracker()
         assert tracker.filepath == tmp_path / "apps" / "applications.json"
 
     def test_cv_manager_uses_config(self, tmp_path):
         Config.CV_DIR = tmp_path / "cv"
         from job_hunter.cv.manager import CVManager
+
         mgr = CVManager()
         assert mgr.cv_dir == tmp_path / "cv"
 
@@ -178,6 +198,7 @@ class TestModulesUseConfig:
 # ---------------------------------------------------------------------------
 # ensure_dirs creates per-user directories
 # ---------------------------------------------------------------------------
+
 
 class TestEnsureDirs:
     def test_ensure_dirs_creates_user_directories(self, tmp_path):
@@ -202,12 +223,13 @@ class TestEnsureDirs:
 # End-to-end: set_user + module isolation
 # ---------------------------------------------------------------------------
 
+
 class TestEndToEnd:
     def test_two_users_get_separate_tracker_files(self, tmp_path):
         """Two users writing applications don't share application data."""
         with patch.dict(os.environ, {"DATA_DIR": str(tmp_path)}):
-            from job_hunter.applications.tracker import ApplicationTracker
             from job_hunter.applications.models import Application
+            from job_hunter.applications.tracker import ApplicationTracker
 
             # User 1
             Config._BASE_DATA_DIR = tmp_path

@@ -4,7 +4,6 @@ import html
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from job_hunter.cv.renderer import CVRenderer
 
@@ -14,7 +13,7 @@ def generate_change_summary(
     adapted_cv: dict,
     job_title: str,
     company: str,
-    output_path: Optional[Path] = None,
+    output_path: Path | None = None,
 ) -> Path:
     """Render both CVs side by side using the actual CV template.
 
@@ -22,6 +21,7 @@ def generate_change_summary(
     """
     if output_path is None:
         from job_hunter.config import Config
+
         slug = re.sub(r"[^\w]+", "_", f"{company}_{job_title}").lower()[:40]
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = Config.OUTPUT_DIR / f"cv_diff_{slug}_{ts}.html"

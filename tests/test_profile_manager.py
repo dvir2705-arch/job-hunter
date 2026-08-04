@@ -1,26 +1,26 @@
 """Tests for multi-profile management (profile_manager.py)."""
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 from job_hunter.config import Config
 from job_hunter.profile_manager import (
-    slugify,
-    get_active_profile,
-    set_active_profile,
-    list_profiles,
-    profile_exists,
     delete_profile,
+    get_active_profile,
     has_legacy_profile,
+    list_profiles,
     migrate_legacy_profile,
-    profile_dir,
+    profile_exists,
+    set_active_profile,
+    slugify,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def isolate_config(tmp_path):
@@ -39,24 +39,31 @@ def isolate_config(tmp_path):
     Config._recalculate_paths()
 
 
-def _create_profile(base: Path, slug: str, name: str = "Test User",
-                    email: str = "test@example.com") -> Path:
+def _create_profile(
+    base: Path, slug: str, name: str = "Test User", email: str = "test@example.com"
+) -> Path:
     """Helper: create a minimal profile under users/<slug>/."""
     d = base / "users" / slug
     d.mkdir(parents=True, exist_ok=True)
     profile_file = d / "user_profile.json"
-    profile_file.write_text(json.dumps({
-        "name": name,
-        "email": email,
-        "phone": "050-0000000",
-        "target_positions": ["Developer"],
-    }), encoding="utf-8")
+    profile_file.write_text(
+        json.dumps(
+            {
+                "name": name,
+                "email": email,
+                "phone": "050-0000000",
+                "target_positions": ["Developer"],
+            }
+        ),
+        encoding="utf-8",
+    )
     return d
 
 
 # ---------------------------------------------------------------------------
 # slugify
 # ---------------------------------------------------------------------------
+
 
 class TestSlugify:
     def test_basic_name(self):
@@ -91,6 +98,7 @@ class TestSlugify:
 # Active profile read/write
 # ---------------------------------------------------------------------------
 
+
 class TestActiveProfile:
     def test_no_active_profile_returns_none(self, isolate_config):
         assert get_active_profile() is None
@@ -113,6 +121,7 @@ class TestActiveProfile:
 # ---------------------------------------------------------------------------
 # list_profiles
 # ---------------------------------------------------------------------------
+
 
 class TestListProfiles:
     def test_empty_no_users_dir(self, isolate_config):
@@ -167,6 +176,7 @@ class TestListProfiles:
 # profile_exists / profile_dir
 # ---------------------------------------------------------------------------
 
+
 class TestProfileExists:
     def test_exists(self, isolate_config):
         _create_profile(isolate_config, "alice")
@@ -179,6 +189,7 @@ class TestProfileExists:
 # ---------------------------------------------------------------------------
 # delete_profile
 # ---------------------------------------------------------------------------
+
 
 class TestDeleteProfile:
     def test_delete(self, isolate_config):
@@ -202,16 +213,21 @@ class TestDeleteProfile:
 # Legacy migration
 # ---------------------------------------------------------------------------
 
+
 class TestLegacyMigration:
     def test_has_legacy_true(self, isolate_config):
-        (isolate_config / "user_profile.json").write_text('{"name":"x"}', encoding="utf-8")
+        (isolate_config / "user_profile.json").write_text(
+            '{"name":"x"}', encoding="utf-8"
+        )
         assert has_legacy_profile() is True
 
     def test_has_legacy_false_no_file(self, isolate_config):
         assert has_legacy_profile() is False
 
     def test_has_legacy_false_already_migrated(self, isolate_config):
-        (isolate_config / "user_profile.json").write_text('{"name":"x"}', encoding="utf-8")
+        (isolate_config / "user_profile.json").write_text(
+            '{"name":"x"}', encoding="utf-8"
+        )
         set_active_profile("default")
         assert has_legacy_profile() is False
 
@@ -230,34 +246,40 @@ class TestLegacyMigration:
 
     def test_migrate_moves_data_dirs(self, isolate_config):
         # Create legacy structure
-        (isolate_config / "user_profile.json").write_text('{}', encoding="utf-8")
+        (isolate_config / "user_profile.json").write_text("{}", encoding="utf-8")
         (isolate_config / "applications").mkdir()
-        (isolate_config / "applications" / "applications.json").write_text('[]', encoding="utf-8")
+        (isolate_config / "applications" / "applications.json").write_text(
+            "[]", encoding="utf-8"
+        )
         (isolate_config / "cv").mkdir()
-        (isolate_config / "cv" / "base_cv.json").write_text('{}', encoding="utf-8")
+        (isolate_config / "cv" / "base_cv.json").write_text("{}", encoding="utf-8")
 
         migrate_legacy_profile("default")
 
         assert not (isolate_config / "applications").exists()
-        assert (isolate_config / "users" / "default" / "applications" / "applications.json").exists()
+        assert (
+            isolate_config / "users" / "default" / "applications" / "applications.json"
+        ).exists()
         assert (isolate_config / "users" / "default" / "cv" / "base_cv.json").exists()
 
     def test_migrate_keeps_companies_json(self, isolate_config):
-        (isolate_config / "user_profile.json").write_text('{}', encoding="utf-8")
+        (isolate_config / "user_profile.json").write_text("{}", encoding="utf-8")
         jobs_dir = isolate_config / "jobs"
         jobs_dir.mkdir()
-        (jobs_dir / "companies.json").write_text('[]', encoding="utf-8")
-        (jobs_dir / "scan_history.json").write_text('[]', encoding="utf-8")
+        (jobs_dir / "companies.json").write_text("[]", encoding="utf-8")
+        (jobs_dir / "scan_history.json").write_text("[]", encoding="utf-8")
 
         migrate_legacy_profile("default")
 
         # companies.json stays at root
         assert (isolate_config / "jobs" / "companies.json").exists()
         # scan_history moved
-        assert (isolate_config / "users" / "default" / "jobs" / "scan_history.json").exists()
+        assert (
+            isolate_config / "users" / "default" / "jobs" / "scan_history.json"
+        ).exists()
 
     def test_migrate_custom_slug(self, isolate_config):
-        (isolate_config / "user_profile.json").write_text('{}', encoding="utf-8")
+        (isolate_config / "user_profile.json").write_text("{}", encoding="utf-8")
         slug = migrate_legacy_profile("my-profile")
         assert slug == "my-profile"
         assert get_active_profile() == "my-profile"

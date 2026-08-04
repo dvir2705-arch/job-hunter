@@ -1,6 +1,5 @@
-import json
 import pytest
-from pathlib import Path
+
 from job_hunter.cv.manager import CVManager
 
 

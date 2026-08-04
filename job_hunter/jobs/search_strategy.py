@@ -8,7 +8,6 @@ one hardcoded persona.
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional
 
 import anthropic
 
@@ -33,13 +32,23 @@ ALWAYS_ENABLED_SCRAPERS = ["LinkedInScraper", "JobSpyScraper"]
 
 # Seniority keywords to reject — full list for students/entry-level.
 SENIORITY_REJECT_FULL = [
-    "senior", "manager", "director", "principal", "vp", "vice president",
-    "head of", "chief",
+    "senior",
+    "manager",
+    "director",
+    "principal",
+    "vp",
+    "vice president",
+    "head of",
+    "chief",
 ]
 
 # Reduced list for experienced users — only C-level / director+.
 SENIORITY_REJECT_EXPERIENCED = [
-    "director", "vp", "vice president", "head of", "chief",
+    "director",
+    "vp",
+    "vice president",
+    "head of",
+    "chief",
 ]
 
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
@@ -54,7 +63,9 @@ def _level_from_profile(profile: UserProfile) -> tuple:
     """
     exp = profile.experience_level
 
-    if exp == "none" or (not exp and (profile.is_student or not profile.work_experience)):
+    if exp == "none" or (
+        not exp and (profile.is_student or not profile.work_experience)
+    ):
         # Student or no experience
         if profile.is_student:
             return ["student", "intern"], list(SENIORITY_REJECT_FULL)
@@ -77,19 +88,21 @@ def _level_from_profile(profile: UserProfile) -> tuple:
 class SearchConfig:
     """Everything the scanner needs to run a profile-tailored search."""
 
-    queries: List[str]
+    queries: list[str]
     location: str = "Israel"
-    cities: List[str] = field(default_factory=list)
+    cities: list[str] = field(default_factory=list)
     radius_km: int = 25
-    level_keywords: List[str] = field(default_factory=lambda: ["student", "intern"])
-    seniority_reject: List[str] = field(default_factory=lambda: list(SENIORITY_REJECT_FULL))
-    companies: List[str] = field(default_factory=list)
-    priority_companies: List[str] = field(default_factory=list)
-    enabled_scrapers: List[str] = field(default_factory=list)
+    level_keywords: list[str] = field(default_factory=lambda: ["student", "intern"])
+    seniority_reject: list[str] = field(
+        default_factory=lambda: list(SENIORITY_REJECT_FULL)
+    )
+    companies: list[str] = field(default_factory=list)
+    priority_companies: list[str] = field(default_factory=list)
+    enabled_scrapers: list[str] = field(default_factory=list)
     max_workers: int = DEFAULT_MAX_WORKERS
 
 
-def build_search_config(profile: Optional[UserProfile] = None) -> SearchConfig:
+def build_search_config(profile: UserProfile | None = None) -> SearchConfig:
     """Build a SearchConfig from the user profile.
 
     - Reads cached queries from profile.search_config if available,
@@ -172,10 +185,10 @@ Rules:
 
 
 def generate_queries(
-    profile: Optional[UserProfile] = None,
+    profile: UserProfile | None = None,
     count: int = 5,
     save: bool = True,
-) -> List[str]:
+) -> list[str]:
     """Generate search queries via Haiku and optionally cache them in the profile.
 
     Returns a list of query strings. On API failure, returns a sensible
@@ -202,7 +215,11 @@ def generate_queries(
         count=count,
         cv_title=profile.cv_title or "job seeker",
         skills=", ".join(profile.skills) if profile.skills else "not specified",
-        target_positions=", ".join(profile.target_positions) if profile.target_positions else "general",
+        target_positions=(
+            ", ".join(profile.target_positions)
+            if profile.target_positions
+            else "general"
+        ),
         level=level,
         level_word=level_word,
         location=profile.country or "Israel",
@@ -237,7 +254,7 @@ def generate_queries(
     return queries
 
 
-def refresh_queries(profile: Optional[UserProfile] = None) -> List[str]:
+def refresh_queries(profile: UserProfile | None = None) -> list[str]:
     """Regenerate queries (ignores cache) and save to profile."""
     if profile is None:
         profile = get_profile()
@@ -248,7 +265,8 @@ def refresh_queries(profile: Optional[UserProfile] = None) -> List[str]:
 # Fallback: rule-based queries when Haiku is unavailable
 # ---------------------------------------------------------------------------
 
-def _fallback_queries(profile: UserProfile) -> List[str]:
+
+def _fallback_queries(profile: UserProfile) -> list[str]:
     """Build simple queries from target_positions + level keyword."""
     exp = profile.experience_level
     if exp == "none" or (not exp and not profile.work_experience):
@@ -275,7 +293,8 @@ def _fallback_queries(profile: UserProfile) -> List[str]:
 # Cache helpers — store queries in profile's search_config field
 # ---------------------------------------------------------------------------
 
-def _get_cached_queries(profile: UserProfile) -> Optional[List[str]]:
+
+def _get_cached_queries(profile: UserProfile) -> list[str] | None:
     """Read cached queries from profile. Returns None if not cached."""
     sc = getattr(profile, "search_config", None)
     if not sc or not isinstance(sc, dict):
@@ -286,7 +305,7 @@ def _get_cached_queries(profile: UserProfile) -> Optional[List[str]]:
     return None
 
 
-def _save_cached_queries(profile: UserProfile, queries: List[str]) -> None:
+def _save_cached_queries(profile: UserProfile, queries: list[str]) -> None:
     """Save generated queries into the profile and write to disk."""
     sc = getattr(profile, "search_config", None)
     if not isinstance(sc, dict):
@@ -328,7 +347,7 @@ Return ONLY a JSON object, no explanation:
 
 
 def suggest_companies(
-    profile: Optional[UserProfile] = None,
+    profile: UserProfile | None = None,
     registry_path=None,
 ) -> dict:
     """Ask Haiku to suggest companies from registry + free-form.
@@ -355,7 +374,11 @@ def suggest_companies(
         education_line = f"- Education: {profile.degree} at {profile.university}\n"
 
     prompt = _COMPANY_SUGGESTION_PROMPT.format(
-        target_positions=", ".join(profile.target_positions) if profile.target_positions else "general",
+        target_positions=(
+            ", ".join(profile.target_positions)
+            if profile.target_positions
+            else "general"
+        ),
         skills=", ".join(profile.skills) if profile.skills else "not specified",
         experience_level=profile.experience_level or "not specified",
         country=profile.country or "Israel",
@@ -383,11 +406,11 @@ def suggest_companies(
 
         # Validate registry names — only keep exact matches
         valid_registry = [
-            name for name in result.get("registry", [])
-            if name in registry_names
+            name for name in result.get("registry", []) if name in registry_names
         ]
         additional = [
-            str(name).strip() for name in result.get("additional", [])
+            str(name).strip()
+            for name in result.get("additional", [])
             if str(name).strip()
         ]
 
@@ -400,10 +423,7 @@ def suggest_companies(
 
 def _fallback_company_suggestions(registry_names: dict) -> dict:
     """Return all priority companies when Haiku is unavailable."""
-    priority = [
-        name for name, entry in registry_names.items()
-        if entry.get("priority")
-    ]
+    priority = [name for name, entry in registry_names.items() if entry.get("priority")]
     return {"registry": priority, "additional": []}
 
 
@@ -414,19 +434,17 @@ def _load_company_registry(registry_path=None) -> dict:
     """
     companies_file = registry_path or Config.companies_file()
     try:
-        with open(companies_file, "r", encoding="utf-8") as f:
+        with open(companies_file, encoding="utf-8") as f:
             data = json.load(f)
         return {
-            c["name"].lower(): c
-            for c in data.get("companies", [])
-            if c.get("name")
+            c["name"].lower(): c for c in data.get("companies", []) if c.get("name")
         }
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         logger.warning("Could not load companies.json: %s", e)
         return {}
 
 
-def _load_companies(profile: Optional[UserProfile] = None) -> tuple:
+def _load_companies(profile: UserProfile | None = None) -> tuple:
     """Load (all_companies, priority_companies).
 
     - Non-empty watchlist → use it (all are priority). Cross-refs with

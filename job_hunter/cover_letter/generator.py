@@ -1,15 +1,16 @@
 """Cover Letter Generator using Claude AI."""
 
-import anthropic
 from datetime import datetime
-from typing import Optional
+
+import anthropic
 
 from job_hunter.config import Config
 from job_hunter.jobs.scraper import JobListing
 from job_hunter.logger import get_logger
 from job_hunter.profile import get_profile
-from .templates import LETTER_STRUCTURE, get_company_tone, TONE_INSTRUCTIONS
+
 from .history import CoverLetterHistory
+from .templates import TONE_INSTRUCTIONS, get_company_tone
 
 logger = get_logger(__name__)
 
@@ -64,7 +65,7 @@ def _build_system_prompt() -> str:
     if p.skills_not:
         skills_not_rule = f'- Do NOT claim skills the candidate doesn\'t have ({", ".join(f"no {s}" for s in p.skills_not)})'
 
-    return f'''You fill in a cover letter template. Follow the structure exactly.
+    return f"""You fill in a cover letter template. Follow the structure exactly.
 
 TEMPLATE (follow this exactly):
 
@@ -119,7 +120,8 @@ HARD RULES:
   "I have practical experience with Python and MATLAB"
 
 The letter should read like a short professional email, not a formal document.
-'''
+"""
+
 
 class CoverLetterGenerator:
     """Generates personalized cover letters using Claude AI."""
@@ -134,22 +136,24 @@ class CoverLetterGenerator:
         self,
         job: JobListing,
         cv: dict,
-        job_description: Optional[str] = None,
+        job_description: str | None = None,
         language: str = "en",
         save_to_history: bool = True,
-        recruiter_name: Optional[str] = None,
+        recruiter_name: str | None = None,
     ) -> str:
         """Generate a cover letter for a specific job."""
         profile = get_profile()
         personal_info = {
-            "name":     profile.name,
-            "email":    profile.email,
-            "phone":    profile.phone,
+            "name": profile.name,
+            "email": profile.email,
+            "phone": profile.phone,
             "linkedin": profile.linkedin,
         }
 
         company_tone = get_company_tone(job.company)
-        tone_instruction = TONE_INSTRUCTIONS.get(company_tone, TONE_INSTRUCTIONS["balanced"])
+        tone_instruction = TONE_INSTRUCTIONS.get(
+            company_tone, TONE_INSTRUCTIONS["balanced"]
+        )
         academic_year = self._get_academic_year(cv)
 
         prompt = self._build_prompt(
@@ -213,12 +217,12 @@ class CoverLetterGenerator:
         self,
         job: JobListing,
         cv: dict,
-        job_description: Optional[str],
+        job_description: str | None,
         language: str,
         tone_instruction: str,
         personal_info: dict,
         academic_year: str = "third",
-        recruiter_name: Optional[str] = None,
+        recruiter_name: str | None = None,
     ) -> str:
         """Build the prompt for cover letter generation."""
         import json

@@ -1,11 +1,11 @@
 """Tests for ApplicationTracker — load/save, malformed JSON recovery, status transitions."""
 
 import json
-import pytest
-from pathlib import Path
 
-from job_hunter.applications.tracker import ApplicationTracker
+import pytest
+
 from job_hunter.applications.models import Application
+from job_hunter.applications.tracker import ApplicationTracker
 
 
 def make_app(**kwargs) -> Application:
@@ -17,6 +17,7 @@ def make_app(**kwargs) -> Application:
 # ---------------------------------------------------------------------------
 # Load / save round-trip
 # ---------------------------------------------------------------------------
+
 
 def test_load_save_roundtrip(tmp_path):
     filepath = tmp_path / "apps.json"
@@ -40,6 +41,7 @@ def test_load_missing_file_returns_empty(tmp_path):
 # ---------------------------------------------------------------------------
 # Malformed JSON recovery
 # ---------------------------------------------------------------------------
+
 
 def test_corrupted_json_returns_empty(tmp_path):
     filepath = tmp_path / "apps.json"
@@ -68,6 +70,7 @@ def test_malformed_record_is_skipped(tmp_path):
 # update_status — valid and invalid transitions
 # ---------------------------------------------------------------------------
 
+
 def test_update_status_valid_transition(tmp_path):
     filepath = tmp_path / "apps.json"
     tracker = ApplicationTracker(filepath=filepath)
@@ -92,6 +95,7 @@ def test_update_status_invalid_transition_raises(tmp_path):
 # ---------------------------------------------------------------------------
 # get_needing_follow_up
 # ---------------------------------------------------------------------------
+
 
 def test_get_needing_follow_up(tmp_path):
     filepath = tmp_path / "apps.json"

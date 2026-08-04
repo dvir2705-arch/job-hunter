@@ -1,8 +1,8 @@
 """Hunter.io API integration for finding recruiter emails."""
 
 import json
+
 import requests
-from typing import Dict
 
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
@@ -10,7 +10,7 @@ from job_hunter.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _load_company_domains() -> Dict[str, str]:
+def _load_company_domains() -> dict[str, str]:
     """Load company name → email domain mapping from companies.json."""
     companies_file = Config.companies_file()
     if not companies_file.exists():
@@ -48,13 +48,17 @@ class HunterAPI:
         if not self.api_key:
             raise ValueError("HUNTER_API_KEY not set in .env")
 
-    def domain_search(self, domain: str, limit: int = 10) -> Dict:
+    def domain_search(self, domain: str, limit: int = 10) -> dict:
         """Search for emails at a domain."""
         try:
             response = requests.get(
                 f"{self.BASE_URL}/domain-search",
-                params={"domain": domain, "api_key": self.api_key,
-                        "limit": limit, "type": "personal"},
+                params={
+                    "domain": domain,
+                    "api_key": self.api_key,
+                    "limit": limit,
+                    "type": "personal",
+                },
                 timeout=15,
             )
             response.raise_for_status()
@@ -76,7 +80,7 @@ class HunterAPI:
             logger.error("Hunter.io domain_search failed for %s: %s", domain, e)
             return {"error": str(e), "domain": domain, "emails": []}
 
-    def get_quota(self) -> Dict:
+    def get_quota(self) -> dict:
         """Check remaining API quota."""
         try:
             response = requests.get(

@@ -8,7 +8,8 @@ import anthropic
 
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
-from .docx_parser import parse_docx, extract_all_text
+
+from .docx_parser import extract_all_text, parse_docx
 
 logger = get_logger(__name__)
 
@@ -193,7 +194,9 @@ def parse_cv_file(path: Path) -> dict:
     if suffix == ".pdf":
         raw_text = parse_pdf_text(path)
         if not raw_text.strip():
-            raise ValueError("Could not extract text from PDF. The file may be image-based — try a .docx instead.")
+            raise ValueError(
+                "Could not extract text from PDF. The file may be image-based — try a .docx instead."
+            )
         return _structure_cv_with_claude(raw_text, [])
 
     raise ValueError(f"Unsupported CV file format: {suffix}. Use .docx, .pdf, or .json")

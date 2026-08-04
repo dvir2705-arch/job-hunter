@@ -14,11 +14,13 @@ from job_hunter.profile import UserProfile
 @pytest.fixture
 def tmp_data_dir(tmp_path):
     """Patch Config.DATA_DIR to a temp directory for isolation."""
-    with patch("job_hunter.config.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path), \
-         patch("job_hunter.profile.Config.DATA_DIR", tmp_path), \
-         patch("job_hunter.profile_manager.has_legacy_profile", return_value=False), \
-         patch("job_hunter.profile_manager.get_active_profile", return_value=None):
+    with (
+        patch("job_hunter.config.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.config.Config._BASE_DATA_DIR", tmp_path),
+        patch("job_hunter.profile.Config.DATA_DIR", tmp_path),
+        patch("job_hunter.profile_manager.has_legacy_profile", return_value=False),
+        patch("job_hunter.profile_manager.get_active_profile", return_value=None),
+    ):
         yield tmp_path
 
 
@@ -26,6 +28,7 @@ def tmp_data_dir(tmp_path):
 def reset_profile_cache():
     """Reset cached profile between tests."""
     import job_hunter.profile as pm
+
     pm._profile = None
     pm._profile_path_override = None
     yield
@@ -93,6 +96,7 @@ def _write_registry(path: Path) -> Path:
 # companies list
 # ---------------------------------------------------------------------------
 
+
 class TestCompaniesList:
     def test_empty_watchlist(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir, watchlist=[])
@@ -125,6 +129,7 @@ class TestCompaniesList:
 # ---------------------------------------------------------------------------
 # companies add
 # ---------------------------------------------------------------------------
+
 
 class TestCompaniesAdd:
     def test_add_single(self, runner, tmp_data_dir):
@@ -167,6 +172,7 @@ class TestCompaniesAdd:
 # companies remove
 # ---------------------------------------------------------------------------
 
+
 class TestCompaniesRemove:
     def test_remove_single(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir, watchlist=["Google", "Intel"])
@@ -204,13 +210,17 @@ class TestCompaniesRemove:
 # companies suggest
 # ---------------------------------------------------------------------------
 
+
 class TestCompaniesSuggest:
     def test_suggest_adds_to_watchlist(self, runner, tmp_data_dir):
         _write_profile(tmp_data_dir, watchlist=[])
         _write_registry(tmp_data_dir)
 
         mock_result = {"registry": ["Intel", "NVIDIA"], "additional": ["Qualcomm"]}
-        with patch("job_hunter.jobs.search_strategy.suggest_companies", return_value=mock_result):
+        with patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=mock_result,
+        ):
             result = runner.invoke(cli, ["companies", "suggest"], input="y\n\n")
         assert result.exit_code == 0
         assert "Intel" in result.output
@@ -225,7 +235,10 @@ class TestCompaniesSuggest:
         _write_registry(tmp_data_dir)
 
         mock_result = {"registry": ["Intel", "NVIDIA"], "additional": []}
-        with patch("job_hunter.jobs.search_strategy.suggest_companies", return_value=mock_result):
+        with patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=mock_result,
+        ):
             result = runner.invoke(cli, ["companies", "suggest"], input="y\n\n")
         assert result.exit_code == 0
         assert "already in watchlist" in result.output
@@ -237,7 +250,10 @@ class TestCompaniesSuggest:
         _write_profile(tmp_data_dir, watchlist=[])
 
         mock_result = {"registry": [], "additional": []}
-        with patch("job_hunter.jobs.search_strategy.suggest_companies", return_value=mock_result):
+        with patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=mock_result,
+        ):
             result = runner.invoke(cli, ["companies", "suggest"])
         assert result.exit_code == 0
         assert "No suggestions" in result.output
@@ -246,7 +262,10 @@ class TestCompaniesSuggest:
         _write_profile(tmp_data_dir, watchlist=[])
 
         mock_result = {"registry": ["Intel"], "additional": []}
-        with patch("job_hunter.jobs.search_strategy.suggest_companies", return_value=mock_result):
+        with patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=mock_result,
+        ):
             result = runner.invoke(cli, ["companies", "suggest"], input="n\n")
         assert result.exit_code == 0
         assert "No changes" in result.output
@@ -258,7 +277,10 @@ class TestCompaniesSuggest:
         _write_registry(tmp_data_dir)
 
         mock_result = {"registry": ["Intel", "NVIDIA"], "additional": []}
-        with patch("job_hunter.jobs.search_strategy.suggest_companies", return_value=mock_result):
+        with patch(
+            "job_hunter.jobs.search_strategy.suggest_companies",
+            return_value=mock_result,
+        ):
             result = runner.invoke(cli, ["companies", "suggest"])
         assert result.exit_code == 0
         assert "already in your watchlist" in result.output

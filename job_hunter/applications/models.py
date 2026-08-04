@@ -1,12 +1,12 @@
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional
-from datetime import datetime, timedelta
 import uuid
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
 
 
 @dataclass
 class ApplicationEvent:
     """Single event in application history."""
+
     date: str
     action: str  # applied, screening, interview, offer, rejected, withdrawn, follow_up, note
     note: str = ""
@@ -15,6 +15,7 @@ class ApplicationEvent:
 @dataclass
 class Application:
     """Full application record with context."""
+
     # Job info
     job_title: str
     company: str
@@ -23,7 +24,9 @@ class Application:
     source: str = ""  # workday, linkedin, amazon, manual
 
     # Status
-    status: str = "applied"  # applied | screening | interview | offer | rejected | withdrawn
+    status: str = (
+        "applied"  # applied | screening | interview | offer | rejected | withdrawn
+    )
     applied_date: str = ""
     last_updated: str = ""
     follow_up_date: str = ""
@@ -39,7 +42,7 @@ class Application:
     # Metadata
     id: str = ""
     notes: str = ""
-    history: List[dict] = field(default_factory=list)
+    history: list[dict] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.id:
@@ -52,27 +55,33 @@ class Application:
             follow_up = datetime.now() + timedelta(days=7)
             self.follow_up_date = follow_up.strftime("%Y-%m-%d")
         if not self.history:
-            self.history = [{"date": self.applied_date, "action": "applied", "note": "Initial application"}]
+            self.history = [
+                {
+                    "date": self.applied_date,
+                    "action": "applied",
+                    "note": "Initial application",
+                }
+            ]
 
     def reset_status(self, note: str = "") -> None:
         """Reset application back to 'applied' status. Used for corrections only."""
         self.status = "applied"
         self.last_updated = datetime.now().strftime("%Y-%m-%d")
-        self.history.append({
-            "date": self.last_updated,
-            "action": "reset",
-            "note": note or "Status reset to applied"
-        })
+        self.history.append(
+            {
+                "date": self.last_updated,
+                "action": "reset",
+                "note": note or "Status reset to applied",
+            }
+        )
 
     def update_status(self, new_status: str, note: str = "") -> None:
         """Update status and add to history."""
         self.status = new_status
         self.last_updated = datetime.now().strftime("%Y-%m-%d")
-        self.history.append({
-            "date": self.last_updated,
-            "action": new_status,
-            "note": note
-        })
+        self.history.append(
+            {"date": self.last_updated, "action": new_status, "note": note}
+        )
 
     def needs_follow_up(self) -> bool:
         """Check if follow-up is overdue."""

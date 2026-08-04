@@ -3,7 +3,6 @@
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import List
 
 from job_hunter.config import Config
 
@@ -22,27 +21,29 @@ class UserProfile:
     name: str
     email: str
     phone: str
-    skills: List[str] = field(default_factory=list)
-    target_positions: List[str] = field(default_factory=list)
-    domains: List[str] = field(default_factory=list)
+    skills: list[str] = field(default_factory=list)
+    target_positions: list[str] = field(default_factory=list)
+    domains: list[str] = field(default_factory=list)
 
     # Optional contact
     linkedin: str = ""
     github: str = ""
-    location: dict = field(default_factory=dict)  # {"country": "", "cities": [], "radius_km": 25}
+    location: dict = field(
+        default_factory=dict
+    )  # {"country": "", "cities": [], "radius_km": 25}
 
     # Optional sections
     education: dict = field(default_factory=dict)
-    work_experience: List[dict] = field(default_factory=list)
-    projects: List[dict] = field(default_factory=list)
-    military: List[dict] = field(default_factory=list)
-    volunteering: List[dict] = field(default_factory=list)
-    languages: List[str] = field(default_factory=list)
-    skills_not: List[str] = field(default_factory=list)
+    work_experience: list[dict] = field(default_factory=list)
+    projects: list[dict] = field(default_factory=list)
+    military: list[dict] = field(default_factory=list)
+    volunteering: list[dict] = field(default_factory=list)
+    languages: list[str] = field(default_factory=list)
+    skills_not: list[str] = field(default_factory=list)
 
     # Experience & job search
     experience_level: str = ""  # "none", "1-3", "3-7", "7+"
-    watchlist: List[str] = field(default_factory=list)  # company names to watch
+    watchlist: list[str] = field(default_factory=list)  # company names to watch
 
     # Rules
     hard_rules: dict = field(default_factory=dict)
@@ -82,7 +83,7 @@ class UserProfile:
         return self.location.get("country", "")
 
     @property
-    def cities(self) -> List[str]:
+    def cities(self) -> list[str]:
         return self.location.get("cities", [])
 
     @property
@@ -172,7 +173,7 @@ class UserProfile:
 
     # --- Validation -----------------------------------------------------------
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Return a list of issues (empty = valid).
 
         Issues are strings prefixed with [ERROR] or [WARN].
@@ -188,14 +189,21 @@ class UserProfile:
         if not self.skills:
             issues.append("[WARN] No skills listed — CV adaptation will be generic")
         if not self.domains and not self.target_positions and not self.skills:
-            issues.append("[WARN] No domains, target positions, or skills — job matching will be inaccurate")
+            issues.append(
+                "[WARN] No domains, target positions, or skills — job matching will be inaccurate"
+            )
         if not self.cv_title:
-            issues.append("[WARN] No cv_title in hard_rules — CV title won't be enforced")
+            issues.append(
+                "[WARN] No cv_title in hard_rules — CV title won't be enforced"
+            )
         if not self.target_positions:
             issues.append("[WARN] No target positions — job filtering will be broad")
 
         # Experience level
-        if self.experience_level and self.experience_level not in VALID_EXPERIENCE_LEVELS:
+        if (
+            self.experience_level
+            and self.experience_level not in VALID_EXPERIENCE_LEVELS
+        ):
             issues.append(
                 f"[ERROR] Invalid experience_level '{self.experience_level}' "
                 f"— must be one of: {', '.join(v for v in VALID_EXPERIENCE_LEVELS if v)}"
@@ -203,13 +211,19 @@ class UserProfile:
 
         # Consistency
         if self.skills and self.skills_not:
-            overlap = set(s.lower() for s in self.skills) & set(s.lower() for s in self.skills_not)
+            overlap = set(s.lower() for s in self.skills) & set(
+                s.lower() for s in self.skills_not
+            )
             if overlap:
-                issues.append(f"[WARN] Skills overlap with skills_not: {', '.join(overlap)}")
+                issues.append(
+                    f"[WARN] Skills overlap with skills_not: {', '.join(overlap)}"
+                )
 
         # Substance
         if not self.education and not self.work_experience:
-            issues.append("[WARN] No education and no work experience — profile lacks substance")
+            issues.append(
+                "[WARN] No education and no work experience — profile lacks substance"
+            )
 
         return issues
 

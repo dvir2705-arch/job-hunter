@@ -1,10 +1,8 @@
 """Manage recruiter contacts database."""
 
 import json
-from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Optional
 from dataclasses import dataclass
+from datetime import datetime
 
 from job_hunter.config import Config
 
@@ -28,7 +26,7 @@ class RecruiterManager:
 
     def _load(self):
         if self.file.exists():
-            with open(self.file, "r", encoding="utf-8") as f:
+            with open(self.file, encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
             self.data = {"recruiters": {}}
@@ -69,11 +67,11 @@ class RecruiterManager:
         self._save()
         return Recruiter(company=company, **entry)
 
-    def get_by_company(self, company: str) -> List[Dict]:
+    def get_by_company(self, company: str) -> list[dict]:
         """Exact company name lookup."""
         return self.data["recruiters"].get(company, [])
 
-    def find_by_company_fuzzy(self, company: str) -> List[Dict]:
+    def find_by_company_fuzzy(self, company: str) -> list[dict]:
         """Case-insensitive partial match, returns dicts with 'company' field added."""
         company_lower = company.lower()
         results = []
@@ -83,7 +81,7 @@ class RecruiterManager:
                     results.append({"company": comp, **r})
         return results
 
-    def list_all(self) -> Dict[str, List[Dict]]:
+    def list_all(self) -> dict[str, list[dict]]:
         return self.data["recruiters"]
 
     def remove(self, company: str, email: str) -> bool:
@@ -99,7 +97,7 @@ class RecruiterManager:
             return True
         return False
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         total = sum(len(recs) for recs in self.data["recruiters"].values())
         companies_with_recruiters = sum(
             1 for recs in self.data["recruiters"].values() if recs

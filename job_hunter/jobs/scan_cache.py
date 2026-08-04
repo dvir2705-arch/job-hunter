@@ -14,12 +14,12 @@ Key format: "company:Intel", "query:chip design student", "scraper:IntelScraper"
 import json
 import os
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
+
 from .scraper import JobListing
 
 logger = get_logger(__name__)
@@ -32,15 +32,17 @@ ZERO_STREAK_TTL_MINUTES = 24 * 60  # 24 hours
 class ScanCache:
     """Simple JSON file cache for scan results, keyed by source."""
 
-    def __init__(self, path: Optional[Path] = None):
+    def __init__(self, path: Path | None = None):
         self.path = path or Config.SCAN_CACHE_FILE
-        self._data: Optional[dict] = None
+        self._data: dict | None = None
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def get(self, source: str, ttl_minutes: int = DEFAULT_TTL_MINUTES) -> Optional[Tuple[List[JobListing], int]]:
+    def get(
+        self, source: str, ttl_minutes: int = DEFAULT_TTL_MINUTES
+    ) -> tuple[list[JobListing], int] | None:
         """Return (jobs, age_minutes) if source is cached and fresh, else None.
 
         Uses extended TTL (24h) for sources with zero_streak >= 3.
@@ -63,7 +65,7 @@ class ScanCache:
         jobs = self._deserialize_jobs(raw_jobs)
         return jobs, age
 
-    def put(self, source: str, jobs: List[JobListing]) -> None:
+    def put(self, source: str, jobs: list[JobListing]) -> None:
         """Save results for a source with the current timestamp.
 
         Updates zero_streak: incremented when jobs is empty, reset to 0
@@ -107,7 +109,7 @@ class ScanCache:
             return 0
         return entry.get("zero_streak", 0)
 
-    def age_minutes(self, source: str) -> Optional[int]:
+    def age_minutes(self, source: str) -> int | None:
         """Return age in minutes for a source, or None if not cached."""
         data = self._load()
         entry = data.get(source)
@@ -138,19 +140,21 @@ class ScanCache:
         }
 
     @staticmethod
-    def _deserialize_jobs(raw: list) -> List[JobListing]:
+    def _deserialize_jobs(raw: list) -> list[JobListing]:
         jobs = []
         for item in raw:
             if not isinstance(item, dict):
                 continue
             try:
-                jobs.append(JobListing(
-                    title=item.get("title", ""),
-                    company=item.get("company", ""),
-                    location=item.get("location", ""),
-                    url=item.get("url", ""),
-                    posted=item.get("posted", ""),
-                ))
+                jobs.append(
+                    JobListing(
+                        title=item.get("title", ""),
+                        company=item.get("company", ""),
+                        location=item.get("location", ""),
+                        url=item.get("url", ""),
+                        posted=item.get("posted", ""),
+                    )
+                )
             except Exception:
                 continue
         return jobs
@@ -230,7 +234,7 @@ class ScanCache:
         return base_ttl
 
     @staticmethod
-    def _age_minutes(entry: dict) -> Optional[int]:
+    def _age_minutes(entry: dict) -> int | None:
         """Parse last_scan timestamp and return age in minutes."""
         ts = entry.get("last_scan")
         if not ts:

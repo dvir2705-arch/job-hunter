@@ -1,17 +1,15 @@
 """Tests for suggest_companies() — Haiku-driven company suggestions."""
 
 import json
-import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
 from tempfile import NamedTemporaryFile
+from unittest.mock import MagicMock, patch
 
 from job_hunter.profile import UserProfile
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_profile(**overrides) -> UserProfile:
     """Build a minimal UserProfile with sensible defaults."""
@@ -56,6 +54,7 @@ SAMPLE_REGISTRY = [
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestSuggestCompanies:
     """Tests for suggest_companies()."""
 
@@ -65,10 +64,12 @@ class TestSuggestCompanies:
         """Haiku response with both tiers is parsed correctly."""
         from job_hunter.jobs.search_strategy import suggest_companies
 
-        haiku_response = json.dumps({
-            "registry": ["Intel", "NVIDIA"],
-            "additional": ["Google", "Microsoft"],
-        })
+        haiku_response = json.dumps(
+            {
+                "registry": ["Intel", "NVIDIA"],
+                "additional": ["Google", "Microsoft"],
+            }
+        )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response(haiku_response)
         mock_anthropic_cls.return_value = mock_client
@@ -87,10 +88,12 @@ class TestSuggestCompanies:
         """Registry names not in companies.json are dropped."""
         from job_hunter.jobs.search_strategy import suggest_companies
 
-        haiku_response = json.dumps({
-            "registry": ["Intel", "FakeCompany", "NVIDIA"],
-            "additional": [],
-        })
+        haiku_response = json.dumps(
+            {
+                "registry": ["Intel", "FakeCompany", "NVIDIA"],
+                "additional": [],
+            }
+        )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response(haiku_response)
         mock_anthropic_cls.return_value = mock_client
@@ -109,7 +112,9 @@ class TestSuggestCompanies:
         """JSON wrapped in markdown code fences is parsed correctly."""
         from job_hunter.jobs.search_strategy import suggest_companies
 
-        haiku_response = '```json\n{"registry": ["Intel"], "additional": ["Google"]}\n```'
+        haiku_response = (
+            '```json\n{"registry": ["Intel"], "additional": ["Google"]}\n```'
+        )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response(haiku_response)
         mock_anthropic_cls.return_value = mock_client
@@ -151,10 +156,12 @@ class TestSuggestCompanies:
         """Minimal profile with no skills/positions still produces a valid call."""
         from job_hunter.jobs.search_strategy import suggest_companies
 
-        haiku_response = json.dumps({
-            "registry": ["Intel"],
-            "additional": [],
-        })
+        haiku_response = json.dumps(
+            {
+                "registry": ["Intel"],
+                "additional": [],
+            }
+        )
         mock_client = MagicMock()
         mock_client.messages.create.return_value = _make_response(haiku_response)
         mock_anthropic_cls.return_value = mock_client
