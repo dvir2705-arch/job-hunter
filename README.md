@@ -60,7 +60,7 @@ This project applies several core CS concepts in a real-world context:
 ### Prerequisites
 - Python 3.11+
 - Google Chrome or Chromium (for PDF generation)
-- Anthropic API key ([get one here](https://console.anthropic.com/))
+- Anthropic API key 
 
 **1. Clone & install**
 ```bash
