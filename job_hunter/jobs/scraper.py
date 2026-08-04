@@ -1,13 +1,49 @@
+import random
 import time
-import requests
-from bs4 import BeautifulSoup
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Tuple
+
+import requests
+from bs4 import BeautifulSoup
 
 from job_hunter.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _request_with_backoff(
+    method: str,
+    url: str,
+    *,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+    **kwargs,
+) -> requests.Response:
+    """HTTP request with exponential backoff and jitter on 429/503.
+
+    Retries up to *max_retries* times when the server returns 429
+    (Too Many Requests) or 503 (Service Unavailable).  Delay doubles
+    each attempt with +-25 % jitter to avoid thundering-herd effects.
+
+    Non-retryable errors and successful responses are returned immediately.
+    """
+    for attempt in range(max_retries + 1):
+        response = requests.request(method, url, **kwargs)
+        if response.status_code not in (429, 503) or attempt == max_retries:
+            return response
+        delay = base_delay * (2**attempt) * (0.75 + random.random() * 0.5)
+        logger.warning(
+            "%s %s returned %s — retrying in %.1fs (attempt %d/%d)",
+            method.upper(),
+            url,
+            response.status_code,
+            delay,
+            attempt + 1,
+            max_retries,
+        )
+        time.sleep(delay)
+    return response  # unreachable, but keeps type checkers happy
 
 
 @dataclass
@@ -38,21 +74,63 @@ COUNTRY_LOCATION_ALIASES = {
     # format is still caught via the city-name aliases below.
     "israel": [
         "israel",
-        "tel aviv", "tel-aviv", "haifa", "jerusalem", "herzliya",
-        "petah tikva", "petah-tikva", "petach tikva", "petach-tikva",
-        "ramat gan", "netanya", "yokneam", "yoqneam",
-        "kiryat gat", "kiryat-gat", "kiryat ono", "kiryat motzkin",
-        "rehovot", "beer sheva", "be'er sheva", "beersheba",
-        "kfar saba", "raanana", "ra'anana", "rishon le",
-        "holon", "bat yam", "ashdod", "ashkelon", "nazareth",
-        "lod", "modi'in", "modiin",
-        "ramat hasharon", "givatayim", "hod hasharon", "or yehuda",
-        "tiberias", "eilat", "ness ziona", "nes ziona",
-        "caesarea", "binyamina", "karmiel", "carmiel",
-        "airport city", "rosh ha'ayin", "rosh haayin",
-        "zichron ya'akov", "zichron yaakov",
-        "pardes hanna", "atlit", "tzfat", "safed",
-        "givat shmuel", "yehud", "kfar vradim",
+        "tel aviv",
+        "tel-aviv",
+        "haifa",
+        "jerusalem",
+        "herzliya",
+        "petah tikva",
+        "petah-tikva",
+        "petach tikva",
+        "petach-tikva",
+        "ramat gan",
+        "netanya",
+        "yokneam",
+        "yoqneam",
+        "kiryat gat",
+        "kiryat-gat",
+        "kiryat ono",
+        "kiryat motzkin",
+        "rehovot",
+        "beer sheva",
+        "be'er sheva",
+        "beersheba",
+        "kfar saba",
+        "raanana",
+        "ra'anana",
+        "rishon le",
+        "holon",
+        "bat yam",
+        "ashdod",
+        "ashkelon",
+        "nazareth",
+        "lod",
+        "modi'in",
+        "modiin",
+        "ramat hasharon",
+        "givatayim",
+        "hod hasharon",
+        "or yehuda",
+        "tiberias",
+        "eilat",
+        "ness ziona",
+        "nes ziona",
+        "caesarea",
+        "binyamina",
+        "karmiel",
+        "carmiel",
+        "airport city",
+        "rosh ha'ayin",
+        "rosh haayin",
+        "zichron ya'akov",
+        "zichron yaakov",
+        "pardes hanna",
+        "atlit",
+        "tzfat",
+        "safed",
+        "givat shmuel",
+        "yehud",
+        "kfar vradim",
     ],
 }
 
@@ -133,6 +211,7 @@ def _location_matches_country(requested: str, actual: str, title: str = "") -> b
 # Base Workday scraper — reused by Intel, NVIDIA, Marvell
 # ---------------------------------------------------------------------------
 
+
 class WorkdayScraper:
     """Generic scraper for companies using the Workday ATS JSON API."""
 
@@ -146,16 +225,19 @@ class WorkdayScraper:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
     }
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(
+        self, query: str, location: str = "Israel", max_results: int = 20
+    ) -> list[JobListing]:
         payload = {
             "appliedFacets": {},
-            "limit": 20,   # Always fetch Workday's maximum; filter after
+            "limit": 20,  # Always fetch Workday's maximum; filter after
             "offset": 0,
             "searchText": query,
         }
 
         try:
-            response = requests.post(
+            response = _request_with_backoff(
+                "post",
                 self.API_URL,
                 headers=self.HEADERS,
                 json=payload,
@@ -180,12 +262,14 @@ class WorkdayScraper:
                 continue
 
             url = f"{self.JOB_BASE_URL}{external_path}"
-            jobs.append(JobListing(
-                title=post.get("title", "Unknown"),
-                company=self.COMPANY_NAME,
-                location=loc,
-                url=url,
-            ))
+            jobs.append(
+                JobListing(
+                    title=post.get("title", "Unknown"),
+                    company=self.COMPANY_NAME,
+                    location=loc,
+                    url=url,
+                )
+            )
 
             if len(jobs) >= max_results:
                 break
@@ -196,6 +280,7 @@ class WorkdayScraper:
 # ---------------------------------------------------------------------------
 # Company-specific scrapers
 # ---------------------------------------------------------------------------
+
 
 class IntelScraper(WorkdayScraper):
     API_URL = "https://intel.wd1.myworkdayjobs.com/wday/cxs/intel/External/jobs"
@@ -210,7 +295,9 @@ class NVIDIAScraper(WorkdayScraper):
 
 
 class MarvellScraper(WorkdayScraper):
-    API_URL = "https://marvell.wd1.myworkdayjobs.com/wday/cxs/marvell/MarvellCareers/jobs"
+    API_URL = (
+        "https://marvell.wd1.myworkdayjobs.com/wday/cxs/marvell/MarvellCareers/jobs"
+    )
     JOB_BASE_URL = "https://marvell.wd1.myworkdayjobs.com/MarvellCareers"
     COMPANY_NAME = "Marvell"
 
@@ -225,7 +312,9 @@ class AmazonScraper:
         "Accept": "application/json",
     }
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(
+        self, query: str, location: str = "Israel", max_results: int = 20
+    ) -> list[JobListing]:
         params = {
             "base_query": query,
             "loc_query": location,
@@ -234,7 +323,8 @@ class AmazonScraper:
         }
 
         try:
-            response = requests.get(
+            response = _request_with_backoff(
+                "get",
                 self.API_URL,
                 params=params,
                 headers=self.HEADERS,
@@ -252,12 +342,14 @@ class AmazonScraper:
             if not job_path:
                 continue
 
-            jobs.append(JobListing(
-                title=post.get("title", "Unknown"),
-                company=post.get("company_name", "Amazon"),
-                location=post.get("location", ""),
-                url=f"{self.JOB_BASE_URL}{job_path}",
-            ))
+            jobs.append(
+                JobListing(
+                    title=post.get("title", "Unknown"),
+                    company=post.get("company_name", "Amazon"),
+                    location=post.get("location", ""),
+                    url=f"{self.JOB_BASE_URL}{job_path}",
+                )
+            )
 
         return jobs
 
@@ -274,7 +366,9 @@ class LinkedInScraper:
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 25) -> List[JobListing]:
+    def search(
+        self, query: str, location: str = "Israel", max_results: int = 25
+    ) -> list[JobListing]:
         # LinkedIn's `location` URL param is advisory — the guest search ranker
         # returns worldwide results ranked by keyword match regardless. The
         # geoId parameter is the strict server-side country filter. Attach it
@@ -285,7 +379,8 @@ class LinkedInScraper:
             params["geoId"] = geo_id
 
         try:
-            response = requests.get(
+            response = _request_with_backoff(
+                "get",
                 self.SEARCH_URL,
                 params=params,
                 headers=self.HEADERS,
@@ -310,11 +405,11 @@ class LinkedInScraper:
 
         jobs = []
         for card in cards[:max_results]:
-            title_el    = card.find("h3", class_="base-search-card__title")
-            company_el  = card.find("h4", class_="base-search-card__subtitle")
+            title_el = card.find("h3", class_="base-search-card__title")
+            company_el = card.find("h4", class_="base-search-card__subtitle")
             location_el = card.find("span", class_="job-search-card__location")
-            date_el     = card.find("time")
-            link_el     = card.find("a", class_="base-card__full-link")
+            date_el = card.find("time")
+            link_el = card.find("a", class_="base-card__full-link")
 
             if not title_el or not link_el:
                 continue
@@ -334,13 +429,17 @@ class LinkedInScraper:
             if not _location_matches_country(location, job_location, title=job_title):
                 continue
 
-            jobs.append(JobListing(
-                title=job_title,
-                company=company_el.get_text(strip=True) if company_el else "Unknown",
-                location=job_location or "Unknown",
-                url=clean_url,
-                posted=date_el.get("datetime", "") if date_el else "",
-            ))
+            jobs.append(
+                JobListing(
+                    title=job_title,
+                    company=(
+                        company_el.get_text(strip=True) if company_el else "Unknown"
+                    ),
+                    location=job_location or "Unknown",
+                    url=clean_url,
+                    posted=date_el.get("datetime", "") if date_el else "",
+                )
+            )
 
         return jobs
 
@@ -348,6 +447,7 @@ class LinkedInScraper:
 # ---------------------------------------------------------------------------
 # Greenhouse ATS scraper — reused by Wix and future Greenhouse companies
 # ---------------------------------------------------------------------------
+
 
 class GreenhouseScraper:
     """Generic scraper for companies using the Greenhouse ATS public JSON API."""
@@ -359,10 +459,14 @@ class GreenhouseScraper:
         self.board_id = board_id
         self.COMPANY_NAME = company_name  # for JobScanner error reporting
 
-    def search(self, query: str = "", location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(
+        self, query: str = "", location: str = "Israel", max_results: int = 20
+    ) -> list[JobListing]:
         url = self.API_URL.format(board_id=self.board_id)
         try:
-            response = requests.get(url, params={"content": "true"}, timeout=15)
+            response = _request_with_backoff(
+                "get", url, params={"content": "true"}, timeout=15
+            )
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as e:
@@ -379,13 +483,17 @@ class GreenhouseScraper:
             if query and query.lower() not in title.lower():
                 continue
 
-            jobs.append(JobListing(
-                title=title,
-                company=self.company_name,
-                location=job_location,
-                url=job.get("absolute_url", ""),
-                posted=job.get("updated_at", "")[:10] if job.get("updated_at") else "",
-            ))
+            jobs.append(
+                JobListing(
+                    title=title,
+                    company=self.company_name,
+                    location=job_location,
+                    url=job.get("absolute_url", ""),
+                    posted=(
+                        job.get("updated_at", "")[:10] if job.get("updated_at") else ""
+                    ),
+                )
+            )
 
             if len(jobs) >= max_results:
                 break
@@ -405,12 +513,19 @@ class JobSpyScraper:
 
     COMPANY_NAME = "JobSpy"
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20,
-               distance: int = None) -> List[JobListing]:
+    def search(
+        self,
+        query: str,
+        location: str = "Israel",
+        max_results: int = 20,
+        distance: int = None,
+    ) -> list[JobListing]:
         try:
             from jobspy import scrape_jobs
         except ImportError:
-            logger.error("python-jobspy is not installed. Run: pip install python-jobspy")
+            logger.error(
+                "python-jobspy is not installed. Run: pip install python-jobspy"
+            )
             return []
 
         kwargs = dict(
@@ -460,13 +575,15 @@ class JobSpyScraper:
                 if not _location_matches_country(location, loc, title=title):
                     continue
 
-            jobs.append(JobListing(
-                title=title,
-                company=company,
-                location=loc,
-                url=url,
-                posted=posted,
-            ))
+            jobs.append(
+                JobListing(
+                    title=title,
+                    company=company,
+                    location=loc,
+                    url=url,
+                    posted=posted,
+                )
+            )
 
         return jobs
 
@@ -495,6 +612,7 @@ class JobSpyScraper:
 # Job scanner — runs all working scrapers and combines results
 # ---------------------------------------------------------------------------
 
+
 class JobScanner:
     """Runs all available scrapers and returns a combined, deduplicated list."""
 
@@ -518,7 +636,12 @@ class JobScanner:
         "JobSpyScraper": JobSpyScraper(),
     }
 
-    def scan(self, query: str = "student", location: str = "Israel", max_per_company: int = 20) -> List[JobListing]:
+    def scan(
+        self,
+        query: str = "student",
+        location: str = "Israel",
+        max_per_company: int = 20,
+    ) -> list[JobListing]:
         all_jobs = []
         errors = []
 
@@ -527,7 +650,9 @@ class JobScanner:
                 jobs = scraper.search(query, location, max_results=max_per_company)
                 all_jobs.extend(jobs)
             except RuntimeError as e:
-                errors.append(f"{getattr(scraper, 'COMPANY_NAME', type(scraper).__name__)}: {e}")
+                errors.append(
+                    f"{getattr(scraper, 'COMPANY_NAME', type(scraper).__name__)}: {e}"
+                )
 
         if errors:
             for err in errors:
@@ -535,15 +660,21 @@ class JobScanner:
 
         return self._deduplicate(all_jobs)
 
-    def company_scan(self, query: str = "student", location: str = "Israel",
-                     max_per_company: int = 20, only_priority: bool = True,
-                     progress_callback=None) -> List[JobListing]:
+    def company_scan(
+        self,
+        query: str = "student",
+        location: str = "Israel",
+        max_per_company: int = 20,
+        only_priority: bool = True,
+        progress_callback=None,
+    ) -> list[JobListing]:
         """Scan for jobs at specific companies using the active profile's watchlist.
 
         Falls back to companies.json only when no profile or empty watchlist.
         When only_priority is True and using fallback, only companies with priority=true are searched.
         """
         from job_hunter.profile import get_profile
+
         profile = get_profile()
         if profile and profile.watchlist:
             companies = list(profile.watchlist)
@@ -574,7 +705,7 @@ class JobScanner:
         return self._deduplicate(all_jobs)
 
     @staticmethod
-    def _deduplicate(jobs: List[JobListing]) -> List[JobListing]:
+    def _deduplicate(jobs: list[JobListing]) -> list[JobListing]:
         """Deduplicate by URL and by (title, company) to catch cross-source duplicates."""
         seen_urls: set = set()
         seen_title_company: set = set()
@@ -598,10 +729,10 @@ class JobScanner:
         cache: "ScanCache",
         ttl_minutes: int = 90,
         max_per_source: int = 20,
-        progress_callback: Optional[Callable] = None,
+        progress_callback: Callable | None = None,
         include_companies: bool = True,
         only_priority: bool = True,
-    ) -> List[JobListing]:
+    ) -> list[JobListing]:
         """Run keyword + company searches in parallel with caching.
 
         Args:
@@ -645,14 +776,16 @@ class JobScanner:
                 for loc, radius in locations:
                     city_tag = f":{loc}" if len(locations) > 1 else ""
                     source_key = f"scraper:{scraper_name}:{query}{city_tag}"
-                    tasks.append((
-                        source_key,
-                        lambda s=scraper, q=query, l=loc, r=radius: (
-                            s.search(q, l, max_results=max_per_source, distance=r)
-                            if r is not None and isinstance(s, JobSpyScraper)
-                            else s.search(q, l, max_results=max_per_source)
-                        ),
-                    ))
+                    tasks.append(
+                        (
+                            source_key,
+                            lambda s=scraper, q=query, l=loc, r=radius: (
+                                s.search(q, l, max_results=max_per_source, distance=r)
+                                if r is not None and isinstance(s, JobSpyScraper)
+                                else s.search(q, l, max_results=max_per_source)
+                            ),
+                        )
+                    )
 
         # --- Company tasks: each company via JobSpy --------------------------
         if include_companies:
@@ -664,17 +797,21 @@ class JobScanner:
                 for loc, radius in jobspy_locations:
                     city_tag = f":{loc}" if len(jobspy_locations) > 1 else ""
                     source_key = f"company:{company_name}{city_tag}"
-                    tasks.append((
-                        source_key,
-                        lambda q=search_term, l=loc, r=radius: (
-                            jobspy.search(q, l, max_results=max_per_source, distance=r)
-                            if r is not None
-                            else jobspy.search(q, l, max_results=max_per_source)
-                        ),
-                    ))
+                    tasks.append(
+                        (
+                            source_key,
+                            lambda q=search_term, l=loc, r=radius: (
+                                jobspy.search(
+                                    q, l, max_results=max_per_source, distance=r
+                                )
+                                if r is not None
+                                else jobspy.search(q, l, max_results=max_per_source)
+                            ),
+                        )
+                    )
 
         # --- Execute with cache check + parallel dispatch --------------------
-        all_jobs: List[JobListing] = []
+        all_jobs: list[JobListing] = []
 
         with ThreadPoolExecutor(max_workers=config.max_workers) as pool:
             futures = {}
@@ -709,7 +846,7 @@ class JobScanner:
         return self._deduplicate(all_jobs)
 
     @staticmethod
-    def _run_source(source_key: str, task_fn: Callable) -> List[JobListing]:
+    def _run_source(source_key: str, task_fn: Callable) -> list[JobListing]:
         """Execute a single source task with retry on 429 (rate limit)."""
         max_retries = 3
         for attempt in range(max_retries):
@@ -719,28 +856,36 @@ class JobScanner:
                 # Check if it's a 429 rate limit error
                 status = getattr(e, "status_code", None) or getattr(e, "code", None)
                 err_str = str(e)
-                is_rate_limit = status == 429 or "429" in err_str or "rate limit" in err_str.lower()
+                is_rate_limit = (
+                    status == 429 or "429" in err_str or "rate limit" in err_str.lower()
+                )
 
                 if is_rate_limit and attempt < max_retries - 1:
-                    wait = 2 ** attempt  # 1s, 2s
-                    logger.info("Rate limited on %s — retrying in %ds (attempt %d/%d)",
-                                source_key, wait, attempt + 1, max_retries)
+                    wait = 2**attempt  # 1s, 2s
+                    logger.info(
+                        "Rate limited on %s — retrying in %ds (attempt %d/%d)",
+                        source_key,
+                        wait,
+                        attempt + 1,
+                        max_retries,
+                    )
                     time.sleep(wait)
                     continue
                 raise
 
 
-def _load_company_names(only_priority: bool = True) -> List[str]:
+def _load_company_names(only_priority: bool = True) -> list[str]:
     """Load company names from data/jobs/companies.json.
 
     When only_priority is True, returns only companies with priority=true.
     """
     import json
+
     from job_hunter.config import Config
 
     companies_file = Config.companies_file()
     try:
-        with open(companies_file, "r", encoding="utf-8") as f:
+        with open(companies_file, encoding="utf-8") as f:
             data = json.load(f)
         companies = data.get("companies", [])
         if only_priority:
@@ -779,7 +924,7 @@ _FETCH_HEADERS = {
 }
 
 
-def fetch_job_description(job: "JobListing") -> Optional[str]:
+def fetch_job_description(job: "JobListing") -> str | None:
     """Fetch job description. Falls back to web search if direct fetch fails."""
     description = _fetch_from_url(job.url)
     if description:
@@ -792,10 +937,10 @@ def fetch_job_description(job: "JobListing") -> Optional[str]:
     return None
 
 
-def _fetch_from_url(url: str) -> Optional[str]:
+def _fetch_from_url(url: str) -> str | None:
     """Fetch job description directly from the job URL."""
     try:
-        r = requests.get(url, headers=_FETCH_HEADERS, timeout=10)
+        r = _request_with_backoff("get", url, headers=_FETCH_HEADERS, timeout=10)
         r.raise_for_status()
     except requests.RequestException as e:
         logger.error("Could not fetch job page %s: %s", url, e)
@@ -822,10 +967,7 @@ def _fetch_from_url(url: str) -> Optional[str]:
         return _fetch_workday_description(url)
 
     # Generic fallback: find the longest div > 300 chars
-    candidates = [
-        t for t in soup.find_all("div")
-        if len(t.get_text(strip=True)) > 300
-    ]
+    candidates = [t for t in soup.find_all("div") if len(t.get_text(strip=True)) > 300]
     if candidates:
         best = max(candidates, key=lambda t: len(t.get_text(strip=True)))
         return best.get_text(separator="\n", strip=True)
@@ -833,7 +975,7 @@ def _fetch_from_url(url: str) -> Optional[str]:
     return None
 
 
-def _fetch_workday_description(url: str) -> Optional[str]:
+def _fetch_workday_description(url: str) -> str | None:
     """Fetch job description from Workday via the CXS detail API.
 
     Workday job URL:  https://{host}/{site}/job/...
@@ -843,14 +985,15 @@ def _fetch_workday_description(url: str) -> Optional[str]:
     from urllib.parse import urlparse
 
     parsed = urlparse(url)
-    host = parsed.netloc                    # e.g. intel.wd1.myworkdayjobs.com
-    tenant = host.split(".")[0]             # e.g. intel
-    path = parsed.path                      # e.g. /External/job/Israel-Haifa/...
+    host = parsed.netloc  # e.g. intel.wd1.myworkdayjobs.com
+    tenant = host.split(".")[0]  # e.g. intel
+    path = parsed.path  # e.g. /External/job/Israel-Haifa/...
 
     cxs_url = f"https://{host}/wday/cxs/{tenant}{path}"
 
     try:
-        r = requests.get(
+        r = _request_with_backoff(
+            "get",
             cxs_url,
             headers={"Accept": "application/json", "Content-Type": "application/json"},
             timeout=15,
@@ -867,7 +1010,7 @@ def _fetch_workday_description(url: str) -> Optional[str]:
         return None
 
 
-def _fetch_via_search(title: str, company: str) -> Optional[str]:
+def _fetch_via_search(title: str, company: str) -> str | None:
     """Search for job description via DuckDuckGo and fetch from results."""
     import urllib.parse
 
@@ -875,9 +1018,12 @@ def _fetch_via_search(title: str, company: str) -> Optional[str]:
     search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
 
     try:
-        response = requests.get(
+        response = _request_with_backoff(
+            "get",
             search_url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
             timeout=10,
         )
         response.raise_for_status()
@@ -898,7 +1044,11 @@ def _fetch_via_search(title: str, company: str) -> Optional[str]:
                 if desc:
                     return desc
 
-        logger.info("No job description links found in DuckDuckGo results for: %s at %s", title, company)
+        logger.info(
+            "No job description links found in DuckDuckGo results for: %s at %s",
+            title,
+            company,
+        )
         return None
 
     except Exception as e:
@@ -906,12 +1056,15 @@ def _fetch_via_search(title: str, company: str) -> Optional[str]:
         return None
 
 
-def _fetch_from_url_direct(url: str) -> Optional[str]:
+def _fetch_from_url_direct(url: str) -> str | None:
     """Fetch job description from a LinkedIn or Glassdoor URL."""
     try:
-        response = requests.get(
+        response = _request_with_backoff(
+            "get",
             url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            },
             timeout=10,
         )
         response.raise_for_status()
@@ -937,6 +1090,7 @@ def _fetch_from_url_direct(url: str) -> Optional[str]:
 # Legacy scrapers (blocked — kept for future Selenium upgrade)
 # ---------------------------------------------------------------------------
 
+
 class IndeedScraper:
     BASE_URL = "https://il.indeed.com"
     SEARCH_URL = f"{BASE_URL}/jobs"
@@ -945,9 +1099,12 @@ class IndeedScraper:
         "Accept-Language": "en-US,en;q=0.9",
     }
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(
+        self, query: str, location: str = "Israel", max_results: int = 20
+    ) -> list[JobListing]:
         try:
-            response = requests.get(
+            response = _request_with_backoff(
+                "get",
                 self.SEARCH_URL,
                 params={"q": query, "l": location},
                 headers=self.HEADERS,
@@ -966,7 +1123,9 @@ class IndeedScraper:
 
         job_cards = soup.find_all("div", class_="job_seen_beacon")
         if not job_cards:
-            job_cards = soup.find_all("li", attrs={"class": lambda c: c and "job" in c.lower()})
+            job_cards = soup.find_all(
+                "li", attrs={"class": lambda c: c and "job" in c.lower()}
+            )
 
         jobs = []
         for card in job_cards[:max_results]:
@@ -983,12 +1142,18 @@ class IndeedScraper:
             if not url.startswith("http"):
                 continue
 
-            jobs.append(JobListing(
-                title=title_el.get_text(strip=True),
-                company=company_el.get_text(strip=True) if company_el else "Unknown",
-                location=location_el.get_text(strip=True) if location_el else "Unknown",
-                url=url,
-            ))
+            jobs.append(
+                JobListing(
+                    title=title_el.get_text(strip=True),
+                    company=(
+                        company_el.get_text(strip=True) if company_el else "Unknown"
+                    ),
+                    location=(
+                        location_el.get_text(strip=True) if location_el else "Unknown"
+                    ),
+                    url=url,
+                )
+            )
 
         return jobs
 
@@ -1003,9 +1168,12 @@ class GlassdoorScraper:
         "Referer": "https://www.google.com/",
     }
 
-    def search(self, query: str, location: str = "Israel", max_results: int = 20) -> List[JobListing]:
+    def search(
+        self, query: str, location: str = "Israel", max_results: int = 20
+    ) -> list[JobListing]:
         try:
-            response = requests.get(
+            response = _request_with_backoff(
+                "get",
                 self.SEARCH_URL,
                 params={"sc.keyword": query, "locT": "N", "locKeyword": location},
                 headers=self.HEADERS,
@@ -1016,18 +1184,28 @@ class GlassdoorScraper:
             raise RuntimeError(f"Request failed: {e}")
 
         if response.status_code == 403 or "cf-browser-verification" in response.text:
-            raise RuntimeError("Glassdoor is protected by Cloudflare — scraping blocked.")
+            raise RuntimeError(
+                "Glassdoor is protected by Cloudflare — scraping blocked."
+            )
         if "challenge" in response.url or "captcha" in response.url:
-            raise RuntimeError("Glassdoor returned a challenge/captcha page — scraping blocked.")
+            raise RuntimeError(
+                "Glassdoor returned a challenge/captcha page — scraping blocked."
+            )
 
         soup = BeautifulSoup(response.text, "html.parser")
 
         if len(soup.find_all("div")) < 10:
-            raise RuntimeError("Glassdoor returned an unexpected page — possibly blocked.")
+            raise RuntimeError(
+                "Glassdoor returned an unexpected page — possibly blocked."
+            )
 
-        job_cards = soup.find_all("li", {"class": lambda c: c and "JobsList_jobListItem" in " ".join(c)})
+        job_cards = soup.find_all(
+            "li", {"class": lambda c: c and "JobsList_jobListItem" in " ".join(c)}
+        )
         if not job_cards:
-            job_cards = soup.find_all("article", {"class": lambda c: c and "job" in " ".join(c).lower()})
+            job_cards = soup.find_all(
+                "article", {"class": lambda c: c and "job" in " ".join(c).lower()}
+            )
         if not job_cards:
             job_cards = soup.find_all("li", {"data-test": "jobListing"})
 
@@ -1040,14 +1218,16 @@ class GlassdoorScraper:
 
         jobs = []
         for card in job_cards[:max_results]:
-            title_el = (
-                card.find("a", {"data-test": "job-title"}) or
-                card.find(attrs={"class": lambda c: c and "JobCard_jobTitle" in " ".join(c)})
+            title_el = card.find("a", {"data-test": "job-title"}) or card.find(
+                attrs={"class": lambda c: c and "JobCard_jobTitle" in " ".join(c)}
             )
-            company_el = (
-                card.find("span", {"class": lambda c: c and "EmployerProfile_compactEmployerName" in " ".join(c)}) or
-                card.find(attrs={"data-test": "employer-name"})
-            )
+            company_el = card.find(
+                "span",
+                {
+                    "class": lambda c: c
+                    and "EmployerProfile_compactEmployerName" in " ".join(c)
+                },
+            ) or card.find(attrs={"data-test": "employer-name"})
             location_el = card.find(attrs={"data-test": "emp-location"})
             link_el = card.find("a", href=True)
 
@@ -1059,11 +1239,17 @@ class GlassdoorScraper:
             if not url.startswith("http"):
                 continue
 
-            jobs.append(JobListing(
-                title=title_el.get_text(strip=True),
-                company=company_el.get_text(strip=True) if company_el else "Unknown",
-                location=location_el.get_text(strip=True) if location_el else "Unknown",
-                url=url,
-            ))
+            jobs.append(
+                JobListing(
+                    title=title_el.get_text(strip=True),
+                    company=(
+                        company_el.get_text(strip=True) if company_el else "Unknown"
+                    ),
+                    location=(
+                        location_el.get_text(strip=True) if location_el else "Unknown"
+                    ),
+                    url=url,
+                )
+            )
 
         return jobs

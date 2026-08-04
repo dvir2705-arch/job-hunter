@@ -1,267 +1,170 @@
 # Job Hunter
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white)
-![Claude AI](https://img.shields.io/badge/Claude-AI%20Powered-orange?logo=anthropic)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Tests](https://img.shields.io/badge/Tests-374-brightgreen)
+[![Tests](https://github.com/dvir2705-arch/job-hunter/actions/workflows/tests.yml/badge.svg)](https://github.com/dvir2705-arch/job-hunter/actions/workflows/tests.yml)
+![Python 3.11](https://img.shields.io/badge/Python-3.11-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
-**AI-powered career management CLI that adapts your CV to job descriptions using Claude AI, scrapes jobs from multiple sources, tracks applications, and generates cover letters — so every application puts your best foot forward.**
+A CLI pipeline that collects job listings from 6 sources concurrently, filters them in two stages, and tracks application state — built around a thread pool, a finite state machine, and an adaptive cache.
 
----
+<p align="center">
+  <img src="docs/demo.svg" alt="job-hunter jobs scan output" width="800">
+</p>
 
-## Key Features
+## Why I Built This
 
-- **Smart CV Adaptation** — Claude AI rewrites your CV to match each job description, highlighting the most relevant skills and experience
-- **Multi-Source Job Scraping** — Parallel scraping from LinkedIn, Indeed, Glassdoor, and company career pages (Intel, NVIDIA, Amazon, etc.)
-- **Intelligent Filtering** — Two-layer relevance filter: fast keyword matching + AI deep-check for borderline jobs
-- **Professional PDF Generation** — Renders polished, print-ready CVs from customizable HTML/CSS templates
-- **Bilingual Support** — Generate CVs in English or Hebrew (with full RTL support)
-- **Cover Letter Generation** — Auto-generates tailored cover letters for each application
-- **Application Tracker** — Track every application with status management, notes, and analytics dashboard
-- **Multi-Profile System** — Isolated data per user with profile switching
-- **Recruiter Management** — Store contacts, search LinkedIn, find emails via Hunter.io
-- **Company Watchlist** — AI-suggested companies based on your profile
+I'm a 3rd-year EE student applying to software and embedded roles. The manual process — checking six sites, reading descriptions, deciding relevance, tracking what I applied to — was repetitive and error-prone. I built this to automate the mechanical parts (collection, deduplication, filtering) and keep the decision-making (which jobs to pursue) with me. The interesting engineering problems turned out to be concurrency, caching, and state management.
 
----
+## Architecture
+
+```mermaid
+flowchart LR
+    Profile[Profile Config] --> Pool[ThreadPool\n5 workers]
+    Pool --> LinkedIn
+    Pool --> JobSpy
+    Pool --> Workday["Workday\n(Intel, NVIDIA, Marvell)"]
+    Pool --> Amazon
+    Pool --> Greenhouse
+
+    LinkedIn --> Filter
+    JobSpy --> Filter
+    Workday --> Filter
+    Amazon --> Filter
+    Greenhouse --> Filter
+
+    subgraph Filter[Two-Stage Filter]
+        L1[L1: keyword match] --> L2[L2: Claude Haiku\nbatch of 15]
+    end
+
+    Filter --> FSM
+
+    subgraph FSM[State Machine Tracker]
+        applied --> screening --> interview --> offer
+        applied --> rejected
+        screening --> rejected
+        interview --> withdrawn
+    end
+
+    FSM --> Cache["Cache\n90min TTL\n24h if zero-streak ≥ 3"]
+```
+
+**Data flow**: Profile config drives query generation. A `ThreadPoolExecutor` (5 workers) dispatches scrapers concurrently, collecting results with `as_completed()` for progressive output. Raw listings pass through a two-layer filter. Surviving jobs enter a state-machine tracker. Per-source results are cached with adaptive TTL. HTTP requests retry with exponential backoff on 429/503.
+
+## Components
+
+### 1. Concurrent Collection (`jobs/scraper.py`)
+
+Scrapes 6 sources in parallel using `ThreadPoolExecutor`. Each scraper is a class with a common interface — LinkedIn and JobSpy use API-like libraries, while Workday/Amazon/Greenhouse scrapers parse HTML. All HTTP requests use exponential backoff with jitter on 429/503 responses.
+
+**Design decision**: Scrapers run concurrently with `as_completed()` rather than `gather()` / batch-then-display. This lets the CLI show results progressively as each source finishes, rather than blocking until the slowest one completes. The tradeoff is slightly more complex output handling, but the UX improvement is significant — the user sees results within seconds even if one source is slow.
+
+### 2. Two-Stage Relevance Filter (`jobs/relevance_filter.py`)
+
+**Layer 1 (local)**: O(n*k) keyword matching against job titles and descriptions. Uses word-boundary regex for short terms to avoid false positives (e.g., "AI" shouldn't match "MAID"). Rejects obviously irrelevant roles (facilities, operations) and seniority mismatches.
+
+**Layer 2 (API)**: Jobs that pass L1 but score uncertain go to Claude Haiku in batches of 15 for semantic classification. This keeps API costs low — only borderline cases hit the model.
+
+**Design decision**: On Haiku API failure, uncertain jobs are accepted rather than rejected. The reasoning is that a false positive (user sees an irrelevant job) is cheaper than a false negative (user misses a relevant one). The user reviews the final list anyway.
+
+### 3. Application State Machine (`applications/models.py`)
+
+Applications move through 6 states: `applied -> screening -> interview -> offer`, with `rejected` and `withdrawn` as terminal states reachable from most nodes. Transitions are enforced by an adjacency-list graph (`VALID_TRANSITIONS` dict) — calling `update_status("interview")` on a `rejected` application raises an error.
+
+**Design decision**: The state machine is strict rather than permissive. Invalid transitions raise exceptions instead of silently succeeding. This caught two bugs during development where the CLI was attempting impossible state changes. The tradeoff is that the CLI needs to handle transition errors, but the data integrity guarantee is worth it.
+
+### 4. Adaptive Cache (`jobs/scan_cache.py`)
+
+Per-source key-value store with a 90-minute default TTL. When a source returns 0 results for 3+ consecutive scans (a "zero streak"), the TTL extends to 24 hours — there's no point re-hitting a source that's consistently empty.
+
+**Design decision**: Cache writes use atomic file operations (`tempfile` + `os.replace()`) instead of direct writes. This prevents corruption if the process is interrupted mid-write. The tradeoff is a slightly more complex write path, but it eliminates a class of bugs where a half-written cache file breaks the next scan.
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Language | Python 3.11 |
-| AI Engine | Claude API (Anthropic) |
-| CLI Framework | Click + Rich |
-| Templating | Jinja2 |
-| PDF Rendering | Chrome (headless) + Jinja2 HTML templates |
-| Job Scraping | python-jobspy, requests, BeautifulSoup |
-| Parallelism | concurrent.futures (ThreadPoolExecutor) |
-| Data Storage | JSON (file-based, per-user isolation) |
+| Component | Choice | Why |
+|-----------|--------|-----|
+| Language | Python 3.11 | Needed fast prototyping + good concurrency primitives (`ThreadPoolExecutor`) |
+| AI | Claude API (Anthropic) | Used for semantic job filtering, CV adaptation, and query generation |
+| CLI | Click + Rich | Click for command structure; Rich for tables, progress bars, and formatted output |
+| PDF | Jinja2 + headless Chrome | Jinja2 for HTML templating; Chrome for accurate CSS rendering (WeasyPrint couldn't handle RTL) |
+| Scraping | python-jobspy, requests, BeautifulSoup | jobspy wraps LinkedIn/Indeed; requests+BS4 for company career pages |
+| Concurrency | `concurrent.futures` | stdlib, simple, sufficient for I/O-bound scraping workloads |
+| Storage | JSON files (per-user directories) | No database needed at this scale; per-user directory trees give data isolation without auth |
 
----
+## Quickstart
 
-## Data Structures & Algorithms
-
-This project applies several core CS concepts in a real-world context:
-
-| Concept | Where | How It's Used |
-|---------|-------|---------------|
-| **Finite State Machine** | [`applications/models.py`](job_hunter/applications/models.py) | Application status transitions modeled as a directed graph (adjacency list). `VALID_TRANSITIONS` dict enforces legal state changes (e.g., `applied -> screening -> interview -> offer`), preventing invalid paths like `rejected -> interview`. |
-| **TTL Cache with Adaptive Expiration** | [`jobs/scan_cache.py`](job_hunter/jobs/scan_cache.py) | Key-value store with 90-minute default TTL. When a source returns 0 results for 3+ consecutive scans, TTL extends to 24 hours. Uses atomic file writes (`os.replace`) to prevent corruption. |
-| **Two-Layer Filtering Pipeline** | [`jobs/relevance_filter.py`](job_hunter/jobs/relevance_filter.py) | Layer 1: O(n*k) keyword matching with word-boundary regex for short terms. Layer 2: uncertain jobs sent to Claude Haiku in batches of 15 for AI classification. Optimizes expensive API calls by pre-filtering locally. |
-| **Thread Pool (Producer-Consumer)** | [`jobs/scraper.py`](job_hunter/jobs/scraper.py) | Multiple job scrapers run concurrently via `ThreadPoolExecutor`. Results collected with `as_completed()` for progressive CLI output. |
-| **Dataclass ADTs** | [`profile.py`](job_hunter/profile.py), [`models.py`](job_hunter/applications/models.py) | Structured records with validation, `to_dict()`/`from_dict()` serialization, computed properties, and auto-generated UUIDs. |
-| **Schema Migration** | [`profile.py`](job_hunter/profile.py) | Backward-compatible data transformation: flat fields migrate to nested structures, missing fields get sensible defaults. Handles 4+ schema versions transparently. |
-| **Tree-Structured Data Isolation** | [`config.py`](job_hunter/config.py), [`profile_manager.py`](job_hunter/profile_manager.py) | Per-user data stored in isolated directory subtrees. `Config.set_user()` rebases all path references to the active user's subtree while sharing global resources. |
-
----
-
-## Quick Start
-
-### Prerequisites
-- Python 3.11+
-- Google Chrome or Chromium (for PDF generation)
-- Anthropic API key 
-
-**1. Clone & install**
 ```bash
 git clone https://github.com/dvir2705-arch/job-hunter.git
 cd job-hunter
 pip install -e .
-```
-
-**2. Configure your API key**
-```bash
 cp .env.example .env
 # Add your ANTHROPIC_API_KEY to .env
-```
-
-**3. Initialize your profile**
-```bash
 job-hunter init
-```
-
-**4. Add your CV**
-```bash
-# Import from a Word document:
-job-hunter cv init --from-file my_cv.docx
-# Or edit the base CV JSON directly
-job-hunter cv show
-```
-
----
-
-## Usage
-
-### Job Discovery
-```bash
-# Scan all sources (LinkedIn, Indeed, company pages) with AI relevance filtering
 job-hunter jobs scan
-
-# Search with specific query
-job-hunter jobs search --query "backend engineer" --location "Tel Aviv"
-
-# Refresh AI-generated search queries based on your profile
-job-hunter jobs refresh-queries
 ```
 
-### CV Management
+Requires Python 3.11+ and Google Chrome (for PDF generation).
+
+## Testing
+
 ```bash
-# Adapt your CV to a job description
-job-hunter cv adapt --job-desc job.txt --job-title "Backend Engineer" --label google
-
-# Generate PDF + cover letter in one command
-job-hunter cv adapt -j job.txt -t "Backend Engineer" -l google --pdf --cover-letter -c "Google"
-
-# Render a Hebrew CV
-job-hunter cv adapt -j job.txt -t "Software Engineer" -l intel --lang he
-
-# List all saved CV versions
-job-hunter cv list
+pytest                              # run all 379 tests
+pytest tests/test_scan_cache.py     # run one module
+pytest -x                           # stop on first failure
+pytest --cov=job_hunter             # with coverage report
 ```
 
-### Application Tracking
-```bash
-# View all applications
-job-hunter apps list
+379 tests across 18 files cover all four core subsystems:
 
-# Filter by status or company
-job-hunter apps list --status interview
-job-hunter apps list --company Google
+| Subsystem | Tests | What's covered |
+|-----------|-------|----------------|
+| Collection | 41 | Scraper output format, location filtering, parallel dispatch, deduplication, retry backoff |
+| Filtering | 35 | Accept/reject by title, seniority matching, batch Haiku calls, API failure fallback |
+| State tracking | 19 | Valid/invalid transitions, follow-up detection, JSON recovery from corruption |
+| Caching | 34 | TTL expiry, zero-streak escalation, atomic writes, per-source isolation |
 
-# Update application status
-job-hunter apps update <app-id> --status interview --notes "Phone screen Thursday 3pm"
+Additional tests cover the onboarding wizard (38), multi-profile management (50), search strategy generation (33), and CLI commands (90+).
 
-# View analytics dashboard
-job-hunter apps dashboard
-```
+## Limitations and Next Steps
 
-### Application Status Flow
-```
-applied -> screening -> interview -> offer
-    \          \            \
-     `-> rejected    `-> rejected    `-> withdrawn
-```
+**Current limitations:**
+- Storage is JSON files — works for single-user CLI, but won't scale to multi-user web service without a database
+- Scraping depends on page structure — if a company redesigns their career page, the scraper breaks
+- Core subsystems (state machine, cache, config) are at 90-100% coverage; overall coverage is 49%, pulled down by CLI glue code and external API integrations that aren't unit-tested
 
-### Profile & Companies
-```bash
-# View/edit profile
-job-hunter profile show
-job-hunter profile edit
-
-# Switch between profiles
-job-hunter profile list
-job-hunter profile switch <name>
-
-# Manage company watchlist
-job-hunter companies list
-job-hunter companies add "Intel" "NVIDIA" "Apple"
-job-hunter companies suggest   # AI-powered suggestions
-```
-
-### Recruiter Tools
-```bash
-# Add and manage recruiter contacts
-job-hunter recruiters add --company Intel --name "Jane Doe" --email jane@intel.com
-job-hunter recruiters list
-job-hunter recruiters find-emails --domain intel.com
-```
-
----
+**What I'd build next:**
+- Coverage floor enforcement in CI once CLI-level test gaps are filled
+- Job analytics: response rate by source, time-to-response trends
+- Interview prep module: generate practice questions from job descriptions
 
 ## Project Structure
 
 ```
-job-hunter/
-├── job_hunter/
-│   ├── cli.py                  # CLI entry point — 7 command groups
-│   ├── config.py               # Configuration, paths, env vars
-│   ├── profile.py              # UserProfile dataclass + schema migration
-│   ├── profile_manager.py      # Multi-profile management + switching
-│   ├── logger.py               # Logging configuration
-│   ├── cv/
-│   │   ├── adapter.py          # Claude AI CV adaptation
-│   │   ├── renderer.py         # Jinja2 + WeasyPrint PDF rendering
-│   │   ├── manager.py          # CV load/save/version control
-│   │   ├── docx_parser.py      # Word document import
-│   │   ├── parser.py           # CV format parsing
-│   │   └── change_summary.py   # Diff summary after adaptation
-│   ├── applications/
-│   │   ├── tracker.py          # Application CRUD + analytics
-│   │   └── models.py           # FSM status transitions + data models
-│   ├── jobs/
-│   │   ├── scraper.py          # Multi-source parallel scraping
-│   │   ├── relevance_filter.py # Two-layer keyword + AI filtering
-│   │   ├── search_strategy.py  # Profile-driven query generation
-│   │   ├── scan_cache.py       # TTL cache with adaptive expiration
-│   │   ├── discovery.py        # Job discovery orchestration
-│   │   ├── analyzer.py         # Job requirement extraction
-│   │   └── history.py          # Scan history tracking
-│   ├── cover_letter/
-│   │   ├── generator.py        # Claude AI cover letter generation
-│   │   ├── critic.py           # Cover letter quality scoring
-│   │   ├── templates.py        # Letter templates
-│   │   └── history.py          # Generation history
-│   └── recruiters/
-│       ├── manager.py          # Recruiter contact management
-│       └── hunter.py           # Hunter.io email finder integration
-├── templates/cv/               # HTML/CSS CV templates (EN + HE/RTL)
-├── data/                       # JSON data storage (per-user)
-├── tests/                      # 18 test files, 374 tests (pytest)
-└── output/                     # Generated PDFs & cover letters
+job_hunter/
+├── cli.py                  # 7 command groups, 49 subcommands
+├── config.py               # Environment + path configuration
+├── profile.py              # UserProfile dataclass + schema migration
+├── profile_manager.py      # Multi-profile switching
+├── jobs/
+│   ├── scraper.py          # 6 scraper classes + ThreadPoolExecutor orchestrator + retry backoff
+│   ├── relevance_filter.py # Two-layer keyword + Haiku filter
+│   ├── scan_cache.py       # TTL cache with zero-streak adaptation
+│   ├── search_strategy.py  # Profile-driven query generation
+│   ├── discovery.py        # Job discovery orchestration
+│   └── history.py          # Scan history
+├── cv/
+│   ├── adapter.py          # Claude-powered CV adaptation
+│   ├── renderer.py         # Jinja2 + Chrome PDF rendering
+│   └── manager.py          # CV versioning
+├── applications/
+│   ├── models.py           # FSM with enforced transitions
+│   └── tracker.py          # CRUD + analytics
+├── cover_letter/
+│   └── generator.py        # Claude-powered generation
+└── recruiters/
+    ├── manager.py          # Contact management
+    └── hunter.py           # Hunter.io integration
+tests/                      # 379 tests, 18 files
 ```
-
----
-
-## Testing
-
-374 tests across 18 test files, covering:
-
-- **Unit tests** — Data models, status transitions, schema validation, CV adaptation, filtering logic
-- **CLI integration tests** — Full command testing via Click's CliRunner (init, profile, companies, jobs)
-- **Edge cases** — Corrupted JSON recovery, API failures, malformed data, multi-profile isolation
-
-```bash
-pytest                    # Run all tests
-pytest -x                 # Stop on first failure
-pytest tests/test_onboarding.py  # Run specific test file
-```
-
----
-
-## Roadmap
-
-- [x] CV adaptation with Claude AI
-- [x] PDF generation with custom templates
-- [x] Cover letter generation
-- [x] Application tracker with status management
-- [x] Multi-source job scraping with parallel execution
-- [x] Intelligent relevance filtering (keyword + AI)
-- [x] Multi-profile system with data isolation
-- [x] Bilingual CV support (English + Hebrew/RTL)
-- [x] Company watchlist with AI suggestions
-- [x] Recruiter management + email finder
-
-
----
-
-## About the Developer
-
-**Dvir Salomon** — 3rd year Electrical Engineering student at **Ben-Gurion University of the Negev**.
-
-Built this tool to solve a real problem: making every job application count.
-
-- [LinkedIn](https://linkedin.com/in/dvir-solomon-6b87493a2)
-- [GitHub](https://github.com/dvir2705-arch)
-- Dvir2705@gmail.com
-
----
-
-## Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

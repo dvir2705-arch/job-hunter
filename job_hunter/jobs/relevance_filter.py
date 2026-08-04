@@ -2,15 +2,14 @@
 
 import json
 import re
-from typing import List, Optional, Tuple
 
 import anthropic
 
 from job_hunter.config import Config
 from job_hunter.logger import get_logger
 from job_hunter.profile import get_profile
-from .scraper import JobListing
 
+from .scraper import JobListing
 
 # Maps profile terms → common job title synonyms (generic, not user-specific)
 # When a profile contains a key, all its synonyms are added to the accept list.
@@ -18,8 +17,15 @@ TITLE_SYNONYMS = {
     "software": ["sw", "swe", "r&d"],
     "hardware": ["hw", "board design"],
     "embedded": ["firmware", "rt embedded"],
-    "chip design": ["vlsi", "rtl", "asic", "verification", "hardware",
-                    "post si", "post-silicon"],
+    "chip design": [
+        "vlsi",
+        "rtl",
+        "asic",
+        "verification",
+        "hardware",
+        "post si",
+        "post-silicon",
+    ],
     "machine learning": ["ml", "deep learning", "ai"],
     "data science": ["data scientist"],
     "data engineer": ["data engineering"],
@@ -36,12 +42,20 @@ TITLE_SYNONYMS = {
     "cyber": ["cybersecurity", "security"],
     "cloud": ["aws", "azure", "gcp"],
     "mobile": ["android", "ios"],
-    "electrical": ["emc", "firmware", "hardware", "hw", "embedded",
-                   "power", "laser", "camera"],
+    "electrical": [
+        "emc",
+        "firmware",
+        "hardware",
+        "hw",
+        "embedded",
+        "power",
+        "laser",
+        "camera",
+    ],
 }
 
 
-def _get_relevant_keywords() -> List[str]:
+def _get_relevant_keywords() -> list[str]:
     """Build accept keywords from profile: domains + target_positions + skills + synonyms."""
     try:
         p = get_profile()
@@ -79,67 +93,147 @@ def _get_relevant_keywords() -> List[str]:
 
     return list(keywords)
 
+
 # Operational/facilities roles — irrelevant for any job-seeker using this tool
 ALWAYS_IRRELEVANT = [
-    "catering", "leasing", "facilities", "food", "kitchen",
-    "receptionist", "warehouse", "driver", "delivery", "cafeteria",
-    "maintenance", "cleaning", "security guard", "personal assistant",
-    "night operator", "night shift", "assembly team",
-    "intralogistics", "operator student",
+    "catering",
+    "leasing",
+    "facilities",
+    "food",
+    "kitchen",
+    "receptionist",
+    "warehouse",
+    "driver",
+    "delivery",
+    "cafeteria",
+    "maintenance",
+    "cleaning",
+    "security guard",
+    "personal assistant",
+    "night operator",
+    "night shift",
+    "assembly team",
+    "intralogistics",
+    "operator student",
 ]
 
 # Professional fields — only irrelevant if NOT in the user's domain keywords
 PROFESSIONAL_FIELDS = [
-    "legal", "lawyer", "attorney", "law",
-    "mechanical", "mechanic",
-    "civil", "construction", "building",
-    "chemical", "chemistry", "pharmaceutical", "pharma", "lab technician",
-    "biomedical", "biology", "biotech", "medical device",
-    "accounting", "accountant", "finance", "financial", "tax",
-    "human resources", "recruitment", "recruiter", "talent acquisition",
-    "marketing", "sales", "business development",
-    "customer success", "customer support",
-    "graphic design", "ui designer", "ux designer",
-    "content writer", "copywriter", "social media",
-    "writer", "writing", "editor", "editorial",
-    "translator", "translation", "proofreader", "journalist",
+    "legal",
+    "lawyer",
+    "attorney",
+    "law",
+    "mechanical",
+    "mechanic",
+    "civil",
+    "construction",
+    "building",
+    "chemical",
+    "chemistry",
+    "pharmaceutical",
+    "pharma",
+    "lab technician",
+    "biomedical",
+    "biology",
+    "biotech",
+    "medical device",
+    "accounting",
+    "accountant",
+    "finance",
+    "financial",
+    "tax",
+    "human resources",
+    "recruitment",
+    "recruiter",
+    "talent acquisition",
+    "marketing",
+    "sales",
+    "business development",
+    "customer success",
+    "customer support",
+    "graphic design",
+    "ui designer",
+    "ux designer",
+    "content writer",
+    "copywriter",
+    "social media",
+    "writer",
+    "writing",
+    "editor",
+    "editorial",
+    "translator",
+    "translation",
+    "proofreader",
+    "journalist",
     "public relations",
-    "supply chain", "logistics", "procurement",
-    "office manager", "administrative", "secretary",
-    "manual testing", "qa manual",
-    "support engineer", "technical writer",
-    "technical support", "manual qa",
-    "documentation student", "composites manufacturing",
+    "supply chain",
+    "logistics",
+    "procurement",
+    "office manager",
+    "administrative",
+    "secretary",
+    "manual testing",
+    "qa manual",
+    "support engineer",
+    "technical writer",
+    "technical support",
+    "manual qa",
+    "documentation student",
+    "composites manufacturing",
     "network operations center",
     "solution designer",
-    "quality engineering", "quality assurance",
-    "event", "hospitality", "retail", "fashion",
-    "interior design", "agriculture", "veterinary",
-    "nursing", "pharmacy", "dental",
-    "physiotherapy", "occupational therapy",
-    "teaching", "teacher", "tutor",
+    "quality engineering",
+    "quality assurance",
+    "event",
+    "hospitality",
+    "retail",
+    "fashion",
+    "interior design",
+    "agriculture",
+    "veterinary",
+    "nursing",
+    "pharmacy",
+    "dental",
+    "physiotherapy",
+    "occupational therapy",
+    "teaching",
+    "teacher",
+    "tutor",
 ]
 
 
-def _get_irrelevant_keywords() -> List[str]:
+def _get_irrelevant_keywords() -> list[str]:
     """Build irrelevant keywords, excluding fields that overlap with the user's profile."""
     relevant = set(_get_relevant_keywords())
     field_irrelevant = [kw for kw in PROFESSIONAL_FIELDS if kw not in relevant]
     return ALWAYS_IRRELEVANT + field_irrelevant
 
+
 _IRRELEVANT_COMPANIES_ALL = [
-    "teva", "pharmaceutical", "pharma", "law firm", "bank", "insurance",
+    "teva",
+    "pharmaceutical",
+    "pharma",
+    "law firm",
+    "bank",
+    "insurance",
 ]
 
 
-def _get_irrelevant_companies() -> List[str]:
+def _get_irrelevant_companies() -> list[str]:
     """Build irrelevant company keywords, excluding those in user's profile."""
     relevant = set(_get_relevant_keywords())
     return [kw for kw in _IRRELEVANT_COMPANIES_ALL if kw not in relevant]
 
+
 DEFAULT_SENIORITY_KEYWORDS = [
-    "senior", "manager", "director", "principal", "vp", "vice president",
-    "head of", "chief",
+    "senior",
+    "manager",
+    "director",
+    "principal",
+    "vp",
+    "vice president",
+    "head of",
+    "chief",
 ]
 
 
@@ -190,8 +284,10 @@ HAIKU_MODEL = "claude-haiku-4-5-20251001"
 
 
 def score_job_fit(
-    title: str, company: str, description: str,
-) -> Optional[Tuple[int, str]]:
+    title: str,
+    company: str,
+    description: str,
+) -> tuple[int, str] | None:
     """Ask Claude Haiku to score how well a job fits the user profile.
 
     Returns (score, reason) or None on failure.
@@ -203,10 +299,12 @@ def score_job_fit(
             model=HAIKU_MODEL,
             max_tokens=150,
             system=_build_fit_score_prompt(),
-            messages=[{
-                "role": "user",
-                "content": f"Job: {title} at {company}\n\nDescription:\n{description}",
-            }],
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Job: {title} at {company}\n\nDescription:\n{description}",
+                }
+            ],
         )
     except anthropic.APIError:
         return None
@@ -230,14 +328,14 @@ def _keyword_matches(keyword: str, text: str) -> bool:
     Longer keywords use substring matching (existing behaviour).
     """
     if len(keyword) <= 3:
-        return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
+        return bool(re.search(r"\b" + re.escape(keyword) + r"\b", text))
     return keyword in text
 
 
 def filter_relevant_jobs(
-    jobs: List[JobListing],
-    seniority_reject: Optional[List[str]] = None,
-) -> Tuple[List[JobListing], List[JobListing]]:
+    jobs: list[JobListing],
+    seniority_reject: list[str] | None = None,
+) -> tuple[list[JobListing], list[JobListing]]:
     """Filter jobs in two layers.
 
     Layer 1: Fast title-based filtering.
@@ -251,7 +349,9 @@ def filter_relevant_jobs(
 
     Returns (accepted, rejected).
     """
-    active_seniority = seniority_reject if seniority_reject is not None else DEFAULT_SENIORITY_KEYWORDS
+    active_seniority = (
+        seniority_reject if seniority_reject is not None else DEFAULT_SENIORITY_KEYWORDS
+    )
 
     # Cache keyword lists (avoid regenerating per job)
     irrelevant_kws = _get_irrelevant_keywords()
@@ -294,7 +394,6 @@ def filter_relevant_jobs(
 
     # Layer 2: Batch Haiku filter for uncertain jobs (title-only, no description fetch)
     if uncertain:
-        logger = get_logger("relevance_filter")
         batch_accepted, batch_rejected = _batch_haiku_filter(uncertain)
         accepted.extend(batch_accepted)
         rejected.extend(batch_rejected)
@@ -316,8 +415,8 @@ BATCH_SIZE = 15  # Max jobs per Haiku call to keep response quality high
 
 
 def _batch_haiku_filter(
-    jobs: List[JobListing],
-) -> Tuple[List[JobListing], List[JobListing]]:
+    jobs: list[JobListing],
+) -> tuple[list[JobListing], list[JobListing]]:
     """Filter uncertain jobs via batch Haiku call (title + company only).
 
     Sends all uncertain titles in one prompt, asks for accept/reject per job.
@@ -333,13 +432,16 @@ def _batch_haiku_filter(
     rejected = []
 
     # Split into batches
-    batches = [jobs[i:i + BATCH_SIZE] for i in range(0, len(jobs), BATCH_SIZE)]
+    batches = [jobs[i : i + BATCH_SIZE] for i in range(0, len(jobs), BATCH_SIZE)]
 
     for batch in batches:
         decisions = _haiku_batch_call(batch)
         if decisions is None:
             # Haiku failed — accept all (benefit of doubt)
-            logger.warning("Batch Haiku filter failed — accepting all %d uncertain jobs", len(batch))
+            logger.warning(
+                "Batch Haiku filter failed — accepting all %d uncertain jobs",
+                len(batch),
+            )
             accepted.extend(batch)
             continue
 
@@ -355,7 +457,7 @@ def _batch_haiku_filter(
     return accepted, rejected
 
 
-def _haiku_batch_call(jobs: List[JobListing]) -> Optional[dict]:
+def _haiku_batch_call(jobs: list[JobListing]) -> dict | None:
     """Send a single Haiku call to classify a batch of job titles.
 
     Returns dict like {"1": "accept", "2": "reject", ...} or None on failure.
